@@ -55,3 +55,10 @@ export interface Template {
   elements: CanvasElement[];
   previewImage?: string;
 }
+
+export interface TemplateMetaData {
+  id: string;
+  name: string;
+  path: string;
+  previewImage?: string;
+}

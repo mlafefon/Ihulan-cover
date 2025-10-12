@@ -45,6 +45,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+    const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
+    const lastPointRef = useRef<{ x: number, y: number } | null>(null);
+
 
     const [cropFrameSize, setCropFrameSize] = useState({ width: 0, height: 0 });
     const [zoom, setZoom] = useState(1);
@@ -54,41 +57,64 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
     const [colorReplace, setColorReplace] = useState({ from: '#00ff00', to: '#ff00ff', tolerance: 20, enabled: false });
     const [isPickingColor, setIsPickingColor] = useState(false);
+    const [frame, setFrame] = useState({ thickness: 0, style: 'none', color: '#000000' });
+
+    // Blur states
+    const [blurTool, setBlurTool] = useState<'brush' | 'eraser' | null>(null);
+    const [brushSize, setBrushSize] = useState(20);
+    const [isBlurApplied, setIsBlurApplied] = useState(false);
+    const [isDrawingMask, setIsDrawingMask] = useState(false);
+    const [mousePos, setMousePos] = useState<{ x: number, y: number } | null>(null);
+    const [hasMask, setHasMask] = useState(false);
 
     const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
     const resetColorReplace = () => setColorReplace(prev => ({ ...prev, enabled: false }));
 
+    const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
+        const maskCanvas = maskCanvasRef.current;
+        if (!maskCanvas) return;
+        const maskCtx = maskCanvas.getContext('2d');
+        if (!maskCtx) return;
+
+        maskCtx.beginPath();
+        maskCtx.moveTo(x1, y1);
+        maskCtx.lineTo(x2, y2);
+        maskCtx.stroke();
+    }
+    
     const draw = useCallback(() => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d', { willReadFrequently: true });
         const image = imageRef.current;
         const container = containerRef.current;
+        const maskCanvas = maskCanvasRef.current;
 
-        if (!ctx || !image || !container || cropFrameSize.width === 0) return;
+        if (!ctx || !image || !container || cropFrameSize.width === 0 || !maskCanvas) return;
 
         const { width: canvasWidth, height: canvasHeight } = container.getBoundingClientRect();
-        canvas.width = canvasWidth;
-        canvas.height = canvasHeight;
-        
-        ctx.fillStyle = '#111827';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-        
-        ctx.save();
-        ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) sepia(${filters.sepia}%)`;
-        
-        const centerX = canvasWidth / 2 + offset.x;
-        const centerY = canvasHeight / 2 + offset.y;
-        
-        ctx.translate(centerX, centerY);
-        ctx.scale(zoom, zoom);
-        ctx.drawImage(image, -image.width / 2, -image.height / 2, image.width, image.height);
-        ctx.restore();
-        
+        [canvas, maskCanvas].forEach(c => {
+            if(c && (c.width !== image.width || c.height !== image.height)) {
+                c.width = image.width;
+                c.height = image.height;
+            }
+        });
+
+        // Create filtered image on an offscreen canvas
+        const filteredImageCanvas = document.createElement('canvas');
+        filteredImageCanvas.width = image.width;
+        filteredImageCanvas.height = image.height;
+        const filteredCtx = filteredImageCanvas.getContext('2d', { willReadFrequently: true });
+        if (!filteredCtx) return;
+
+        filteredCtx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) sepia(${filters.sepia}%)`;
+        filteredCtx.drawImage(image, 0, 0);
+
         if (colorReplace.enabled) {
+            // Apply color replace to the filtered image
             const fromRgb = hexToRgb(colorReplace.from);
             const toRgb = hexToRgb(colorReplace.to);
             if (fromRgb && toRgb) {
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const imageData = filteredCtx.getImageData(0, 0, image.width, image.height);
                 const data = imageData.data;
                 const tolerance = colorReplace.tolerance * 2.55; 
 
@@ -100,9 +126,74 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         data[i + 2] = toRgb.b;
                     }
                 }
-                ctx.putImageData(imageData, 0, 0);
+                filteredCtx.putImageData(imageData, 0, 0);
             }
         }
+        
+        // Final composition on the main canvas
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        ctx.save();
+        ctx.translate(canvasWidth / 2 + offset.x, canvasHeight / 2 + offset.y);
+        ctx.scale(zoom, zoom);
+        
+        if (isBlurApplied && hasMask) {
+            // Draw blurred version
+            const blurCanvas = document.createElement('canvas');
+            blurCanvas.width = image.width;
+            blurCanvas.height = image.height;
+            const blurCtx = blurCanvas.getContext('2d');
+            if (blurCtx) {
+                blurCtx.filter = 'blur(4px)';
+                blurCtx.drawImage(filteredImageCanvas, 0, 0);
+                ctx.drawImage(blurCanvas, -image.width / 2, -image.height / 2);
+            }
+            
+            // "Cut out" sharp area using mask
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.drawImage(maskCanvas, -image.width / 2, -image.height / 2);
+            ctx.restore();
+            
+            // Draw sharp image underneath
+            ctx.save();
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.drawImage(filteredImageCanvas, -image.width / 2, -image.height / 2);
+            ctx.restore();
+        } else {
+             // Draw non-blurred image
+            ctx.drawImage(filteredImageCanvas, -image.width / 2, -image.height / 2);
+        }
+
+        // Draw mask overlay if in drawing mode
+        if (blurTool && hasMask) {
+            // This logic correctly creates a purple overlay from the mask without affecting the underlying image
+            const overlayCanvas = document.createElement('canvas');
+            overlayCanvas.width = image.width;
+            overlayCanvas.height = image.height;
+            const overlayCtx = overlayCanvas.getContext('2d');
+
+            if (overlayCtx) {
+                // 1. Draw the mask onto the temporary canvas
+                overlayCtx.drawImage(maskCanvas, 0, 0);
+
+                // 2. Use 'source-in' to color the mask strokes purple
+                overlayCtx.globalCompositeOperation = 'source-in';
+                overlayCtx.fillStyle = 'purple';
+                overlayCtx.fillRect(0, 0, image.width, image.height);
+                
+                // 3. Draw the resulting purple overlay onto the main canvas
+                ctx.save();
+                ctx.globalAlpha = 0.4;
+                ctx.drawImage(overlayCanvas, -image.width / 2, -image.height / 2);
+                ctx.restore();
+            }
+        }
+        
+        ctx.restore(); // Restore from zoom/pan
 
         // Draw crop overlay
         const cropX = (canvasWidth - cropFrameSize.width) / 2;
@@ -110,17 +201,72 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.beginPath();
-        ctx.rect(0, 0, canvasWidth, canvasHeight); // Outer rect
-        ctx.rect(cropX + 1, cropY + 1, cropFrameSize.width - 2, cropFrameSize.height - 2); // Inner rect (hole)
+        ctx.rect(0, 0, canvasWidth, canvasHeight);
+        ctx.rect(cropX + 1, cropY + 1, cropFrameSize.width - 2, cropFrameSize.height - 2);
         ctx.closePath();
         ctx.fill('evenodd');
-
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 2;
         ctx.strokeRect(cropX, cropY, cropFrameSize.width, cropFrameSize.height);
         ctx.restore();
 
-    }, [zoom, offset, filters, cropFrameSize, colorReplace]);
+        // Draw frame preview
+        if (frame.thickness > 0 && frame.style !== 'none') {
+            ctx.save();
+            ctx.strokeStyle = frame.color;
+            ctx.lineWidth = frame.thickness;
+            const frameRectX = cropX + frame.thickness / 2;
+            const frameRectY = cropY + frame.thickness / 2;
+            const frameRectWidth = cropFrameSize.width - frame.thickness;
+            const frameRectHeight = cropFrameSize.height - frame.thickness;
+
+            if (frameRectWidth > 0 && frameRectHeight > 0) {
+                if (frame.style === 'dashed') {
+                    ctx.setLineDash([15, 10]);
+                } else if (frame.style === 'dotted') {
+                    ctx.setLineDash([2, 5]);
+                }
+
+                ctx.strokeRect(frameRectX, frameRectY, frameRectWidth, frameRectHeight);
+
+                if (frame.style === 'double') {
+                    const inset = frame.thickness * 0.3;
+                    ctx.lineWidth = Math.max(1, frame.thickness * 0.2);
+                    ctx.strokeRect(
+                        frameRectX + inset,
+                        frameRectY + inset,
+                        frameRectWidth - inset * 2,
+                        frameRectHeight - inset * 2
+                    );
+                }
+            }
+            ctx.restore();
+        }
+
+        // Draw custom brush cursor
+        if (blurTool && mousePos) {
+            ctx.beginPath();
+            ctx.arc(mousePos.x, mousePos.y, brushSize / 2 * zoom, 0, Math.PI * 2);
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+    }, [zoom, offset, filters, cropFrameSize, colorReplace, isBlurApplied, hasMask, blurTool, brushSize, mousePos, frame]);
+
+    const handleApplyBlur = () => {
+        setIsBlurApplied(true);
+        setBlurTool(null);
+    }
+
+    const handleResetBlur = () => {
+        const maskCtx = maskCanvasRef.current?.getContext('2d');
+        if (maskCtx && maskCanvasRef.current) {
+            maskCtx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+        }
+        setIsBlurApplied(false);
+        setHasMask(false);
+        setBlurTool(null);
+    }
     
     useEffect(() => {
         const container = containerRef.current;
@@ -149,6 +295,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         image.src = imageSrc;
         image.onload = () => {
             imageRef.current = image;
+            if (maskCanvasRef.current) {
+                maskCanvasRef.current.width = image.width;
+                maskCanvasRef.current.height = image.height;
+            }
             
             const scaleX = cropFrameSize.width / image.width;
             const scaleY = cropFrameSize.height / image.height;
@@ -158,41 +308,102 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             setOffset({x: 0, y: 0});
         };
     }, [imageSrc, cropFrameSize]);
-
-    useEffect(() => {
-        const image = imageRef.current;
-        if (!image || !canvasRef.current) return;
-
-        const maxX = Math.max(0, (image.width * zoom - cropFrameSize.width) / 2 / zoom);
-        const maxY = Math.max(0, (image.height * zoom - cropFrameSize.height) / 2 / zoom);
-        
-        const clampedX = Math.max(-maxX, Math.min(maxX, offset.x));
-        const clampedY = Math.max(-maxY, Math.min(maxY, offset.y));
-        
-        if (offset.x !== clampedX || offset.y !== clampedY) {
-            setOffset({ x: clampedX, y: clampedY });
-        }
-
-    }, [offset, zoom, cropFrameSize, imageRef.current]);
     
     useEffect(() => {
         draw();
     }, [draw]);
 
+    const getCoordsOnImage = (e: React.MouseEvent) => {
+        const canvas = canvasRef.current;
+        const image = imageRef.current;
+        if (!canvas || !image) return null;
+
+        const rect = canvas.getBoundingClientRect();
+        const canvasX = e.clientX - rect.left;
+        const canvasY = e.clientY - rect.top;
+
+        const imageX = (canvasX - (canvas.width / 2 + offset.x)) / zoom + image.width / 2;
+        const imageY = (canvasY - (canvas.height / 2 + offset.y)) / zoom + image.height / 2;
+
+        return { x: imageX, y: imageY };
+    }
+
     const handleMouseDown = (e: React.MouseEvent) => {
         if (e.button !== 0) return;
-        setIsPanning(true);
+        if (blurTool) {
+            setIsDrawingMask(true);
+            const pos = getCoordsOnImage(e);
+            if (pos) {
+                lastPointRef.current = pos;
+            }
+        } else {
+            setIsPanning(true);
+        }
     };
 
     const handleMouseUp = () => {
         setIsPanning(false);
+        setIsDrawingMask(false);
+        lastPointRef.current = null;
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
+        const pos = {x: e.clientX, y: e.clientY};
+        const canvas = canvasRef.current;
+        if (canvas) {
+            const rect = canvas.getBoundingClientRect();
+            setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        }
+        
         if (isPanning) {
-            setOffset(prev => ({ x: prev.x + e.movementX, y: prev.y + e.movementY }));
+            const image = imageRef.current;
+            if (!image || cropFrameSize.width === 0) return;
+            
+            setOffset(prev => {
+                const newOffsetX = prev.x + e.movementX;
+                const newOffsetY = prev.y + e.movementY;
+    
+                const maxX = Math.max(0, (image.width * zoom - cropFrameSize.width) / 2);
+                const maxY = Math.max(0, (image.height * zoom - cropFrameSize.height) / 2);
+    
+                const clampedX = Math.max(-maxX, Math.min(maxX, newOffsetX));
+                const clampedY = Math.max(-maxY, Math.min(maxY, newOffsetY));
+    
+                return { x: clampedX, y: clampedY };
+            });
+        } else if (isDrawingMask && blurTool) {
+            const maskCanvas = maskCanvasRef.current;
+            if (!maskCanvas) return;
+            const maskCtx = maskCanvas.getContext('2d');
+            if (!maskCtx) return;
+
+            const currentPoint = getCoordsOnImage(e);
+            if (!currentPoint) return;
+            
+            maskCtx.lineCap = 'round';
+            maskCtx.lineJoin = 'round';
+            maskCtx.lineWidth = brushSize;
+            
+            if (blurTool === 'brush') {
+                maskCtx.globalCompositeOperation = 'source-over';
+                maskCtx.strokeStyle = 'white';
+            } else { // eraser
+                maskCtx.globalCompositeOperation = 'destination-out';
+                maskCtx.strokeStyle = 'rgba(0,0,0,1)';
+            }
+            if (lastPointRef.current) {
+                drawLine(lastPointRef.current.x, lastPointRef.current.y, currentPoint.x, currentPoint.y);
+            }
+            lastPointRef.current = currentPoint;
+            setHasMask(true);
         }
     };
+    const handleMouseLeave = () => {
+        setIsPanning(false);
+        setIsDrawingMask(false);
+        lastPointRef.current = null;
+        setMousePos(null);
+    }
 
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
@@ -205,7 +416,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
 
         const scaleFactor = 1.1;
         const newZoom = e.deltaY < 0 ? zoom * scaleFactor : zoom / scaleFactor;
-        const clampedZoom = Math.max(minZoom, newZoom);
+        const clampedZoom = Math.max(minZoom, Math.min(1.0, newZoom));
 
         if (clampedZoom === zoom) return;
         
@@ -219,6 +430,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         setOffset({ x: newOffsetX, y: newOffsetY });
     };
 
+    // Fix: Changed event type from MouseEvent<HTMLCanvasElement> to MouseEvent<HTMLDivElement> to match the element it's attached to.
     const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
         if (isPickingColor) {
             const canvas = canvasRef.current;
@@ -239,33 +451,33 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     
     const handleConfirm = () => {
         const offscreenCanvas = document.createElement('canvas');
-        const ctx = offscreenCanvas.getContext('2d');
+        const ctx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
         const image = imageRef.current;
 
-        if(!ctx || !image || cropFrameSize.width === 0) return;
+        if (!ctx || !image || cropFrameSize.width === 0) return;
 
+        // Final canvas has the dimensions of the magazine element
         offscreenCanvas.width = elementWidth;
         offscreenCanvas.height = elementHeight;
-        
-        const finalScale = elementWidth / cropFrameSize.width;
-        
-        ctx.save();
-        ctx.translate(elementWidth / 2, elementHeight / 2);
-        ctx.scale(zoom * finalScale, zoom * finalScale);
-        ctx.translate(offset.x, offset.y);
-        
-        ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) sepia(${filters.sepia}%)`;
-        ctx.drawImage(image, -image.width / 2, -image.height / 2, image.width, image.height);
-        ctx.restore();
+
+        // --- Create a temporary canvas with all pixel manipulations (filters, blur, etc.) ---
+        const processedImageCanvas = document.createElement('canvas');
+        processedImageCanvas.width = image.width;
+        processedImageCanvas.height = image.height;
+        const pCtx = processedImageCanvas.getContext('2d', { willReadFrequently: true });
+        if (!pCtx) return;
+
+        // Apply filters and color replace
+        pCtx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) sepia(${filters.sepia}%)`;
+        pCtx.drawImage(image, 0, 0);
 
         if (colorReplace.enabled) {
             const fromRgb = hexToRgb(colorReplace.from);
             const toRgb = hexToRgb(colorReplace.to);
             if (fromRgb && toRgb) {
-                const imageData = ctx.getImageData(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+                const imageData = pCtx.getImageData(0, 0, image.width, image.height);
                 const data = imageData.data;
-                const tolerance = colorReplace.tolerance * 2.55; 
-
+                const tolerance = colorReplace.tolerance * 2.55;
                 for (let i = 0; i < data.length; i += 4) {
                     const pixelRgb = { r: data[i], g: data[i + 1], b: data[i + 2] };
                     if (colorDistance(pixelRgb, fromRgb) < tolerance) {
@@ -274,12 +486,94 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         data[i + 2] = toRgb.b;
                     }
                 }
-                ctx.putImageData(imageData, 0, 0);
+                pCtx.putImageData(imageData, 0, 0);
             }
         }
+
+        // This will hold the image after blur is applied (if any)
+        let imageToCropFrom: HTMLCanvasElement | HTMLImageElement = processedImageCanvas;
+
+        if (isBlurApplied && hasMask && maskCanvasRef.current) {
+            const finalImageCanvas = document.createElement('canvas');
+            finalImageCanvas.width = image.width;
+            finalImageCanvas.height = image.height;
+            const finalCtx = finalImageCanvas.getContext('2d');
+            if (finalCtx) {
+                const blurCanvas = document.createElement('canvas');
+                blurCanvas.width = image.width;
+                blurCanvas.height = image.height;
+                const blurCtx = blurCanvas.getContext('2d');
+                if (blurCtx) {
+                    blurCtx.filter = 'blur(4px)';
+                    blurCtx.drawImage(processedImageCanvas, 0, 0);
+                    finalCtx.drawImage(blurCanvas, 0, 0);
+
+                    finalCtx.save();
+                    finalCtx.globalCompositeOperation = 'destination-out';
+                    finalCtx.drawImage(maskCanvasRef.current, 0, 0);
+                    finalCtx.restore();
+
+                    finalCtx.save();
+                    finalCtx.globalCompositeOperation = 'destination-over';
+                    finalCtx.drawImage(processedImageCanvas, 0, 0);
+                    finalCtx.restore();
+                    imageToCropFrom = finalImageCanvas;
+                }
+            }
+        }
+
+        // --- Calculate the source rectangle from the original (processed) image ---
+        const sx = (-cropFrameSize.width / 2 / zoom) - (offset.x / zoom) + (image.width / 2);
+        const sy = (-cropFrameSize.height / 2 / zoom) - (offset.y / zoom) + (image.height / 2);
+        const sWidth = cropFrameSize.width / zoom;
+        const sHeight = cropFrameSize.height / zoom;
         
+        // --- Draw the calculated source rectangle onto the final canvas ---
+        ctx.drawImage(
+            imageToCropFrom,
+            sx, sy, sWidth, sHeight,
+            0, 0, elementWidth, elementHeight
+        );
+
+        // --- Draw frame on the final output ---
+        if (frame.thickness > 0 && frame.style !== 'none') {
+            const finalScale = elementWidth / cropFrameSize.width;
+            const scaledThickness = frame.thickness * finalScale;
+
+            if (scaledThickness > 0) {
+                ctx.save();
+                ctx.strokeStyle = frame.color;
+                ctx.lineWidth = scaledThickness;
+
+                const frameRectX = scaledThickness / 2;
+                const frameRectY = scaledThickness / 2;
+                const frameRectWidth = offscreenCanvas.width - scaledThickness;
+                const frameRectHeight = offscreenCanvas.height - scaledThickness;
+
+                if (frame.style === 'dashed') ctx.setLineDash([15 * finalScale, 10 * finalScale]);
+                else if (frame.style === 'dotted') ctx.setLineDash([2 * finalScale, 5 * finalScale]);
+                
+                ctx.strokeRect(frameRectX, frameRectY, frameRectWidth, frameRectHeight);
+
+                if (frame.style === 'double') {
+                    const inset = scaledThickness * 0.3;
+                    ctx.lineWidth = Math.max(1, scaledThickness * 0.2);
+                    ctx.strokeRect(
+                        frameRectX + inset,
+                        frameRectY + inset,
+                        frameRectWidth - inset * 2,
+                        frameRectHeight - inset * 2
+                    );
+                }
+                ctx.restore();
+            }
+        }
+
         onComplete(offscreenCanvas.toDataURL());
     };
+
+    const activeToolClass = 'bg-blue-600';
+    const inactiveToolClass = 'bg-slate-700 hover:bg-slate-600';
 
     return (
         <div className="flex h-screen bg-[#111827] text-white" dir="rtl">
@@ -299,16 +593,17 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                      </div>
                 </header>
                 <div ref={containerRef} className="flex-grow relative overflow-hidden" 
-                    style={{ cursor: isPickingColor ? 'crosshair' : 'move' }}
+                    style={{ cursor: isPickingColor ? 'crosshair' : (blurTool ? 'none' : 'move') }}
                     onMouseDown={!isPickingColor ? handleMouseDown : undefined} 
                     onMouseUp={!isPickingColor ? handleMouseUp : undefined} 
-                    onMouseLeave={!isPickingColor ? handleMouseUp : undefined} 
+                    onMouseLeave={!isPickingColor ? handleMouseLeave : undefined} 
                     onMouseMove={!isPickingColor ? handleMouseMove : undefined} 
                     onWheel={handleWheel}
                     onClick={handleCanvasClick}
                     onContextMenu={(e) => e.preventDefault()}
                 >
                     <canvas ref={canvasRef} />
+                    <canvas ref={maskCanvasRef} className="hidden" />
                 </div>
             </main>
             <aside className="w-96 bg-slate-800 flex flex-col border-r border-slate-700 overflow-y-auto">
@@ -320,7 +615,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                  <Accordion title="זום">
                     <div className="flex items-center gap-2">
                         <span>זום</span>
-                        <input type="range" min={minZoom * 100} max="500" value={zoom * 100} onChange={e => setZoom(parseInt(e.target.value) / 100)} className="w-full" />
+                        <input type="range" min={minZoom * 100} max="100" value={zoom * 100} onChange={e => setZoom(parseInt(e.target.value) / 100)} className="w-full" />
                         <span>{Math.round(zoom * 100)}%</span>
                     </div>
                 </Accordion>
@@ -353,24 +648,75 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                                 <span className="text-xs text-slate-400">צבע יעד</span>
                                 <input type="color" value={colorReplace.to} onChange={e => setColorReplace(prev => ({...prev, to: e.target.value, enabled: true}))} className="w-full h-8 bg-slate-700 border border-slate-600 rounded p-1 mt-1"/>
                             </label>
-                            <button onClick={resetColorReplace} className="p-2 bg-slate-700 hover:bg-slate-600 rounded" title="אפס החלפת צבע">
-                                <BrushIcon className="w-5 h-5"/>
-                            </button>
                         </div>
-                        <div>
-                           <label className="text-sm text-slate-400">רגישות: {colorReplace.tolerance}</label>
+                         <label className="text-sm text-slate-400">רגישות: {colorReplace.tolerance}</label>
                             <input type="range" min="0" max="100" value={colorReplace.tolerance} onChange={e => setColorReplace(prev => ({...prev, tolerance: parseInt(e.target.value), enabled: true}))} className="w-full mt-1" />
-                        </div>
+                        <button onClick={resetColorReplace} disabled={!colorReplace.enabled} className="w-full mt-2 text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                            אפס החלפה
+                        </button>
                     </div>
                 </Accordion>
                 <Accordion title="טשטוש">
-                    <div className="text-center p-4 text-slate-400 text-sm">
-                        בקרוב...
+                    <div className="space-y-4">
+                        <div>
+                             <p className="text-xs text-slate-400 mb-2">סמן את האזור שיישאר חד. כל השאר יטושטש.</p>
+                             <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => { setBlurTool('brush'); setIsBlurApplied(false); }} className={`p-2 rounded flex items-center justify-center gap-2 text-sm ${blurTool === 'brush' ? activeToolClass : inactiveToolClass}`}>
+                                    <BrushIcon className="w-4 h-4"/>
+                                    מברשת סימון
+                                </button>
+                                <button onClick={() => { setBlurTool('eraser'); setIsBlurApplied(false); }} className={`p-2 rounded flex items-center justify-center gap-2 text-sm ${blurTool === 'eraser' ? activeToolClass : inactiveToolClass}`}>
+                                     <BrushIcon className="w-4 h-4"/>
+                                     מחק
+                                </button>
+                             </div>
+                        </div>
+                         <div>
+                            <label className="text-sm text-slate-400">גודל מברשת: {brushSize}</label>
+                            <input type="range" min="5" max="100" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} className="w-full mt-1" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={handleResetBlur} className="text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded">איפוס טשטוש</button>
+                            <button onClick={handleApplyBlur} disabled={!hasMask} className="text-sm bg-slate-600 hover:bg-slate-500 p-2 rounded disabled:opacity-50 disabled:cursor-not-allowed">בצע טשטוש</button>
+                        </div>
                     </div>
                 </Accordion>
-                <Accordion title="מסגרת">
-                     <div className="text-center p-4 text-slate-400 text-sm">
-                        בקרוב...
+                <Accordion title="מסגרת" defaultOpen={true}>
+                     <div className="space-y-3">
+                        <div>
+                            <label className="text-sm text-slate-400">עובי: {frame.thickness}px</label>
+                            <input
+                                type="range"
+                                min="0"
+                                max="50"
+                                value={frame.thickness}
+                                onChange={e => setFrame(f => ({ ...f, thickness: parseInt(e.target.value) }))}
+                                className="w-full mt-1"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm text-slate-400">סגנון</label>
+                            <select
+                                value={frame.style}
+                                onChange={e => setFrame(f => ({ ...f, style: e.target.value }))}
+                                className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                            >
+                                <option value="none">ללא מסגרת</option>
+                                <option value="solid">קו אחיד</option>
+                                <option value="dashed">קו מקווקו</option>
+                                <option value="dotted">קו מנוקד</option>
+                                <option value="double">קו כפול</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="text-sm text-slate-400">צבע</label>
+                            <input
+                                type="color"
+                                value={frame.color}
+                                onChange={e => setFrame(f => ({ ...f, color: e.target.value }))}
+                                className="w-full h-10 bg-slate-700 border border-slate-600 rounded p-1 mt-1"
+                            />
+                        </div>
                     </div>
                 </Accordion>
             </aside>

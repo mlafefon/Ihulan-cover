@@ -1,7 +1,7 @@
 import React, { useState, Fragment, useRef } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon } from '../Icons';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -13,17 +13,27 @@ interface SidebarProps {
     template: Template;
     onUpdateTemplate: (settings: Partial<Template>) => void;
     onEditImage: (element: ImageElement) => void;
+    onDeselect: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect }) => {
     
     return (
         <aside className="w-80 bg-slate-800 text-white flex flex-col h-full border-r border-slate-700" dir="rtl">
-            <div className="p-4 border-b border-slate-700 flex items-center gap-2">
+            <div className="p-4 border-b border-slate-700 flex justify-between items-center gap-2">
                 <div>
                     <h2 className="text-lg font-bold">{selectedElement ? `עריכת ${selectedElement.type === 'text' ? 'טקסט' : 'תמונה'}` : 'איחולן'}</h2>
                     <p className="text-xs text-slate-400">{selectedElement ? `רכיב ID: ${selectedElement.id}` : 'עצבו את שער המגזין שלכם...'}</p>
                 </div>
+                {selectedElement && (
+                    <button
+                        onClick={onDeselect}
+                        className="p-1 rounded-full hover:bg-slate-700"
+                        aria-label="סגור עריכה וחזור לתפריט הראשי"
+                    >
+                        <XIcon className="w-5 h-5" />
+                    </button>
+                )}
             </div>
             <div className="flex-grow overflow-y-auto">
                 {selectedElement ? (
@@ -69,25 +79,6 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
 
 
 const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src: string }) => void; template: Template, onUpdateTemplate: (settings: Partial<Template>) => void }> = ({ onAddElement, template, onUpdateTemplate }) => {
-    const imageInputRef = useRef<HTMLInputElement>(null);
-
-    const handleAddImageClick = () => {
-        imageInputRef.current?.click();
-    };
-
-    const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if (event.target?.result) {
-                    onAddElement(ElementType.Image, { src: event.target.result as string });
-                }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-        if(e.target) e.target.value = ''; // Reset for re-upload of same file
-    };
-
     return (
         <div className="p-4 space-y-4">
             <div>
@@ -97,11 +88,10 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
                         <TextIcon className="w-6 h-6" />
                         <span>הוסף טקסט</span>
                     </button>
-                    <button onClick={handleAddImageClick} className="flex flex-col items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
+                    <button onClick={() => onAddElement(ElementType.Image)} className="flex flex-col items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
                         <ImageIcon className="w-6 h-6" />
                         <span>הוסף תמונה</span>
                     </button>
-                    <input type="file" ref={imageInputRef} onChange={handleImageFileChange} accept="image/*" className="hidden" />
                 </div>
             </div>
              <Accordion title="הגדרות עמוד">
@@ -132,37 +122,26 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
 
 interface TextPanelProps {
     element: TextElement;
-    onUpdate: (id: string, updates: { textContent: string }) => void;
+    onUpdate: (id: string, updates: Partial<TextElement>) => void;
     onStyleUpdate: (styleUpdate: Partial<TextStyle>) => void;
     activeStyle: TextStyle | null;
 }
 
 const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, activeStyle }) => {
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
-        onUpdate(element.id, { [prop]: value } as any);
+        onUpdate(element.id, { [prop]: value } as Partial<TextElement>);
     };
 
     const handleStyleChange = (prop: keyof TextStyle, value: any) => {
         onStyleUpdate({ [prop]: value });
     }
 
-    const fullText = element.spans.map(s => s.text).join('');
     const displayStyle = activeStyle || element.spans[0]?.style;
 
     if (!displayStyle) return null; // Should not happen if element exists
 
     return (
         <div>
-            <Accordion title="תוכן" defaultOpen>
-                <textarea 
-                    value={fullText} 
-                    onChange={(e) => onUpdate(element.id, { textContent: e.target.value })} 
-                    rows={4} 
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm" 
-                    placeholder="הקלד כאן..."
-                />
-            </Accordion>
-            
             <Accordion title="טיפוגרפיה" defaultOpen>
                 <div className="space-y-3">
                     <label className="block">

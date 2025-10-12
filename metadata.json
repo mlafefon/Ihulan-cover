@@ -1,5 +1,7 @@
 {
   "name": "איחולן - יוצר שערי מגזין",
   "description": "אפליקציית ווב אינטראקטיבית המאפשרת למשתמשים לעצב וליצור שערי מגזין מותאמים אישית.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "developer": "Amir Galnti",
+  "version": "1.0.05"
 }

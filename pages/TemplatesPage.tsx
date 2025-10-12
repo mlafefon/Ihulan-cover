@@ -1,18 +1,39 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { PlusIcon, SearchIcon } from '../components/Icons';
-import { initialTemplates } from '../constants';
-import type { Template } from '../types';
+import type { Template, TemplateMetaData } from '../types';
 
 const TemplatesPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState('all');
+  const [templates, setTemplates] = useState<TemplateMetaData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSelectTemplate = (template: Template) => {
-    navigate('/editor', { state: { template } });
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const response = await fetch('templates/index.json');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setTemplates(data);
+      } catch (e) {
+        console.error("Failed to fetch templates:", e);
+        setError('לא ניתן לטעון את התבניות. נסה שוב מאוחר יותר.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTemplates();
+  }, []);
+
+  const handleSelectTemplate = (template: TemplateMetaData) => {
+    navigate('/editor', { state: { templatePath: template.path } });
   };
   
   const handleNewDesign = () => {
@@ -28,12 +49,44 @@ const TemplatesPage: React.FC = () => {
   };
 
   const filteredTemplates = useMemo(() => {
-    return initialTemplates.filter(template => {
+    return templates.filter(template => {
         const nameMatch = template.name.toLowerCase().includes(searchTerm.toLowerCase());
         if (filter === 'all') return nameMatch;
         return nameMatch // logic for future filters
     })
-  }, [searchTerm, filter]);
+  }, [searchTerm, filter, templates]);
+
+  const renderContent = () => {
+    if (loading) {
+        return <div className="text-center text-slate-400">טוען תבניות...</div>;
+    }
+    if (error) {
+        return <div className="text-center text-red-400">{error}</div>;
+    }
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+          <button
+            onClick={handleNewDesign}
+            className="flex flex-col items-center justify-center bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg hover:bg-slate-700 hover:border-blue-500 transition-colors duration-300 aspect-[4/5] p-6"
+          >
+            <PlusIcon className="w-16 h-16 text-slate-500 mb-4" />
+            <span className="text-xl font-semibold text-white">עיצוב חדש</span>
+          </button>
+
+          {filteredTemplates.map(template => (
+            <div key={template.id} onClick={() => handleSelectTemplate(template)} className="cursor-pointer group">
+              <div className="bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5] relative">
+                <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
+                    <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
+                </div>
+                <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
+              </div>
+              <h3 className="text-center mt-3 font-semibold">{template.name}</h3>
+            </div>
+          ))}
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-[#111827]">
@@ -60,28 +113,8 @@ const TemplatesPage: React.FC = () => {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-          <button
-            onClick={handleNewDesign}
-            className="flex flex-col items-center justify-center bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg hover:bg-slate-700 hover:border-blue-500 transition-colors duration-300 aspect-[4/5] p-6"
-          >
-            <PlusIcon className="w-16 h-16 text-slate-500 mb-4" />
-            <span className="text-xl font-semibold text-white">עיצוב חדש</span>
-          </button>
+        {renderContent()}
 
-          {filteredTemplates.map(template => (
-            <div key={template.id} onClick={() => handleSelectTemplate(template)} className="cursor-pointer group">
-              <div className="bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5] relative">
-                <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
-                    <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
-                </div>
-                {/* This is a simple preview. A better version would render the actual elements. */}
-                <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
-              </div>
-              <h3 className="text-center mt-3 font-semibold">{template.name}</h3>
-            </div>
-          ))}
-        </div>
       </main>
     </div>
   );

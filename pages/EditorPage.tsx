@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MagazineEditor from '../components/editor/MagazineEditor';
 import ImageEditor from '../components/editor/ImageEditor';
@@ -11,27 +11,54 @@ interface EditingImageState {
   height: number;
 }
 
+interface LocationState {
+    template?: Template;
+    templatePath?: string;
+}
+
 const EditorPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const getInitialTemplate = (): Template | null => {
-    const state = location.state as { template: Template };
-    return state?.template || null;
-  };
-
-  const [template, setTemplate] = useState<Template | null>(getInitialTemplate);
+  const [template, setTemplate] = useState<Template | null>(null);
+  const [loading, setLoading] = useState(true);
   const [editorKey, setEditorKey] = useState(0);
   const [editingImage, setEditingImage] = useState<EditingImageState | null>(null);
 
-  React.useEffect(() => {
-    if (!template) {
+  useEffect(() => {
+    const state = location.state as LocationState | null;
+
+    if (state?.template) {
+      setTemplate(state.template);
+      setLoading(false);
+    } else if (state?.templatePath) {
+      const fetchTemplate = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch(state.templatePath);
+          if (!response.ok) {
+            throw new Error('Template not found');
+          }
+          const data = await response.json();
+          setTemplate(data);
+        } catch (error) {
+          console.error("Failed to load template:", error);
+          navigate('/templates'); // Redirect if template fails to load
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchTemplate();
+    } else {
+      // No template or path provided, redirect
       navigate('/templates');
     }
-  }, [template, navigate]);
+  }, [location.state, navigate]);
 
-  const handleEditImage = (element: ImageElement) => {
+
+  const handleEditImage = (element: ImageElement, currentTemplate: Template) => {
     if (element.src) {
+      setTemplate(currentTemplate); // Sync state from MagazineEditor before switching views
       setEditingImage({ 
         id: element.id, 
         src: element.src,
@@ -57,8 +84,12 @@ const EditorPage: React.FC = () => {
     setEditingImage(null);
   };
 
-  if (!template) {
-    return null; // Or a loading spinner while redirecting
+  if (loading || !template) {
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
+            טוען עורך...
+        </div>
+    );
   }
 
   return (
