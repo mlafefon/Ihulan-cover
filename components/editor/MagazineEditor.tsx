@@ -420,13 +420,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
-    const [isEditing, setIsEditing] = useState(false);
-
-    useEffect(() => {
-        if (!isSelected) {
-            setIsEditing(false);
-        }
-    }, [isSelected]);
 
     useEffect(() => {
         if (element.type === ElementType.Text) {
@@ -464,9 +457,12 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     }, [isSelected, element.type, onTextSelect]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (isEditing) {
-            e.stopPropagation();
-            return;
+        if (element.type === ElementType.Text) {
+            if (textContentRef.current && textContentRef.current.contains(e.target as Node)) {
+                e.stopPropagation();
+                onSelect();
+                return;
+            }
         }
 
         if (element.type === ElementType.Image && !element.src) {
@@ -478,7 +474,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
         e.stopPropagation();
         onSelect();
-        e.preventDefault();
         
         const startX = e.clientX;
         const startY = e.clientY;
@@ -571,13 +566,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         document.addEventListener('mouseup', handleMouseUp);
     };
 
-    const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (element.type === ElementType.Text) {
-            setIsEditing(true);
-            textContentRef.current?.focus();
-        }
-    };
-    
     const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const reader = new FileReader();
@@ -763,8 +751,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     lineHeight: textElement.lineHeight,
                     letterSpacing: `${textElement.letterSpacing}px`,
                     textAlign: textElement.textAlign,
-                    userSelect: isEditing ? 'text': 'none',
-                    cursor: isEditing ? 'text' : 'move',
+                    userSelect: 'text',
+                    cursor: 'text',
                 };
                 
                 return (
@@ -772,8 +760,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                         <div 
                             ref={textContentRef} 
                             style={editableStyle}
-                            contentEditable={isEditing}
-                            onBlur={() => setIsEditing(false)}
+                            contentEditable={isSelected}
                             suppressContentEditableWarning={true}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -828,10 +815,10 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const handles = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'];
     
     return (
-        <div ref={itemRef} style={itemStyle} onMouseDown={handleMouseDown} onDoubleClick={handleDoubleClick}>
+        <div ref={itemRef} style={itemStyle} onMouseDown={handleMouseDown}>
             {isSelected && <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />}
             {renderElement()}
-            {isSelected && !isEditing && (
+            {isSelected && (
                 <>
                     {handles.map(handle => (
                        <div
