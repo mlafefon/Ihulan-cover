@@ -1,10 +1,10 @@
-
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, ImageIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
+import CanvasItem, { applyStyleToSpans, setSelectionByOffset } from '../CanvasItem';
 
 
 interface MagazineEditorProps {
@@ -16,7 +16,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const navigate = useNavigate();
     const [snapLines, setSnapLines] = useState<{ x: number[], y: number[] }>({ x: [], y: [] });
 
-
     if (!initialTemplate) {
         React.useEffect(() => {
             navigate('/templates');
@@ -25,6 +24,10 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     }
 
     const [template, setTemplate] = useState<Template>(initialTemplate);
+    const templateRef = useRef(template);
+    templateRef.current = template;
+
+    const [isInteracting, setIsInteracting] = useState(false);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
     const [history, setHistory] = useState<Template[]>([initialTemplate]);
@@ -33,10 +36,18 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const lastSelectionRangeRef = useRef<{ start: number, end: number } | null>(null);
     const textContentRefMap = useRef<Record<string, HTMLDivElement | null>>({});
 
-
     useEffect(() => {
-        // Only update the selection ref for styling if we have a valid, non-collapsed selection range.
-        // This prevents the ref from being cleared when focus moves to the sidebar.
+        const style = isInteracting ? 'none' : '';
+        document.body.style.userSelect = style;
+        document.body.style.webkitUserSelect = style; // For Safari
+        
+        return () => {
+            document.body.style.userSelect = '';
+            document.body.style.webkitUserSelect = '';
+        };
+    }, [isInteracting]);
+    
+    useEffect(() => {
         if (selectionRange && selectionRange.start !== selectionRange.end) {
             lastSelectionRangeRef.current = selectionRange;
         }
@@ -46,12 +57,14 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         textContentRefMap.current[id] = node;
     }, []);
 
-    const updateHistory = (newTemplate: Template) => {
-        const newHistory = history.slice(0, historyIndex + 1);
-        newHistory.push(newTemplate);
-        setHistory(newHistory);
-        setHistoryIndex(newHistory.length - 1);
-    };
+    const updateHistory = useCallback((newTemplate: Template) => {
+        setHistory(prevHistory => {
+            const newHistory = prevHistory.slice(0, historyIndex + 1);
+            newHistory.push(newTemplate);
+            setHistoryIndex(newHistory.length - 1);
+            return newHistory;
+        });
+    }, [historyIndex]);
 
     const handleTemplateChange = (newTemplate: Template, withHistory: boolean = true) => {
         setTemplate(newTemplate);
@@ -60,6 +73,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         }
     }
     
+    const handleInteractionEnd = useCallback(() => {
+        updateHistory(templateRef.current);
+        setIsInteracting(false);
+        setSnapLines({ x: [], y: [] });
+    }, [updateHistory]);
+
     const updateElement = (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory: boolean = true) => {
         const newElements = template.elements.map(el => {
             if (el.id !== id) return el;
@@ -255,8 +274,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     }, [selectedElement, selectionRange]);
     
     const handleSelectElement = (id: string | null) => {
-        // When selecting a new element or deselecting completely,
-        // clear the last known selection range to reset the styling context.
         if (id !== selectedElementId) {
             lastSelectionRangeRef.current = null;
         }
@@ -342,7 +359,8 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                                 isSelected={selectedElementId === element.id}
                                 onSelect={() => handleSelectElement(element.id)}
                                 onUpdate={updateElement}
-                                onInteractionEnd={() => updateHistory(template)}
+                                onInteractionStart={() => setIsInteracting(true)}
+                                onInteractionEnd={handleInteractionEnd}
                                 onTextSelect={setSelectionRange}
                                 onTextContentRefChange={onTextContentRefChange}
                                 onEditImage={passUpImageEdit}
@@ -376,574 +394,5 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         </div>
     );
 };
-
-interface CanvasItemProps {
-    element: CanvasElement;
-    isSelected: boolean;
-    onSelect: () => void;
-    onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean) => void;
-    onInteractionEnd: () => void;
-    onTextSelect: (range: { start: number, end: number } | null) => void;
-    onTextContentRefChange: (id: string, node: HTMLDivElement | null) => void;
-    onEditImage: (element: ImageElement) => void;
-    canvasWidth: number;
-    canvasHeight: number;
-    otherElements: CanvasElement[];
-    setSnapLines: (lines: { x: number[], y: number[] }) => void;
-}
-
-const handlePositionClasses: { [key: string]: string } = {
-    tl: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2',
-    t: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2',
-    tr: 'top-0 right-0 translate-x-1/2 -translate-y-1/2',
-    l: 'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2',
-    r: 'top-1/2 right-0 translate-x-1/2 -translate-y-1/2',
-    bl: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2',
-    b: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
-    br: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2',
-};
-
-const handleCursorClasses: { [key: string]: string } = {
-    tl: 'cursor-nwse-resize',
-    br: 'cursor-nwse-resize',
-    tr: 'cursor-nesw-resize',
-    bl: 'cursor-nesw-resize',
-    t: 'cursor-ns-resize',
-    b: 'cursor-ns-resize',
-    l: 'cursor-ew-resize',
-    r: 'cursor-ew-resize',
-};
-
-const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
-
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines }) => {
-    const itemRef = useRef<HTMLDivElement>(null);
-    const textContentRef = useRef<HTMLDivElement>(null);
-    const imageInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        if (element.type === ElementType.Text) {
-            onTextContentRefChange(element.id, textContentRef.current);
-        }
-        return () => {
-             if (element.type === ElementType.Text) {
-                onTextContentRefChange(element.id, null);
-             }
-        }
-    }, [element.id, element.type, onTextContentRefChange]);
-    
-    useEffect(() => {
-        if (isSelected && element.type === ElementType.Text) {
-            const handleSelectionChange = () => {
-                const selection = document.getSelection();
-                const itemNode = textContentRef.current;
-                // Only update range if the selection is inside our contentEditable div.
-                // When focus shifts to the sidebar, this condition will be false,
-                // and we will not call onTextSelect, thus preserving the last known range.
-                if (selection && itemNode && selection.containsNode(itemNode, true)) {
-                    const range = getSelectionCharOffsetsWithin(itemNode);
-                    onTextSelect(range);
-                }
-            };
-
-            document.addEventListener('selectionchange', handleSelectionChange);
-            return () => {
-                document.removeEventListener('selectionchange', handleSelectionChange);
-            };
-        } else {
-             // If the element is no longer selected at all, then clear the range.
-             onTextSelect(null);
-        }
-    }, [isSelected, element.type, onTextSelect]);
-
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (element.type === ElementType.Text) {
-            if (textContentRef.current && textContentRef.current.contains(e.target as Node)) {
-                e.stopPropagation();
-                onSelect();
-                return;
-            }
-        }
-
-        if (element.type === ElementType.Image && !element.src) {
-            e.stopPropagation();
-            onSelect();
-            imageInputRef.current?.click();
-            return;
-        }
-
-        e.stopPropagation();
-        onSelect();
-        
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startElX = element.x;
-        const startElY = element.y;
-
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            const dx = moveEvent.clientX - startX;
-            const dy = moveEvent.clientY - startY;
-            let newX = startElX + dx;
-            let newY = startElY + dy;
-
-            const SNAP_THRESHOLD = 5;
-            const currentElementPoints = {
-                left: newX,
-                right: newX + element.width,
-                top: newY,
-                bottom: newY + element.height,
-                hCenter: newX + element.width / 2,
-                vCenter: newY + element.height / 2,
-            };
-
-            const snapTargetsX = [
-                0, canvasWidth / 2, canvasWidth,
-                ...otherElements.flatMap(el => [el.x, el.x + el.width / 2, el.x + el.width])
-            ];
-            const snapTargetsY = [
-                0, canvasHeight / 2, canvasHeight,
-                ...otherElements.flatMap(el => [el.y, el.y + el.height / 2, el.y + el.height])
-            ];
-            
-            const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
-
-            let snappedX = false;
-            for (const targetX of snapTargetsX) {
-                if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) {
-                    newX = targetX;
-                    activeSnapLines.x.push(targetX);
-                    snappedX = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) {
-                    newX = targetX - element.width / 2;
-                    activeSnapLines.x.push(targetX);
-                    snappedX = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) {
-                    newX = targetX - element.width;
-                    activeSnapLines.x.push(targetX);
-                    snappedX = true;
-                    break;
-                }
-            }
-
-            let snappedY = false;
-            for (const targetY of snapTargetsY) {
-                if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) {
-                    newY = targetY;
-                    activeSnapLines.y.push(targetY);
-                    snappedY = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) {
-                    newY = targetY - element.height / 2;
-                    activeSnapLines.y.push(targetY);
-                    snappedY = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) {
-                    newY = targetY - element.height;
-                    activeSnapLines.y.push(targetY);
-                    snappedY = true;
-                    break;
-                }
-            }
-
-            setSnapLines(activeSnapLines);
-            onUpdate(element.id, { x: newX, y: newY }, false);
-        };
-
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            onInteractionEnd();
-            setSnapLines({ x: [], y: [] });
-        };
-
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-    };
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if(event.target?.result) {
-                    onEditImage({ ...element, src: event.target.result as string } as ImageElement);
-                }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-        if (e.target) e.target.value = '';
-    };
-
-    const handleResize = (e: React.MouseEvent, corner: string) => {
-        e.stopPropagation();
-    
-        const startMouseX = e.clientX;
-        const startMouseY = e.clientY;
-    
-        const { x, y, width, height, rotation } = element;
-        
-        const centerX = x + width / 2;
-        const centerY = y + height / 2;
-    
-        const rad = rotation * Math.PI / 180;
-        const cos = Math.cos(rad);
-        const sin = Math.sin(rad);
-    
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            const currentMouseX = moveEvent.clientX;
-            const currentMouseY = moveEvent.clientY;
-            
-            const dx = currentMouseX - startMouseX;
-            const dy = currentMouseY - startMouseY;
-            
-            const negRad = -rad;
-            const cosNeg = Math.cos(negRad);
-            const sinNeg = Math.sin(negRad);
-            const localDx = dx * cosNeg - dy * sinNeg;
-            const localDy = dx * sinNeg + dy * cosNeg;
-    
-            let newWidth = width;
-            let newHeight = height;
-    
-            const isMovingRight = corner.includes('r');
-            const isMovingLeft = corner.includes('l');
-            const isMovingBottom = corner.includes('b');
-            const isMovingTop = corner.includes('t');
-    
-            if (isMovingRight) newWidth = width + localDx;
-            if (isMovingLeft) newWidth = width - localDx;
-            if (isMovingBottom) newHeight = height + localDy;
-            if (isMovingTop) newHeight = height - localDy;
-            
-            if (newWidth > 10 && newHeight > 10) {
-                const dw = newWidth - width;
-                const dh = newHeight - height;
-    
-                let shiftLocalX = 0;
-                if (isMovingLeft) shiftLocalX = -dw / 2;
-                if (isMovingRight) shiftLocalX = dw / 2;
-    
-                let shiftLocalY = 0;
-                if (isMovingTop) shiftLocalY = -dh / 2;
-                if (isMovingBottom) shiftLocalY = dh / 2;
-    
-                const shiftWorldX = shiftLocalX * cos - shiftLocalY * sin;
-                const shiftWorldY = shiftLocalX * sin + shiftLocalY * cos;
-    
-                const newCenterX = centerX + shiftWorldX;
-                const newCenterY = centerY + shiftWorldY;
-    
-                let newX = newCenterX - newWidth / 2;
-                let newY = newCenterY - newHeight / 2;
-
-                // --- Start of Snap Logic Block ---
-                const SNAP_THRESHOLD = 5;
-                const snapTargetsX = [
-                    0, canvasWidth / 2, canvasWidth,
-                    ...otherElements.flatMap(el => [el.x, el.x + el.width / 2, el.x + el.width])
-                ];
-                const snapTargetsY = [
-                    0, canvasHeight / 2, canvasHeight,
-                    ...otherElements.flatMap(el => [el.y, el.y + el.height / 2, el.y + el.height])
-                ];
-                const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
-
-                const elementPoints = {
-                    left: newX, right: newX + newWidth, top: newY, bottom: newY + newHeight,
-                    hCenter: newX + newWidth / 2, vCenter: newY + newHeight / 2,
-                };
-                
-                for (const target of snapTargetsX) {
-                    if (Math.abs(elementPoints.left - target) < SNAP_THRESHOLD) { newX = target; activeSnapLines.x.push(target); break; }
-                    if (Math.abs(elementPoints.hCenter - target) < SNAP_THRESHOLD) { newX = target - newWidth / 2; activeSnapLines.x.push(target); break; }
-                    if (Math.abs(elementPoints.right - target) < SNAP_THRESHOLD) { newX = target - newWidth; activeSnapLines.x.push(target); break; }
-                }
-                for (const target of snapTargetsY) {
-                    if (Math.abs(elementPoints.top - target) < SNAP_THRESHOLD) { newY = target; activeSnapLines.y.push(target); break; }
-                    if (Math.abs(elementPoints.vCenter - target) < SNAP_THRESHOLD) { newY = target - newHeight / 2; activeSnapLines.y.push(target); break; }
-                    if (Math.abs(elementPoints.bottom - target) < SNAP_THRESHOLD) { newY = target - newHeight; activeSnapLines.y.push(target); break; }
-                }
-                setSnapLines(activeSnapLines);
-                // --- End of Snap Logic Block ---
-    
-                onUpdate(element.id, { width: newWidth, height: newHeight, x: newX, y: newY }, false);
-            }
-        };
-        
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            onInteractionEnd();
-            setSnapLines({ x: [], y: [] });
-        };
-    
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-    };
-
-    const handleRotate = (e: React.MouseEvent) => {
-        e.stopPropagation();
-
-        const el = itemRef.current!;
-        const rect = el.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-        const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-        const startRotation = element.rotation;
-
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
-            const angleDiff = (angle - startAngle) * (180 / Math.PI);
-            onUpdate(element.id, { rotation: startRotation + angleDiff }, false);
-        };
-
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            onInteractionEnd();
-            setSnapLines({ x: [], y: [] });
-        };
-
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-    }
-    
-    const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
-    
-    const dragBorderWidth = 3;
-    const itemStyle: React.CSSProperties = {
-        position: 'absolute',
-        top: `${element.y}px`,
-        left: `${element.x}px`,
-        width: `${element.width}px`,
-        height: `${element.height}px`,
-        transform: `rotate(${element.rotation}deg)`,
-        zIndex: element.zIndex,
-        cursor: (element.type === ElementType.Image && !element.src) ? 'pointer' : 'move',
-        boxSizing: 'border-box',
-    };
-    
-    if (element.type === ElementType.Text) {
-        itemStyle.padding = `${dragBorderWidth}px`;
-    }
-
-    const renderElement = () => {
-        switch (element.type) {
-            case ElementType.Text:
-                const textElement = element as TextElement;
-                const wrapperStyle: React.CSSProperties = {
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: verticalAlignMap[textElement.verticalAlign],
-                    backgroundColor: textElement.backgroundColor,
-                };
-
-                const editableStyle: React.CSSProperties = {
-                    outline: 'none',
-                    padding: `${textElement.padding}px`,
-                    lineHeight: textElement.lineHeight,
-                    letterSpacing: `${textElement.letterSpacing}px`,
-                    textAlign: textElement.textAlign,
-                    userSelect: 'text',
-                    cursor: 'text',
-                };
-                
-                return (
-                    <div style={wrapperStyle}>
-                        <div 
-                            ref={textContentRef} 
-                            style={editableStyle}
-                            contentEditable={isSelected}
-                            suppressContentEditableWarning={true}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    document.execCommand('insertHTML', false, '<br>');
-                                }
-                            }}
-                            onInput={(e) => {
-                                const newText = e.currentTarget.innerText;
-                                const currentText = textElement.spans.map(s => s.text).join('');
-                                if (newText !== currentText) {
-                                    onUpdate(element.id, { textContent: newText });
-                                }
-                            }}
-                        >
-                            {textElement.spans.map((span, index) => (
-                                <span key={index} style={{
-                                    fontFamily: span.style.fontFamily,
-                                    fontSize: `${span.style.fontSize}px`,
-                                    fontWeight: span.style.fontWeight,
-                                    color: span.style.color,
-                                    textShadow: span.style.textShadow,
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
-                                }}>
-                                    {span.text}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                );
-            case ElementType.Image:
-                const imageElement = element as ImageElement;
-                return (
-                    <>
-                        <input type="file" ref={imageInputRef} accept="image/*" className="hidden" onChange={handleImageUpload}/>
-                        {imageElement.src ? (
-                            <img src={imageElement.src} alt="Uploaded content" className="w-full h-full pointer-events-none" style={{objectFit: imageElement.objectFit}} />
-                        ) : (
-                            <div className="w-full h-full border-2 border-dashed border-gray-400 bg-gray-700 flex flex-col items-center justify-center text-center text-gray-300 pointer-events-none">
-                                <ImageIcon className="w-8 h-8 mb-2" />
-                                <span>הוסף תמונה</span>
-                            </div>
-                        )}
-                    </>
-                );
-            default:
-                return null;
-        }
-    }
-    
-    const handles = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'];
-    
-    return (
-        <div ref={itemRef} style={itemStyle} onMouseDown={handleMouseDown}>
-            {isSelected && <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />}
-            {renderElement()}
-            {isSelected && (
-                <>
-                    {handles.map(handle => (
-                       <div
-                            key={handle}
-                            onMouseDown={(e) => handleResize(e, handle)}
-                            className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${handleCursorClasses[handle]}`}
-                        />
-                    ))}
-                     <div
-                        onMouseDown={handleRotate}
-                        style={{ cursor: `url('${rotateCursorUrl}') 12 12, auto` }}
-                        className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full z-50
-                                    before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2 before:top-full before:w-0.5 before:h-4 before:bg-blue-500"
-                    />
-                </>
-            )}
-        </div>
-    );
-};
-
-// --- Rich Text Utility Functions ---
-
-function getSelectionCharOffsetsWithin(element: HTMLElement) {
-    let start = 0, end = 0;
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        if (range.collapsed) {
-            return { start: range.startOffset, end: range.endOffset };
-        }
-        const preCaretRange = range.cloneRange();
-        preCaretRange.selectNodeContents(element);
-        preCaretRange.setEnd(range.startContainer, range.startOffset);
-        start = preCaretRange.toString().length;
-
-        preCaretRange.setEnd(range.endContainer, range.endOffset);
-        end = preCaretRange.toString().length;
-    }
-    return { start, end };
-}
-
-function setSelectionByOffset(containerEl: HTMLElement, start: number, end: number) {
-    const sel = window.getSelection();
-    if (!sel) return;
-  
-    let startNode: Node | null = null, startOffset = 0;
-    let endNode: Node | null = null, endOffset = 0;
-  
-    const nodeIterator = document.createNodeIterator(containerEl, NodeFilter.SHOW_TEXT);
-    let currentNode: Node | null;
-    let charCount = 0;
-  
-    while ((currentNode = nodeIterator.nextNode()) && !endNode) {
-      const nodeLength = currentNode.textContent?.length || 0;
-      const nextCharCount = charCount + nodeLength;
-  
-      if (!startNode && start >= charCount && start <= nextCharCount) {
-        startNode = currentNode;
-        startOffset = start - charCount;
-      }
-      if (!endNode && end >= charCount && end <= nextCharCount) {
-        endNode = currentNode;
-        endOffset = end - charCount;
-      }
-      
-      charCount = nextCharCount;
-    }
-  
-    if (startNode && endNode) {
-      const range = document.createRange();
-      range.setStart(startNode, startOffset);
-      range.setEnd(endNode, endOffset);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    }
-  }
-
-function applyStyleToSpans(
-    spans: TextSpan[],
-    range: { start: number; end: number } | null,
-    styleUpdate: Partial<TextStyle>
-): TextSpan[] {
-    if (!range || range.start === range.end) {
-        return spans.map(span => ({
-            ...span,
-            style: { ...span.style, ...styleUpdate },
-        }));
-    }
-
-    const { start, end } = range;
-    const newSpans: TextSpan[] = [];
-    let currentIndex = 0;
-
-    for (const span of spans) {
-        const spanEnd = currentIndex + span.text.length;
-
-        if (spanEnd <= start || currentIndex >= end) { // No overlap
-            newSpans.push({ ...span });
-        } else { // Overlap
-            const beforeText = span.text.substring(0, Math.max(0, start - currentIndex));
-            const selectedText = span.text.substring(Math.max(0, start - currentIndex), Math.min(span.text.length, end - currentIndex));
-            const afterText = span.text.substring(Math.min(span.text.length, end - currentIndex));
-
-            if (beforeText) newSpans.push({ ...span, text: beforeText });
-            if (selectedText) newSpans.push({ ...span, text: selectedText, style: { ...span.style, ...styleUpdate } });
-            if (afterText) newSpans.push({ ...span, text: afterText });
-        }
-        
-        currentIndex = spanEnd;
-    }
-    
-    // Merge adjacent spans with identical styles
-    if (newSpans.length < 2) return newSpans.filter(s => s.text);
-    const mergedSpans: TextSpan[] = [newSpans[0]];
-    for (let i = 1; i < newSpans.length; i++) {
-        const prev = mergedSpans[mergedSpans.length - 1];
-        const current = newSpans[i];
-        if (JSON.stringify(prev.style) === JSON.stringify(current.style)) {
-            prev.text += current.text;
-        } else {
-            mergedSpans.push(current);
-        }
-    }
-
-    return mergedSpans.filter(s => s.text);
-}
 
 export default MagazineEditor;

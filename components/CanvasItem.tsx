@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { CanvasElement, TextElement, ImageElement } from '../../types';
+import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
 import { ElementType } from '../../types';
-import { ImageIcon } from '../Icons';
+import { ImageIcon } from './Icons';
 
 interface CanvasItemProps {
     element: CanvasElement;
     isSelected: boolean;
     onSelect: () => void;
     onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean) => void;
+    onInteractionStart: () => void;
     onInteractionEnd: () => void;
     onTextSelect: (range: { start: number, end: number } | null) => void;
     onTextContentRefChange: (id: string, node: HTMLDivElement | null) => void;
@@ -42,7 +43,7 @@ const handleCursorClasses: { [key: string]: string } = {
 
 const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
@@ -63,10 +64,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             const handleSelectionChange = () => {
                 const selection = document.getSelection();
                 const itemNode = textContentRef.current;
-                
-                // Only update range if the selection is inside our contentEditable div.
-                // When focus shifts to the sidebar, this condition will be false,
-                // and we will not call onTextSelect, thus preserving the last known range.
                 if (selection && itemNode && selection.containsNode(itemNode, true)) {
                     const range = getSelectionCharOffsetsWithin(itemNode);
                     onTextSelect(range);
@@ -78,7 +75,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 document.removeEventListener('selectionchange', handleSelectionChange);
             };
         } else {
-             // If the element is no longer selected at all, then clear the range.
              onTextSelect(null);
         }
     }, [isSelected, element.type, onTextSelect]);
@@ -99,8 +95,10 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             return;
         }
 
+        e.preventDefault();
         e.stopPropagation();
         onSelect();
+        onInteractionStart();
         
         const startX = e.clientX;
         const startY = e.clientY;
@@ -123,59 +121,20 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 vCenter: newY + element.height / 2,
             };
 
-            const snapTargetsX = [
-                0, canvasWidth / 2, canvasWidth,
-                ...otherElements.flatMap(el => [el.x, el.x + el.width / 2, el.x + el.width])
-            ];
-            const snapTargetsY = [
-                0, canvasHeight / 2, canvasHeight,
-                ...otherElements.flatMap(el => [el.y, el.y + el.height / 2, el.y + el.height])
-            ];
+            const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
+            const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
             
             const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
-            let snappedX = false;
             for (const targetX of snapTargetsX) {
-                if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) {
-                    newX = targetX;
-                    activeSnapLines.x.push(targetX);
-                    snappedX = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) {
-                    newX = targetX - element.width / 2;
-                    activeSnapLines.x.push(targetX);
-                    snappedX = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) {
-                    newX = targetX - element.width;
-                    activeSnapLines.x.push(targetX);
-                    snappedX = true;
-                    break;
-                }
+                if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) { newX = targetX; activeSnapLines.x.push(targetX); break; }
+                if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width / 2; activeSnapLines.x.push(targetX); break; }
+                if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width; activeSnapLines.x.push(targetX); break; }
             }
-
-            let snappedY = false;
             for (const targetY of snapTargetsY) {
-                if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) {
-                    newY = targetY;
-                    activeSnapLines.y.push(targetY);
-                    snappedY = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) {
-                    newY = targetY - element.height / 2;
-                    activeSnapLines.y.push(targetY);
-                    snappedY = true;
-                    break;
-                }
-                if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) {
-                    newY = targetY - element.height;
-                    activeSnapLines.y.push(targetY);
-                    snappedY = true;
-                    break;
-                }
+                if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) { newY = targetY; activeSnapLines.y.push(targetY); break; }
+                if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height / 2; activeSnapLines.y.push(targetY); break; }
+                if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height; activeSnapLines.y.push(targetY); break; }
             }
 
             setSnapLines(activeSnapLines);
@@ -186,7 +145,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
             onInteractionEnd();
-            setSnapLines({ x: [], y: [] });
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -207,7 +165,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     };
 
     const handleResize = (e: React.MouseEvent, corner: string) => {
+        e.preventDefault();
         e.stopPropagation();
+        onInteractionStart();
     
         const startMouseX = e.clientX;
         const startMouseY = e.clientY;
@@ -267,17 +227,10 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     
                 let newX = newCenterX - newWidth / 2;
                 let newY = newCenterY - newHeight / 2;
-
-                // --- Start of Snap Logic Block ---
+ 
                 const SNAP_THRESHOLD = 5;
-                const snapTargetsX = [
-                    0, canvasWidth / 2, canvasWidth,
-                    ...otherElements.flatMap(el => [el.x, el.x + el.width / 2, el.x + el.width])
-                ];
-                const snapTargetsY = [
-                    0, canvasHeight / 2, canvasHeight,
-                    ...otherElements.flatMap(el => [el.y, el.y + el.height / 2, el.y + el.height])
-                ];
+                const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
+                const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
                 const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
                 const elementPoints = {
@@ -296,7 +249,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     if (Math.abs(elementPoints.bottom - target) < SNAP_THRESHOLD) { newY = target - newHeight; activeSnapLines.y.push(target); break; }
                 }
                 setSnapLines(activeSnapLines);
-                // --- End of Snap Logic Block ---
     
                 onUpdate(element.id, { width: newWidth, height: newHeight, x: newX, y: newY }, false);
             }
@@ -306,7 +258,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
             onInteractionEnd();
-            setSnapLines({ x: [], y: [] });
         };
     
         document.addEventListener('mousemove', handleMouseMove);
@@ -314,7 +265,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     };
 
     const handleRotate = (e: React.MouseEvent) => {
+        e.preventDefault();
         e.stopPropagation();
+        onInteractionStart();
 
         const el = itemRef.current!;
         const rect = el.getBoundingClientRect();
@@ -333,7 +286,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
             onInteractionEnd();
-            setSnapLines({ x: [], y: [] });
         };
 
         document.addEventListener('mousemove', handleMouseMove);
@@ -389,13 +341,10 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                             style={editableStyle}
                             contentEditable={isSelected}
                             suppressContentEditableWarning={true}
-                            dangerouslySetInnerHTML={{ __html: textElement.spans.map(span => 
-                                `<span style="font-family: ${span.style.fontFamily}; font-size: ${span.style.fontSize}px; font-weight: ${span.style.fontWeight}; color: ${span.style.color}; text-shadow: ${span.style.textShadow}; white-space: pre-wrap; word-break: break-word;">${span.text.replace(/\n/g, '<br>')}</span>`
-                            ).join('') }}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
-                                    document.execCommand('insertHTML', false, '<br><br>');
+                                    document.execCommand('insertHTML', false, '<br>');
                                 }
                             }}
                             onInput={(e) => {
@@ -405,7 +354,21 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                                     onUpdate(element.id, { textContent: newText });
                                 }
                             }}
-                        />
+                        >
+                            {textElement.spans.map((span, index) => (
+                                <span key={index} style={{
+                                    fontFamily: span.style.fontFamily,
+                                    fontSize: `${span.style.fontSize}px`,
+                                    fontWeight: span.style.fontWeight,
+                                    color: span.style.color,
+                                    textShadow: span.style.textShadow,
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                }}>
+                                    {span.text}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                 );
             case ElementType.Image:
@@ -431,7 +394,11 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const handles = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'];
     
     return (
-        <div ref={itemRef} style={itemStyle} onMouseDown={handleMouseDown}>
+        <div
+            ref={itemRef}
+            style={itemStyle}
+            onMouseDown={handleMouseDown}
+        >
             {isSelected && <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />}
             {renderElement()}
             {isSelected && (
@@ -457,12 +424,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
 // --- Rich Text Utility Functions ---
 
-function getSelectionCharOffsetsWithin(element: HTMLElement) {
+export function getSelectionCharOffsetsWithin(element: HTMLElement) {
     let start = 0, end = 0;
     const selection = window.getSelection();
     if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0);
-        
+        if (range.collapsed) {
+            return { start: range.startOffset, end: range.endOffset };
+        }
         const preCaretRange = range.cloneRange();
         preCaretRange.selectNodeContents(element);
         preCaretRange.setEnd(range.startContainer, range.startOffset);
@@ -474,7 +443,7 @@ function getSelectionCharOffsetsWithin(element: HTMLElement) {
     return { start, end };
 }
 
-function setSelectionByOffset(containerEl: HTMLElement, start: number, end: number) {
+export function setSelectionByOffset(containerEl: HTMLElement, start: number, end: number) {
     const sel = window.getSelection();
     if (!sel) return;
   
@@ -509,5 +478,56 @@ function setSelectionByOffset(containerEl: HTMLElement, start: number, end: numb
       sel.addRange(range);
     }
   }
+
+export function applyStyleToSpans(
+    spans: TextSpan[],
+    range: { start: number; end: number } | null,
+    styleUpdate: Partial<TextStyle>
+): TextSpan[] {
+    if (!range || range.start === range.end) {
+        return spans.map(span => ({
+            ...span,
+            style: { ...span.style, ...styleUpdate },
+        }));
+    }
+
+    const { start, end } = range;
+    const newSpans: TextSpan[] = [];
+    let currentIndex = 0;
+
+    for (const span of spans) {
+        const spanEnd = currentIndex + span.text.length;
+
+        if (spanEnd <= start || currentIndex >= end) { // No overlap
+            newSpans.push({ ...span });
+        } else { // Overlap
+            const beforeText = span.text.substring(0, Math.max(0, start - currentIndex));
+            const selectedText = span.text.substring(Math.max(0, start - currentIndex), Math.min(span.text.length, end - currentIndex));
+            const afterText = span.text.substring(Math.min(span.text.length, end - currentIndex));
+
+            if (beforeText) newSpans.push({ ...span, text: beforeText });
+            if (selectedText) newSpans.push({ ...span, text: selectedText, style: { ...span.style, ...styleUpdate } });
+            if (afterText) newSpans.push({ ...span, text: afterText });
+        }
+        
+        currentIndex = spanEnd;
+    }
+    
+    // Merge adjacent spans with identical styles
+    if (newSpans.length < 2) return newSpans.filter(s => s.text);
+    const mergedSpans: TextSpan[] = [newSpans[0]];
+    for (let i = 1; i < newSpans.length; i++) {
+        const prev = mergedSpans[mergedSpans.length - 1];
+        const current = newSpans[i];
+        if (JSON.stringify(prev.style) === JSON.stringify(current.style)) {
+            prev.text += current.text;
+        } else {
+            mergedSpans.push(current);
+        }
+    }
+
+    return mergedSpans.filter(s => s.text);
+}
+
 
 export default CanvasItem;
