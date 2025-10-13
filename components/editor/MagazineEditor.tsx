@@ -457,11 +457,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     }, [isSelected, element.type, onTextSelect]);
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        // This is a click on the text content. To allow text selection, we return early
-        // and don't initiate the drag logic. The tradeoff is that native text dragging can occur,
-        // which combined with a buggy onInput handler, causes issues. Disabling native drag
-        // is the most direct fix for the user's complaint. The user can still drag the element
-        // via its padding.
         if (element.type === ElementType.Text) {
             if (textContentRef.current && textContentRef.current.contains(e.target as Node)) {
                 e.stopPropagation();
@@ -501,8 +496,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 vCenter: newY + element.height / 2,
             };
 
-            const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
-            const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
+            const snapTargetsX = [
+                0, canvasWidth / 2, canvasWidth,
+                ...otherElements.flatMap(el => [el.x, el.x + el.width / 2, el.x + el.width])
+            ];
+            const snapTargetsY = [
+                0, canvasHeight / 2, canvasHeight,
+                ...otherElements.flatMap(el => [el.y, el.y + el.height / 2, el.y + el.height])
+            ];
             
             const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
@@ -642,8 +643,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
                 // --- Start of Snap Logic Block ---
                 const SNAP_THRESHOLD = 5;
-                const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
-                const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
+                const snapTargetsX = [
+                    0, canvasWidth / 2, canvasWidth,
+                    ...otherElements.flatMap(el => [el.x, el.x + el.width / 2, el.x + el.width])
+                ];
+                const snapTargetsY = [
+                    0, canvasHeight / 2, canvasHeight,
+                    ...otherElements.flatMap(el => [el.y, el.y + el.height / 2, el.y + el.height])
+                ];
                 const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
                 const elementPoints = {
@@ -750,8 +757,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 
                 return (
                     <div style={wrapperStyle}>
-                        <div
-                            ref={textContentRef}
+                        <div 
+                            ref={textContentRef} 
                             style={editableStyle}
                             contentEditable={isSelected}
                             suppressContentEditableWarning={true}
@@ -762,16 +769,27 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                                 }
                             }}
                             onInput={(e) => {
-                                const newText = e.currentTarget.textContent || '';
-                                const currentText = textElement.spans.map(s => s.text).join('').replace(/\n/g, '');
+                                const newText = e.currentTarget.innerText;
+                                const currentText = textElement.spans.map(s => s.text).join('');
                                 if (newText !== currentText) {
                                     onUpdate(element.id, { textContent: newText });
                                 }
                             }}
-                            dangerouslySetInnerHTML={{ __html: textElement.spans.map(span => 
-                                `<span style="font-family: ${span.style.fontFamily}; font-size: ${span.style.fontSize}px; font-weight: ${span.style.fontWeight}; color: ${span.style.color}; text-shadow: ${span.style.textShadow}; white-space: pre-wrap; word-break: break-word;">${span.text.replace(/\n/g, '<br>')}</span>`
-                            ).join('') }}
-                        />
+                        >
+                            {textElement.spans.map((span, index) => (
+                                <span key={index} style={{
+                                    fontFamily: span.style.fontFamily,
+                                    fontSize: `${span.style.fontSize}px`,
+                                    fontWeight: span.style.fontWeight,
+                                    color: span.style.color,
+                                    textShadow: span.style.textShadow,
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                }}>
+                                    {span.text}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                 );
             case ElementType.Image:
@@ -829,12 +847,7 @@ function getSelectionCharOffsetsWithin(element: HTMLElement) {
     if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0);
         if (range.collapsed) {
-            const textContent = element.textContent || '';
-            const preSelectionRange = document.createRange();
-            preSelectionRange.selectNodeContents(element);
-            preSelectionRange.setEnd(range.startContainer, range.startOffset);
-            const offset = preSelectionRange.toString().length;
-            return { start: offset, end: offset };
+            return { start: range.startOffset, end: range.endOffset };
         }
         const preCaretRange = range.cloneRange();
         preCaretRange.selectNodeContents(element);
