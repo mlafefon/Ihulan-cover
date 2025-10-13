@@ -95,9 +95,13 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 const fullText = textElement.spans.map(s => s.text).join('');
                 const selection = getSelectionCharOffsetsWithin(e.currentTarget);
 
-                if (selection.start === 0 && selection.end === fullText.length) {
+                // Fix: Intercept deletion of any selected text range to prevent a browser bug
+                // that could otherwise delete the entire application DOM.
+                if (selection.start !== selection.end) {
                     e.preventDefault();
-                    onUpdate(element.id, { textContent: '' }, true, { start: 0, end: 0 });
+                    const newFullText = fullText.substring(0, selection.start) + fullText.substring(selection.end);
+                    const newCursorPos = { start: selection.start, end: selection.start };
+                    onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
                 }
             }
         }

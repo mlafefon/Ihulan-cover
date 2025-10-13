@@ -394,7 +394,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setSelectionRange(null);
     }
     
-    const handleCanvasClick = (e: React.MouseEvent) => {
+    const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (e.target === e.currentTarget) {
             handleSelectElement(null);
         }
@@ -467,7 +467,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                             height: `${template.height}px`,
                             backgroundColor: template.background_color,
                         }}
-                        onClick={handleCanvasClick}
+                        onMouseDown={handleCanvasMouseDown}
                     >
                         {template.elements.map(element => (
                             <CanvasItem 
