@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
-import { ElementType } from '../../types';
+import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../types';
+import { ElementType } from '../types';
 import { ImageIcon } from './Icons';
 
 interface CanvasItemProps {
