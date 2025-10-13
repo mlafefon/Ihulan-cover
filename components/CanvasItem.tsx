@@ -7,7 +7,7 @@ interface CanvasItemProps {
     element: CanvasElement;
     isSelected: boolean;
     onSelect: () => void;
-    onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean) => void;
+    onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean, cursorPos?: { start: number; end: number }) => void;
     onInteractionStart: () => void;
     onInteractionEnd: () => void;
     onTextSelect: (range: { start: number, end: number } | null) => void;
@@ -79,6 +79,29 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
              onTextSelect(null);
         }
     }, [isSelected, element.type, onTextSelect]);
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (isSelected && element.type === ElementType.Text) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const textElement = element as TextElement;
+                const fullText = textElement.spans.map(s => s.text).join('');
+                const { start, end } = getSelectionCharOffsetsWithin(e.currentTarget);
+                const newFullText = fullText.substring(0, start) + '\n' + fullText.substring(end);
+                const newCursorPos = { start: start + 1, end: start + 1 };
+                onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
+            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                const textElement = element as TextElement;
+                const fullText = textElement.spans.map(s => s.text).join('');
+                const selection = getSelectionCharOffsetsWithin(e.currentTarget);
+
+                if (selection.start === 0 && selection.end === fullText.length) {
+                    e.preventDefault();
+                    onUpdate(element.id, { textContent: '' }, true, { start: 0, end: 0 });
+                }
+            }
+        }
+    };
 
     const handleDoubleClick = () => {
         if (element.type !== ElementType.Image) return;
@@ -342,6 +365,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     textAlign: textElement.textAlign,
                     userSelect: 'text',
                     cursor: 'text',
+                    whiteSpace: 'pre-wrap',
                     // Fallback styles to prevent unstyled text on new lines
                     ...(firstSpanStyle && {
                         fontFamily: firstSpanStyle.fontFamily,
@@ -360,17 +384,13 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                             contentEditable={isSelected}
                             suppressContentEditableWarning={true}
                             dir="auto"
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    document.execCommand('insertHTML', false, '<br>');
-                                }
-                            }}
+                            onKeyDown={handleKeyDown}
                             onInput={(e) => {
                                 const newText = e.currentTarget.innerText;
                                 const currentText = textElement.spans.map(s => s.text).join('');
                                 if (newText !== currentText) {
-                                    onUpdate(element.id, { textContent: newText });
+                                    const cursorPos = getSelectionCharOffsetsWithin(e.currentTarget);
+                                    onUpdate(element.id, { textContent: newText }, true, cursorPos);
                                 }
                             }}
                         >
@@ -381,8 +401,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                                     fontWeight: span.style.fontWeight,
                                     color: span.style.color,
                                     textShadow: span.style.textShadow,
-                                    whiteSpace: 'pre-wrap',
-                                    wordBreak: 'break-word',
                                 }}>
                                     {span.text}
                                 </span>
@@ -458,20 +476,25 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 // --- Rich Text Utility Functions ---
 
 export function getSelectionCharOffsetsWithin(element: HTMLElement) {
-    let start = 0, end = 0;
+    let start = 0;
+    let end = 0;
     const selection = window.getSelection();
+
     if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0);
-        if (range.collapsed) {
-            return { start: range.startOffset, end: range.endOffset };
+        
+        if (element.contains(range.commonAncestorContainer)) {
+            const preCaretRange = range.cloneRange();
+            preCaretRange.selectNodeContents(element);
+            preCaretRange.setEnd(range.startContainer, range.startOffset);
+            start = preCaretRange.toString().length;
+            
+            end = start + range.toString().length;
+        } else {
+            // Fallback: if selection is not in the element (e.g. element lost focus),
+            // place cursor at the end.
+            start = end = element.innerText.length;
         }
-        const preCaretRange = range.cloneRange();
-        preCaretRange.selectNodeContents(element);
-        preCaretRange.setEnd(range.startContainer, range.startOffset);
-        start = preCaretRange.toString().length;
-
-        preCaretRange.setEnd(range.endContainer, range.endOffset);
-        end = preCaretRange.toString().length;
     }
     return { start, end };
 }

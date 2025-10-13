@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
 import { ElementType } from '../../types';
@@ -30,6 +30,19 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const canvasRef = useRef<HTMLDivElement>(null);
     const lastSelectionRangeRef = useRef<{ start: number, end: number } | null>(null);
     const textContentRefMap = useRef<Record<string, HTMLDivElement | null>>({});
+    const [nextCursorPos, setNextCursorPos] = useState<{ id: string; pos: { start: number; end: number } } | null>(null);
+
+    useLayoutEffect(() => {
+        if (nextCursorPos) {
+            const { id, pos } = nextCursorPos;
+            const node = textContentRefMap.current[id];
+            if (node) {
+                node.focus({ preventScroll: true });
+                setSelectionByOffset(node, pos.start, pos.end);
+            }
+            setNextCursorPos(null);
+        }
+    }, [nextCursorPos]);
 
     useEffect(() => {
         const style = isInteracting ? 'none' : '';
@@ -74,58 +87,99 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setSnapLines({ x: [], y: [] });
     }, [updateHistory]);
 
-    const updateElement = (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory: boolean = true) => {
+    const updateElement = (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory: boolean = true, cursorPos?: { start: number; end: number }) => {
         const newElements = template.elements.map(el => {
             if (el.id !== id) return el;
-
+    
             if (el.type === ElementType.Text) {
                 const { textContent, ...restOfUpdates } = updates;
                 let spans = el.spans;
-
+    
                 if (textContent !== undefined) {
+                    const oldText = el.spans.map(s => s.text).join('');
                     const newText = textContent;
-                    const oldSpans = el.spans;
-                    const newSpans: TextSpan[] = [];
-                    let textIndex = 0;
-        
-                    for (const oldSpan of oldSpans) {
-                        const oldLen = oldSpan.text.length;
-                        if (textIndex >= newText.length) break;
+    
+                    if (oldText === newText) {
+                        spans = el.spans;
+                    } else {
+                        let prefixLen = 0;
+                        while (prefixLen < oldText.length && prefixLen < newText.length && oldText[prefixLen] === newText[prefixLen]) {
+                            prefixLen++;
+                        }
+    
+                        let suffixLen = 0;
+                        while (
+                            suffixLen < oldText.length - prefixLen &&
+                            suffixLen < newText.length - prefixLen &&
+                            oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]
+                        ) {
+                            suffixLen++;
+                        }
+    
+                        const newMiddleText = newText.substring(prefixLen, newText.length - suffixLen);
                         
-                        const newTextSlice = newText.substring(textIndex, textIndex + oldLen);
-                        newSpans.push({
-                            text: newTextSlice,
-                            style: oldSpan.style
-                        });
-                        textIndex += oldLen;
-                    }
-        
-                    if (textIndex < newText.length) {
-                        const remainingText = newText.substring(textIndex);
-                        if (newSpans.length > 0) {
-                            newSpans[newSpans.length - 1].text += remainingText;
-                        } else {
-                            newSpans.push({
-                                text: remainingText,
-                                style: oldSpans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '' }
-                            });
+                        let styleForMiddle: TextStyle = el.spans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '' };
+                        let currentIndex = 0;
+                        for (const span of el.spans) {
+                            const spanEnd = currentIndex + span.text.length;
+                            if (prefixLen >= currentIndex && prefixLen <= spanEnd) {
+                                styleForMiddle = span.style;
+                                break;
+                            }
+                             if (el.spans.length > 0 && prefixLen > spanEnd) { 
+                                styleForMiddle = el.spans[el.spans.length - 1].style;
+                            }
+                            currentIndex = spanEnd;
+                        }
+                        
+                        const prefixSpans: TextSpan[] = [];
+                        const suffixSpans: TextSpan[] = [];
+                        currentIndex = 0;
+    
+                        for (const span of el.spans) {
+                            const spanStart = currentIndex;
+                            const spanEnd = spanStart + span.text.length;
+    
+                            if (spanEnd <= prefixLen) {
+                                prefixSpans.push({ ...span });
+                            } else if (spanStart < prefixLen) {
+                                const part = span.text.substring(0, prefixLen - spanStart);
+                                prefixSpans.push({ text: part, style: span.style });
+                            }
+                            
+                            if (spanStart >= oldText.length - suffixLen) {
+                                suffixSpans.push({ ...span });
+                            } else if (spanEnd > oldText.length - suffixLen) {
+                                const part = span.text.substring(oldText.length - suffixLen - spanStart);
+                                suffixSpans.push({ text: part, style: span.style });
+                            }
+                            
+                            currentIndex = spanEnd;
+                        }
+                        
+                        const middleSpan: TextSpan[] = newMiddleText ? [{ text: newMiddleText, style: styleForMiddle }] : [];
+    
+                        const combinedSpans = [...prefixSpans, ...middleSpan, ...suffixSpans];
+                        
+                        const mergedSpans: TextSpan[] = [];
+                        if (combinedSpans.length > 0) {
+                            mergedSpans.push(combinedSpans[0]);
+                            for (let i = 1; i < combinedSpans.length; i++) {
+                                const prev = mergedSpans[mergedSpans.length - 1];
+                                const current = combinedSpans[i];
+                                if (current.text && JSON.stringify(prev.style) === JSON.stringify(current.style)) {
+                                    prev.text += current.text;
+                                } else if (current.text) {
+                                    mergedSpans.push(current);
+                                }
+                            }
+                        }
+                        spans = mergedSpans.filter(s => s.text.length > 0);
+                        
+                        if (spans.length === 0) {
+                             spans.push({ text: '', style: styleForMiddle });
                         }
                     }
-                    
-                    const finalSpans = newSpans.filter(s => s.text.length > 0);
-                    
-                    if (finalSpans.length === 0 && newText.length > 0) {
-                         finalSpans.push({
-                            text: newText,
-                            style: oldSpans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '' }
-                         });
-                    } else if (finalSpans.length === 0 && newText.length === 0) {
-                        finalSpans.push({
-                            text: '',
-                            style: oldSpans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '' }
-                         });
-                    }
-                    spans = finalSpans;
                 }
     
                 return { ...el, ...restOfUpdates, spans } as TextElement;
@@ -137,7 +191,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
 
             return el;
         });
+
         handleTemplateChange({ ...template, elements: newElements }, withHistory);
+
+        if (cursorPos) {
+            setNextCursorPos({ id, pos: cursorPos });
+        }
 
         if (updates.id && updates.id !== id && selectedElementId === id) {
             setSelectedElementId(updates.id as string);

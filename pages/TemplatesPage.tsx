@@ -38,11 +38,14 @@ const TemplatesPage: React.FC = () => {
   };
 
   useEffect(() => {
+    let isMounted = true;
     const fetchTemplates = async () => {
       if (!user) return;
       try {
-        setLoading(true);
-        setError(null);
+        if (isMounted) {
+            setLoading(true);
+            setError(null);
+        }
         
         const { data: myData, error: myError } = await supabase
           .from('templates')
@@ -51,7 +54,7 @@ const TemplatesPage: React.FC = () => {
           .order('created_at', { ascending: false });
         
         if (myError) throw myError;
-        setMyTemplates((myData || []).map(transformRowToTemplate));
+        if(isMounted) setMyTemplates((myData || []).map(transformRowToTemplate));
 
         const { data: publicData, error: publicError } = await supabase
           .from('templates')
@@ -59,16 +62,20 @@ const TemplatesPage: React.FC = () => {
           .is('user_id', null);
 
         if (publicError) throw publicError;
-        setPublicTemplates((publicData || []).map(transformRowToTemplate));
+        if(isMounted) setPublicTemplates((publicData || []).map(transformRowToTemplate));
 
       } catch (e: any) {
         console.error("Failed to fetch templates:", e);
-        setError('לא ניתן לטעון את התבניות. נסה שוב מאוחר יותר.');
+        if(isMounted) setError('לא ניתן לטעון את התבניות. נסה שוב מאוחר יותר.');
       } finally {
-        setLoading(false);
+        if(isMounted) setLoading(false);
       }
     };
     fetchTemplates();
+    
+    return () => {
+        isMounted = false;
+    };
   }, [user]);
   
   const handleDeleteTemplate = async (templateId: string) => {
