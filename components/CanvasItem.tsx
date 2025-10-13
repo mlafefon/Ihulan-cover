@@ -322,6 +322,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     flexDirection: 'column',
                     justifyContent: verticalAlignMap[textElement.verticalAlign],
                     backgroundColor: textElement.backgroundColor,
+                    overflow: 'hidden',
                 };
 
                 const editableStyle: React.CSSProperties = {
