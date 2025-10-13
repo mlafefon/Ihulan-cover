@@ -47,6 +47,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const imageInputRef = useRef<HTMLInputElement>(null);
+    const [isHovered, setIsHovered] = useState(false);
 
     useEffect(() => {
         if (element.type === ElementType.Text) {
@@ -399,8 +400,13 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             ref={itemRef}
             style={itemStyle}
             onMouseDown={handleMouseDown}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
         >
             {isSelected && <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />}
+            {isHovered && !isSelected && (
+                <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
+            )}
             {renderElement()}
             {isSelected && (
                 <>
