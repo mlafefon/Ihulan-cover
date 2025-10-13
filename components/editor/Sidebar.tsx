@@ -1,4 +1,3 @@
-
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle } from '../../types';
 import { ElementType } from '../../types';
@@ -13,7 +12,7 @@ interface SidebarProps {
     onDeleteElement: (id:string) => void;
     template: Template;
     onUpdateTemplate: (settings: Partial<Template>) => void;
-    onEditImage: (element: ImageElement) => void;
+    onEditImage: (element: ImageElement, newSrc?: string) => void;
     onDeselect: () => void;
     onLayerOrderChange: (id: string, direction: 'front' | 'back' | 'forward' | 'backward') => void;
 }
@@ -307,13 +306,44 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     );
 };
 
-const ImagePanel: React.FC<{ element: ImageElement; onUpdate: (id: string, updates: Partial<ImageElement>) => void; onEditImage: (element: ImageElement) => void }> = ({ element, onUpdate, onEditImage }) => {
+const ImagePanel: React.FC<{ element: ImageElement; onUpdate: (id: string, updates: Partial<ImageElement>) => void; onEditImage: (element: ImageElement, newSrc?: string) => void }> = ({ element, onUpdate, onEditImage }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleButtonClick = () => {
+        if (element.src) {
+            onEditImage(element);
+        } else {
+            fileInputRef.current?.click();
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const newSrc = event.target?.result as string;
+                if (newSrc) {
+                    onEditImage(element, newSrc);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        if (e.target) e.target.value = ''; // Reset file input
+    };
     
     return (
         <div className="p-4 space-y-4">
+            <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+            />
             <div>
-                <button onClick={() => onEditImage(element)} disabled={!element.src} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed">
-                    ערוך תמונה
+                <button onClick={handleButtonClick} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded">
+                    {element.src ? 'ערוך תמונה' : 'הוסף תמונה'}
                 </button>
             </div>
         </div>

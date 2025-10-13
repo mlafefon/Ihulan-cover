@@ -57,18 +57,16 @@ const EditorPage: React.FC = () => {
   }, [location.state, navigate]);
 
 
-  const handleEditImage = (element: ImageElement, currentTemplate: Template) => {
-    const originalImage = element.originalSrc || element.src;
-    if (originalImage) {
-      setTemplate(currentTemplate); // Sync state from MagazineEditor before switching views
-      setEditingImage({ 
-        id: element.id, 
-        src: originalImage,
-        width: element.width,
-        height: element.height,
-        editState: element.editState,
-      });
-    }
+  const handleEditImage = (element: ImageElement, currentTemplate: Template, newSrc?: string) => {
+    const imageToEdit = newSrc || element.originalSrc || element.src;
+    setTemplate(currentTemplate); // Sync state from MagazineEditor before switching views
+    setEditingImage({ 
+      id: element.id, 
+      src: imageToEdit || '',
+      width: element.width,
+      height: element.height,
+      editState: element.editState,
+    });
   };
 
   const handleImageEditorComplete = (data: { newSrc: string; newOriginalSrc: string; editState: ImageEditState; }) => {

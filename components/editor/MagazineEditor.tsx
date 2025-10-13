@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
@@ -10,7 +9,7 @@ import CanvasItem, { applyStyleToSpans, setSelectionByOffset } from '../CanvasIt
 
 interface MagazineEditorProps {
     initialTemplate: Template;
-    onEditImage: (element: ImageElement, currentTemplate: Template) => void;
+    onEditImage: (element: ImageElement, currentTemplate: Template, newSrc?: string) => void;
 }
 
 const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEditImage }) => {
@@ -231,12 +230,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setSelectedElementId(newId);
 
         if (type === ElementType.Image && payload?.src) {
-            passUpImageEdit(newElement as ImageElement);
+            passUpImageEdit(newElement as ImageElement, payload.src);
         }
     };
     
-    const passUpImageEdit = (element: ImageElement) => {
-        onEditImage(element, template);
+    const passUpImageEdit = (element: ImageElement, newSrc?: string) => {
+        onEditImage(element, template, newSrc);
     };
 
     const deleteElement = (id: string) => {

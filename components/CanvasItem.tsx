@@ -12,7 +12,7 @@ interface CanvasItemProps {
     onInteractionEnd: () => void;
     onTextSelect: (range: { start: number, end: number } | null) => void;
     onTextContentRefChange: (id: string, node: HTMLDivElement | null) => void;
-    onEditImage: (element: ImageElement) => void;
+    onEditImage: (element: ImageElement, newSrc?: string) => void;
     canvasWidth: number;
     canvasHeight: number;
     otherElements: CanvasElement[];
@@ -46,7 +46,7 @@ const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3d
 const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
-    const imageInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
 
     useEffect(() => {
@@ -80,6 +80,33 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         }
     }, [isSelected, element.type, onTextSelect]);
 
+    const handleDoubleClick = () => {
+        if (element.type !== ElementType.Image) return;
+        const imageElement = element as ImageElement;
+        if (imageElement.src) {
+            onEditImage(imageElement);
+        } else {
+            fileInputRef.current?.click();
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (element.type !== ElementType.Image) return;
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const newSrc = event.target?.result as string;
+                if (newSrc) {
+                    onEditImage(element as ImageElement, newSrc);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        if (e.target) e.target.value = '';
+    };
+
+
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (element.type === ElementType.Text) {
             if (textContentRef.current && textContentRef.current.contains(e.target as Node)) {
@@ -87,13 +114,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 onSelect();
                 return;
             }
-        }
-
-        if (element.type === ElementType.Image && !element.src) {
-            e.stopPropagation();
-            onSelect();
-            imageInputRef.current?.click();
-            return;
         }
 
         e.preventDefault();
@@ -150,19 +170,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-    };
-
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if(event.target?.result) {
-                    onEditImage({ ...element, src: event.target.result as string } as ImageElement);
-                }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-        if (e.target) e.target.value = '';
     };
 
     const handleResize = (e: React.MouseEvent, corner: string) => {
@@ -304,7 +311,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         height: `${element.height}px`,
         transform: `rotate(${element.rotation}deg)`,
         zIndex: element.zIndex,
-        cursor: (element.type === ElementType.Image && !element.src) ? 'pointer' : 'move',
+        cursor: 'move',
         boxSizing: 'border-box',
     };
     
@@ -377,7 +384,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 const imageElement = element as ImageElement;
                 return (
                     <>
-                        <input type="file" ref={imageInputRef} accept="image/*" className="hidden" onChange={handleImageUpload}/>
                         {imageElement.src ? (
                             <img src={imageElement.src} alt="Uploaded content" className="w-full h-full pointer-events-none" style={{objectFit: imageElement.objectFit}} />
                         ) : (
@@ -400,9 +406,19 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             ref={itemRef}
             style={itemStyle}
             onMouseDown={handleMouseDown}
+            onDoubleClick={handleDoubleClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
+             {element.type === ElementType.Image && (
+                 <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                />
+            )}
             {isSelected && <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />}
             {isHovered && !isSelected && (
                 <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
