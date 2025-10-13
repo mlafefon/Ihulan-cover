@@ -1,5 +1,5 @@
 
-import React, { useState, Fragment, useRef } from 'react';
+import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle } from '../../types';
 import { ElementType } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown } from '../Icons';
@@ -19,13 +19,38 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect, onLayerOrderChange }) => {
+    const [elementId, setElementId] = useState(selectedElement?.id || '');
+
+    useEffect(() => {
+        if (selectedElement) {
+            setElementId(selectedElement.id);
+        }
+    }, [selectedElement]);
+
+    const handleIdUpdate = () => {
+        if (!selectedElement) return;
+
+        const isIdUnique = !template.elements.some(el => el.id === elementId && el.id !== selectedElement.id);
+
+        if (elementId && elementId !== selectedElement.id && isIdUnique) {
+            onUpdateElement(selectedElement.id, { id: elementId });
+        } else {
+            setElementId(selectedElement.id);
+            if (!isIdUnique) {
+                // Optionally: show an error to the user
+                console.warn(`ID "${elementId}" already exists. Reverting.`);
+            }
+        }
+    };
     
     return (
         <aside className="w-80 bg-slate-800 text-white flex flex-col h-full border-r border-slate-700" dir="rtl">
             <div className="p-4 border-b border-slate-700 flex justify-between items-center gap-2">
                 <div>
                     <h2 className="text-lg font-bold">{selectedElement ? `עריכת ${selectedElement.type === 'text' ? 'טקסט' : 'תמונה'}` : 'איחולן'}</h2>
-                    <p className="text-xs text-slate-400">{selectedElement ? `רכיב ID: ${selectedElement.id}` : 'עצבו את שער המגזין שלכם...'}</p>
+                    {!selectedElement && (
+                        <p className="text-xs text-slate-400">עצבו את שער המגזין שלכם...</p>
+                    )}
                 </div>
                 {selectedElement && (
                     <button
@@ -40,6 +65,25 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onA
             <div className="flex-grow overflow-y-auto">
                 {selectedElement ? (
                     <>
+                        <Accordion title="כללי" defaultOpen>
+                            <div className="space-y-2">
+                                <label className="block">
+                                    <span className="text-sm text-slate-400">שם הרכיב (ID)</span>
+                                    <input
+                                        type="text"
+                                        value={elementId}
+                                        onChange={(e) => setElementId(e.target.value)}
+                                        onBlur={handleIdUpdate}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                (e.target as HTMLInputElement).blur();
+                                            }
+                                        }}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                                    />
+                                </label>
+                            </div>
+                        </Accordion>
                         {selectedElement.type === ElementType.Text && (
                             <TextPanel 
                                 element={selectedElement as TextElement} 

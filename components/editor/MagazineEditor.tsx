@@ -144,6 +144,10 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             return el;
         });
         handleTemplateChange({ ...template, elements: newElements }, withHistory);
+
+        if (updates.id && updates.id !== id && selectedElementId === id) {
+            setSelectedElementId(updates.id as string);
+        }
     };
 
     const handleStyleUpdate = (styleUpdate: Partial<TextStyle>) => {
