@@ -333,6 +333,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     overflow: 'hidden',
                 };
 
+                const firstSpanStyle = textElement.spans[0]?.style;
                 const editableStyle: React.CSSProperties = {
                     outline: 'none',
                     padding: `${textElement.padding}px`,
@@ -341,6 +342,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     textAlign: textElement.textAlign,
                     userSelect: 'text',
                     cursor: 'text',
+                    // Fallback styles to prevent unstyled text on new lines
+                    ...(firstSpanStyle && {
+                        fontFamily: firstSpanStyle.fontFamily,
+                        fontSize: `${firstSpanStyle.fontSize}px`,
+                        fontWeight: firstSpanStyle.fontWeight,
+                        color: firstSpanStyle.color,
+                        textShadow: firstSpanStyle.textShadow,
+                    }),
                 };
                 
                 return (
@@ -350,6 +359,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                             style={editableStyle}
                             contentEditable={isSelected}
                             suppressContentEditableWarning={true}
+                            dir="auto"
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();

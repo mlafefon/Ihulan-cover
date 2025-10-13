@@ -10,23 +10,18 @@ import CanvasItem, { applyStyleToSpans, setSelectionByOffset } from '../CanvasIt
 interface MagazineEditorProps {
     initialTemplate: Template;
     onEditImage: (element: ImageElement, currentTemplate: Template, newSrc?: string) => void;
+    onSaveTemplate: (template: Template, newPreview: string | undefined) => Promise<void>;
 }
 
-const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEditImage }) => {
+const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEditImage, onSaveTemplate }) => {
     const navigate = useNavigate();
     const [snapLines, setSnapLines] = useState<{ x: number[], y: number[] }>({ x: [], y: [] });
-
-    if (!initialTemplate) {
-        React.useEffect(() => {
-            navigate('/templates');
-        }, [navigate]);
-        return null; 
-    }
 
     const [template, setTemplate] = useState<Template>(initialTemplate);
     const templateRef = useRef(template);
     templateRef.current = template;
-
+    
+    const [isSaving, setIsSaving] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
@@ -260,6 +255,30 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         }
     };
 
+    const handleSave = async () => {
+        setIsSaving(true);
+        handleSelectElement(null);
+        await new Promise(resolve => setTimeout(resolve, 50));
+    
+        let previewImage: string | undefined = template.previewImage || undefined;
+        
+        if (canvasRef.current && (window as any).html2canvas) {
+            try {
+                const canvas = await (window as any).html2canvas(canvasRef.current, { 
+                    backgroundColor: null,
+                    useCORS: true 
+                });
+                previewImage = canvas.toDataURL('image/png');
+            } catch (e) {
+                console.error("html2canvas failed:", e);
+            }
+        }
+        
+        await onSaveTemplate({ ...template }, previewImage);
+        setIsSaving(false);
+        // On success, page will navigate away or update state
+    };
+
     const handleLayerOrderChange = (elementId: string, direction: 'front' | 'back' | 'forward' | 'backward') => {
         let elements = [...template.elements].sort((a, b) => a.zIndex - b.zIndex);
         const currentIndex = elements.findIndex(el => el.id === elementId);
@@ -328,6 +347,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render
             const canvas = await (window as any).html2canvas(canvasRef.current, {
                 backgroundColor: null,
+                useCORS: true,
             });
             canvas.toBlob(function(blob: Blob) {
                 if(blob) (window as any).saveAs(blob, `${template.name}.png`);
@@ -368,8 +388,11 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                         </button>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button onClick={handleSave} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50">
+                            {isSaving ? 'שומר...' : 'שמור'}
+                        </button>
                         <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                            שמור קובץ
+                            ייצא קובץ
                         </button>
                         <button onClick={handleExportPNG} className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors">
                             שמור כתמונה
@@ -383,7 +406,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                         style={{
                             width: `${template.width}px`,
                             height: `${template.height}px`,
-                            backgroundColor: template.backgroundColor,
+                            backgroundColor: template.background_color,
                         }}
                         onClick={handleCanvasClick}
                     >

@@ -174,24 +174,24 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
                 </div>
             </div>
              <Accordion title="הגדרות עמוד">
-                 <div className="space-y-2">
-                    <label className="block">
-                        <span className="text-sm text-slate-400">שם התבנית</span>
-                        <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"/>
+                 <div className="space-y-3">
+                    <label className="flex items-center gap-2">
+                        <span className="text-sm text-slate-400 whitespace-nowrap">שם התבנית</span>
+                        <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
                     </label>
                     <div className="flex gap-2">
-                        <label className="block w-1/2">
+                        <label className="flex items-center gap-2 w-1/2">
                             <span className="text-sm text-slate-400">רוחב</span>
-                            <input type="number" value={template.width} onChange={(e) => onUpdateTemplate({width: parseInt(e.target.value)})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"/>
+                            <input type="number" value={template.width} onChange={(e) => onUpdateTemplate({width: parseInt(e.target.value)})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
                         </label>
-                        <label className="block w-1/2">
+                        <label className="flex items-center gap-2 w-1/2">
                             <span className="text-sm text-slate-400">גובה</span>
-                            <input type="number" value={template.height} onChange={(e) => onUpdateTemplate({height: parseInt(e.target.value)})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"/>
+                            <input type="number" value={template.height} onChange={(e) => onUpdateTemplate({height: parseInt(e.target.value)})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
                         </label>
                     </div>
-                     <label className="block">
+                     <label className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-400">צבע רקע</span>
-                        <input type="color" value={template.backgroundColor} onChange={(e) => onUpdateTemplate({backgroundColor: e.target.value})} className="w-full h-10 bg-slate-700 border border-slate-600 rounded p-1 mt-1"/>
+                        <input type="color" value={template.background_color} onChange={(e) => onUpdateTemplate({background_color: e.target.value})} className="w-24 h-10 bg-slate-700 border border-slate-600 rounded p-1"/>
                     </label>
                  </div>
             </Accordion>

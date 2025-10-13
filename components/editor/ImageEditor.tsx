@@ -626,7 +626,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             frame,
             isBlurApplied,
             hasMask,
-            maskDataUrl: hasMask ? maskCanvasRef.current?.toDataURL() : undefined,
+            maskDataUrl: hasMask ? (maskCanvasRef.current?.toDataURL() ?? null) : null,
         };
 
         onComplete({

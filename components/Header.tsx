@@ -1,9 +1,19 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { MagazineIcon } from './Icons';
+import { useAuth } from '../AuthContext';
+import { supabase } from '../supabaseClient';
 
 const Header: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
+
   return (
     <header className="bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
       <div className="container mx-auto px-4">
@@ -13,8 +23,21 @@ const Header: React.FC = () => {
             <span>איחולן</span>
           </Link>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-slate-400">admin@admin.com</span>
-            <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center font-bold">A</div>
+            {user ? (
+              <>
+                <span className="text-sm text-slate-400">{user.email}</span>
+                <button 
+                  onClick={handleLogout}
+                  className="text-sm text-slate-400 hover:text-white"
+                >
+                  התנתק
+                </button>
+              </>
+            ) : (
+              <Link to="/auth" className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                התחבר
+              </Link>
+            )}
           </div>
         </div>
       </div>
