@@ -47,7 +47,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const containerRef = useRef<HTMLDivElement>(null);
     const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const lastPointRef = useRef<{ x: number, y: number } | null>(null);
-
+    const replaceImageInputRef = useRef<HTMLInputElement>(null);
+    
+    const [currentSrc, setCurrentSrc] = useState(imageSrc);
 
     const [cropFrameSize, setCropFrameSize] = useState({ width: 0, height: 0 });
     const [zoom, setZoom] = useState(1);
@@ -69,6 +71,25 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
 
     const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
     const resetColorReplace = () => setColorReplace(prev => ({ ...prev, enabled: false }));
+
+    const handleResetBlur = useCallback(() => {
+        const maskCtx = maskCanvasRef.current?.getContext('2d');
+        if (maskCtx && maskCanvasRef.current) {
+            maskCtx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+        }
+        setIsBlurApplied(false);
+        setHasMask(false);
+        setBlurTool(null);
+    }, []);
+
+    const resetAllEdits = useCallback(() => {
+        resetFilters();
+        resetColorReplace();
+        handleResetBlur();
+        setFrame({ thickness: 0, style: 'none', color: '#000000' });
+        setOffset({ x: 0, y: 0 });
+        // Zoom is reset in the image onload effect
+    }, [handleResetBlur]);
 
     const drawLine = (x1: number, y1: number, x2: number, y2: number) => {
         const maskCanvas = maskCanvasRef.current;
@@ -253,18 +274,22 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         }
     }, [zoom, offset, filters, cropFrameSize, colorReplace, isBlurApplied, hasMask, blurTool, brushSize, mousePos, frame]);
 
+    const handleImageReplace = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                if (event.target?.result) {
+                    setCurrentSrc(event.target.result as string);
+                    resetAllEdits();
+                }
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        }
+         if (e.target) e.target.value = '';
+    };
+
     const handleApplyBlur = () => {
         setIsBlurApplied(true);
-        setBlurTool(null);
-    }
-
-    const handleResetBlur = () => {
-        const maskCtx = maskCanvasRef.current?.getContext('2d');
-        if (maskCtx && maskCanvasRef.current) {
-            maskCtx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
-        }
-        setIsBlurApplied(false);
-        setHasMask(false);
         setBlurTool(null);
     }
     
@@ -288,17 +313,18 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     }, [elementWidth, elementHeight]);
 
     useEffect(() => {
-        if (!imageSrc || cropFrameSize.width === 0) return;
+        if (!currentSrc || cropFrameSize.width === 0) return;
 
         const image = new Image();
         image.crossOrigin = "anonymous";
-        image.src = imageSrc;
+        image.src = currentSrc;
         image.onload = () => {
             imageRef.current = image;
             if (maskCanvasRef.current) {
                 maskCanvasRef.current.width = image.width;
                 maskCanvasRef.current.height = image.height;
             }
+            handleResetBlur();
             
             const scaleX = cropFrameSize.width / image.width;
             const scaleY = cropFrameSize.height / image.height;
@@ -307,7 +333,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             setZoom(initialZoom);
             setOffset({x: 0, y: 0});
         };
-    }, [imageSrc, cropFrameSize]);
+    }, [currentSrc, cropFrameSize, handleResetBlur]);
     
     useEffect(() => {
         draw();
@@ -584,8 +610,12 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                      </button>
                      <h2 className="font-bold text-lg">עורך תמונות</h2>
                      <div>
+                        <input type="file" ref={replaceImageInputRef} className="hidden" accept="image/*" onChange={handleImageReplace} />
                         <button onClick={onCancel} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors mr-2">
                             בטל
+                        </button>
+                        <button onClick={() => replaceImageInputRef.current?.click()} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors mr-2">
+                            החלף תמונה
                         </button>
                         <button onClick={handleConfirm} className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors">
                            אישור וחיתוך
