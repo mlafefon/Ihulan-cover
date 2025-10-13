@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RotateCcw, EyeDropperIcon, BrushIcon } from '../Icons';
+import type { ImageEditState } from '../../types';
 
 interface ImageEditorProps {
     imageSrc: string;
     elementWidth: number;
     elementHeight: number;
-    onComplete: (newImageSrc: string) => void;
+    onComplete: (data: { newSrc: string; newOriginalSrc: string; editState: ImageEditState; }) => void;
     onCancel: () => void;
+    initialEditState?: ImageEditState;
 }
 
 // Helper to convert hex color to RGB object
@@ -41,7 +43,7 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
     );
 };
 
-const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, elementHeight, onComplete, onCancel }) => {
+const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, elementHeight, onComplete, onCancel, initialEditState }) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const imageRef = useRef<HTMLImageElement | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +51,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const lastPointRef = useRef<{ x: number, y: number } | null>(null);
     const replaceImageInputRef = useRef<HTMLInputElement>(null);
     
+    const [originalImageSrc, setOriginalImageSrc] = useState(imageSrc);
     const [currentSrc, setCurrentSrc] = useState(imageSrc);
 
     const [cropFrameSize, setCropFrameSize] = useState({ width: 0, height: 0 });
@@ -279,7 +282,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             const reader = new FileReader();
             reader.onload = (event) => {
                 if (event.target?.result) {
-                    setCurrentSrc(event.target.result as string);
+                    const newImageSrc = event.target.result as string;
+                    setCurrentSrc(newImageSrc);
+                    setOriginalImageSrc(newImageSrc);
                     resetAllEdits();
                 }
             };
@@ -328,12 +333,30 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             
             const scaleX = cropFrameSize.width / image.width;
             const scaleY = cropFrameSize.height / image.height;
-            const initialZoom = Math.max(scaleX, scaleY);
-            setMinZoom(initialZoom);
-            setZoom(initialZoom);
-            setOffset({x: 0, y: 0});
+            const initialZoomValue = Math.max(scaleX, scaleY);
+            setMinZoom(initialZoomValue);
+
+            if (initialEditState) {
+                setZoom(initialEditState.zoom);
+                setOffset(initialEditState.offset);
+                setFilters(initialEditState.filters);
+                setColorReplace(initialEditState.colorReplace);
+                setFrame(initialEditState.frame);
+                setIsBlurApplied(initialEditState.isBlurApplied);
+                setHasMask(initialEditState.hasMask);
+                if (initialEditState.maskDataUrl && maskCanvasRef.current) {
+                    const maskImg = new Image();
+                    maskImg.src = initialEditState.maskDataUrl;
+                    maskImg.onload = () => {
+                        maskCanvasRef.current?.getContext('2d')?.drawImage(maskImg, 0, 0);
+                    }
+                }
+            } else {
+                setZoom(initialZoomValue);
+                setOffset({x: 0, y: 0});
+            }
         };
-    }, [currentSrc, cropFrameSize, handleResetBlur]);
+    }, [currentSrc, cropFrameSize, handleResetBlur, initialEditState]);
     
     useEffect(() => {
         draw();
@@ -594,8 +617,23 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                 ctx.restore();
             }
         }
+        
+        const editState: ImageEditState = {
+            zoom,
+            offset,
+            filters,
+            colorReplace,
+            frame,
+            isBlurApplied,
+            hasMask,
+            maskDataUrl: hasMask ? maskCanvasRef.current?.toDataURL() : undefined,
+        };
 
-        onComplete(offscreenCanvas.toDataURL());
+        onComplete({
+            newSrc: offscreenCanvas.toDataURL(),
+            newOriginalSrc: originalImageSrc,
+            editState,
+        });
     };
 
     const activeToolClass = 'bg-blue-600';

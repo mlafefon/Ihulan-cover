@@ -216,6 +216,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 rotation: 0,
                 zIndex: newZIndex,
                 src: payload?.src || null,
+                originalSrc: payload?.src || null,
                 objectFit: 'cover',
             } as ImageElement;
         }

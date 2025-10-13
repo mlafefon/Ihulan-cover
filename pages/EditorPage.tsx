@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MagazineEditor from '../components/editor/MagazineEditor';
 import ImageEditor from '../components/editor/ImageEditor';
-import type { Template, ImageElement } from '../types';
+import type { Template, ImageElement, ImageEditState } from '../types';
 
 interface EditingImageState {
   id: string;
-  src: string;
+  src: string; // originalSrc
   width: number;
   height: number;
+  editState?: ImageEditState;
 }
 
 interface LocationState {
@@ -57,21 +58,24 @@ const EditorPage: React.FC = () => {
 
 
   const handleEditImage = (element: ImageElement, currentTemplate: Template) => {
-    if (element.src) {
+    const originalImage = element.originalSrc || element.src;
+    if (originalImage) {
       setTemplate(currentTemplate); // Sync state from MagazineEditor before switching views
       setEditingImage({ 
         id: element.id, 
-        src: element.src,
+        src: originalImage,
         width: element.width,
         height: element.height,
+        editState: element.editState,
       });
     }
   };
 
-  const handleImageEditorComplete = (newSrc: string) => {
+  const handleImageEditorComplete = (data: { newSrc: string; newOriginalSrc: string; editState: ImageEditState; }) => {
     if (template && editingImage) {
+      const { newSrc, newOriginalSrc, editState } = data;
       const updatedElements = template.elements.map(el =>
-        el.id === editingImage.id ? { ...el, src: newSrc } : el
+        el.id === editingImage.id ? { ...el, src: newSrc, originalSrc: newOriginalSrc, editState: editState } : el
       );
       const newTemplate = { ...template, elements: updatedElements };
       setTemplate(newTemplate);
@@ -101,6 +105,7 @@ const EditorPage: React.FC = () => {
           elementHeight={editingImage.height}
           onComplete={handleImageEditorComplete}
           onCancel={handleImageEditorCancel}
+          initialEditState={editingImage.editState}
         />
       ) : (
         <MagazineEditor
