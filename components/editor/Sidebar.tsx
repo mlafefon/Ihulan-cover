@@ -229,26 +229,8 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
 
 const ImagePanel: React.FC<{ element: ImageElement; onUpdate: (id: string, updates: Partial<ImageElement>) => void; onEditImage: (element: ImageElement) => void }> = ({ element, onUpdate, onEditImage }) => {
     
-    const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                if (event.target?.result) {
-                    onEditImage({ ...element, src: event.target.result as string });
-                }
-            };
-            reader.readAsDataURL(e.target.files[0]);
-        }
-    };
-    
     return (
         <div className="p-4 space-y-4">
-            <div>
-                <label htmlFor="image-upload" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2 cursor-pointer">
-                    החלף תמונה
-                </label>
-                <input id="image-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
-            </div>
             <div>
                 <button onClick={() => onEditImage(element)} disabled={!element.src} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-not-allowed">
                     ערוך תמונה
