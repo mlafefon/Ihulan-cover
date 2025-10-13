@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
@@ -256,6 +257,36 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         }
     };
 
+    const handleLayerOrderChange = (elementId: string, direction: 'front' | 'back' | 'forward' | 'backward') => {
+        let elements = [...template.elements].sort((a, b) => a.zIndex - b.zIndex);
+        const currentIndex = elements.findIndex(el => el.id === elementId);
+    
+        if (currentIndex === -1) return;
+    
+        if (direction === 'forward') {
+            if (currentIndex < elements.length - 1) {
+                [elements[currentIndex], elements[currentIndex + 1]] = [elements[currentIndex + 1], elements[currentIndex]];
+            }
+        } else if (direction === 'backward') {
+            if (currentIndex > 0) {
+                [elements[currentIndex], elements[currentIndex - 1]] = [elements[currentIndex - 1], elements[currentIndex]];
+            }
+        } else if (direction === 'front') {
+            const [element] = elements.splice(currentIndex, 1);
+            elements.push(element);
+        } else if (direction === 'back') {
+            const [element] = elements.splice(currentIndex, 1);
+            elements.unshift(element);
+        }
+        
+        const finalElements = elements.map((el, index) => ({
+            ...el,
+            zIndex: index + 1,
+        }));
+    
+        handleTemplateChange({ ...template, elements: finalElements });
+    };
+
     const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
 
     const activeStyle = useMemo(() => {
@@ -391,6 +422,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 onUpdateTemplate={updateTemplateSettings}
                 onEditImage={passUpImageEdit}
                 onDeselect={() => handleSelectElement(null)}
+                onLayerOrderChange={handleLayerOrderChange}
             />
         </div>
     );

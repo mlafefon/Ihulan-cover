@@ -1,7 +1,8 @@
+
 import React, { useState, Fragment, useRef } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown } from '../Icons';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -14,9 +15,10 @@ interface SidebarProps {
     onUpdateTemplate: (settings: Partial<Template>) => void;
     onEditImage: (element: ImageElement) => void;
     onDeselect: () => void;
+    onLayerOrderChange: (id: string, direction: 'front' | 'back' | 'forward' | 'backward') => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect }) => {
+const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect, onLayerOrderChange }) => {
     
     return (
         <aside className="w-80 bg-slate-800 text-white flex flex-col h-full border-r border-slate-700" dir="rtl">
@@ -49,6 +51,13 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onA
                         {selectedElement.type === ElementType.Image && (
                             <ImagePanel element={selectedElement as ImageElement} onUpdate={onUpdateElement} onEditImage={onEditImage} />
                         )}
+                        <Accordion title="סדר">
+                            <LayerPanel 
+                                element={selectedElement} 
+                                onLayerOrderChange={onLayerOrderChange}
+                                totalElements={template.elements.length}
+                            />
+                        </Accordion>
                         <div className="p-4 mt-4 border-t border-slate-700">
                             <button onClick={() => onDeleteElement(selectedElement.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
                                 <TrashIcon className="w-4 h-4" />
@@ -77,6 +86,33 @@ const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpe
     );
 };
 
+const LayerPanel: React.FC<{ element: CanvasElement, onLayerOrderChange: SidebarProps['onLayerOrderChange'], totalElements: number}> = ({ element, onLayerOrderChange, totalElements }) => {
+    const isAtBack = element.zIndex <= 1;
+    const isAtFront = element.zIndex >= totalElements;
+    
+    const buttonClass = "flex flex-col items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 p-2 rounded-md text-xs disabled:opacity-50 disabled:cursor-not-allowed";
+
+    return (
+        <div className="grid grid-cols-4 gap-2">
+            <button onClick={() => onLayerOrderChange(element.id, 'front')} disabled={isAtFront} className={buttonClass} title="הבא לקדמה">
+                <ChevronsUp className="w-5 h-5"/>
+                <span>קדמה</span>
+            </button>
+            <button onClick={() => onLayerOrderChange(element.id, 'forward')} disabled={isAtFront} className={buttonClass} title="הזז קדימה">
+                <ChevronUp className="w-5 h-5"/>
+                <span>קדימה</span>
+            </button>
+            <button onClick={() => onLayerOrderChange(element.id, 'backward')} disabled={isAtBack} className={buttonClass} title="שלח לאחור">
+                <ChevronDown className="w-5 h-5"/>
+                <span>אחורה</span>
+            </button>
+            <button onClick={() => onLayerOrderChange(element.id, 'back')} disabled={isAtBack} className={buttonClass} title="שלח לרקע">
+                <ChevronsDown className="w-5 h-5"/>
+                <span>רקע</span>
+            </button>
+        </div>
+    );
+}
 
 const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src: string }) => void; template: Template, onUpdateTemplate: (settings: Partial<Template>) => void }> = ({ onAddElement, template, onUpdateTemplate }) => {
     return (
