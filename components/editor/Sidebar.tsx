@@ -64,25 +64,22 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onA
             <div className="flex-grow overflow-y-auto">
                 {selectedElement ? (
                     <>
-                        <Accordion title="כללי" defaultOpen>
-                            <div className="space-y-2">
-                                <label className="block">
-                                    <span className="text-sm text-slate-400">שם הרכיב (ID)</span>
-                                    <input
-                                        type="text"
-                                        value={elementId}
-                                        onChange={(e) => setElementId(e.target.value)}
-                                        onBlur={handleIdUpdate}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                (e.target as HTMLInputElement).blur();
-                                            }
-                                        }}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
-                                    />
-                                </label>
-                            </div>
-                        </Accordion>
+                        <div className="p-4 border-b border-slate-700 flex items-center justify-between gap-4">
+                            <label htmlFor="elementIdInput" className="text-sm text-slate-400 whitespace-nowrap">שם הרכיב (ID)</label>
+                            <input
+                                id="elementIdInput"
+                                type="text"
+                                value={elementId}
+                                onChange={(e) => setElementId(e.target.value)}
+                                onBlur={handleIdUpdate}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                }}
+                                className="flex-grow bg-slate-700 border border-slate-600 rounded p-2 text-sm"
+                            />
+                        </div>
                         {selectedElement.type === ElementType.Text && (
                             <TextPanel 
                                 element={selectedElement as TextElement} 
@@ -331,22 +328,79 @@ const ImagePanel: React.FC<{ element: ImageElement; onUpdate: (id: string, updat
         }
         if (e.target) e.target.value = ''; // Reset file input
     };
+
+    const handleNumericUpdate = (prop: keyof ImageElement, value: string) => {
+        const numValue = parseInt(value, 10);
+        if (!isNaN(numValue)) {
+            onUpdate(element.id, { [prop]: numValue } as Partial<ImageElement>);
+        }
+    };
     
     return (
-        <div className="p-4 space-y-4">
-            <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden"
-                accept="image/*"
-                onChange={handleFileChange}
-            />
-            <div>
-                <button onClick={handleButtonClick} className="w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 px-4 rounded">
+        <>
+            <div className="p-4 border-b border-slate-700">
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                />
+                <button onClick={handleButtonClick} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
                     {element.src ? 'ערוך תמונה' : 'הוסף תמונה'}
                 </button>
             </div>
-        </div>
+            
+            <Accordion title="מיקום וגודל" defaultOpen>
+                <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
+                    <label>
+                        <span className="text-sm text-slate-400">רוחב (W)</span>
+                        <input 
+                            type="number" 
+                            value={Math.round(element.width)} 
+                            onChange={(e) => handleNumericUpdate('width', e.target.value)} 
+                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
+                        />
+                    </label>
+                    <label>
+                        <span className="text-sm text-slate-400">גובה (H)</span>
+                        <input 
+                            type="number" 
+                            value={Math.round(element.height)} 
+                            onChange={(e) => handleNumericUpdate('height', e.target.value)} 
+                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
+                        />
+                    </label>
+                    <label>
+                        <span className="text-sm text-slate-400">מיקום X</span>
+                        <input 
+                            type="number" 
+                            value={Math.round(element.x)} 
+                            onChange={(e) => handleNumericUpdate('x', e.target.value)} 
+                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
+                        />
+                    </label>
+                    <label>
+                        <span className="text-sm text-slate-400">מיקום Y</span>
+                        <input 
+                            type="number" 
+                            value={Math.round(element.y)} 
+                            onChange={(e) => handleNumericUpdate('y', e.target.value)} 
+                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
+                        />
+                    </label>
+                     <label className="col-span-2">
+                        <span className="text-sm text-slate-400">סיבוב (°)</span>
+                        <input 
+                            type="number" 
+                            value={Math.round(element.rotation)} 
+                            onChange={(e) => handleNumericUpdate('rotation', e.target.value)} 
+                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
+                        />
+                    </label>
+                </div>
+            </Accordion>
+        </>
     );
 };
 
