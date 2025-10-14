@@ -26,6 +26,7 @@ const EditorPage: React.FC = () => {
   const { user } = useAuth();
 
   const [template, setTemplate] = useState<Template | null>(null);
+  const [originalTemplate, setOriginalTemplate] = useState<Template | null>(null); // To track name changes
   const [loading, setLoading] = useState(true);
   const [editorKey, setEditorKey] = useState(0);
   const [editingImage, setEditingImage] = useState<EditingImageState | null>(null);
@@ -35,6 +36,7 @@ const EditorPage: React.FC = () => {
 
     if (state?.template) {
       setTemplate(state.template);
+      setOriginalTemplate(state.template);
       setLoading(false);
     } else {
       // No template provided, redirect
@@ -43,11 +45,16 @@ const EditorPage: React.FC = () => {
   }, [location.state, navigate]);
 
   const handleSaveTemplate = async (templateToSave: Template, newPreview: string | undefined) => {
-    if (!user) return;
+    if (!user || !originalTemplate) return;
 
-    // A template is "new" if it's a temporary one, or if it's a fork of a public/another user's template.
+    const nameHasChanged = templateToSave.name !== originalTemplate.name;
+
+    // A template is considered "new" and should be inserted if:
+    // 1. It's a temporary template created from scratch.
+    // 2. It's a fork of another user's template or a public template.
+    // 3. The user has changed its name, triggering a "Save As" behavior.
     const isFork = templateToSave.user_id !== user.id;
-    const isNew = templateToSave.id.startsWith('new_') || isFork;
+    const isNew = templateToSave.id.startsWith('new_') || isFork || nameHasChanged;
 
     const sanitizeForSupabase = (obj: any): any => {
         if (obj === null || typeof obj !== 'object') {
@@ -116,12 +123,17 @@ const EditorPage: React.FC = () => {
             elements: savedTemplateData.items || [],
         };
 
+        // After saving, update the editor's state to reflect the saved version.
+        // This prevents the user from being navigated away and allows them to continue editing.
+        setTemplate(sanitizedTemplate);
+        
+        // If it was a "Save As" or fork, the "original" template is now the one just saved.
         if (isNew) {
-          navigate('/templates', { replace: true });
-        } else {
-          setTemplate(sanitizedTemplate);
-          setEditorKey(prev => prev + 1);
+          setOriginalTemplate(sanitizedTemplate);
         }
+
+        // Re-key the editor to force it to re-render with the latest template data.
+        setEditorKey(prev => prev + 1);
       }
     } catch (error: any) {
       console.error('Error saving template:', error);

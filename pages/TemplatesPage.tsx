@@ -103,6 +103,7 @@ const TemplatesPage: React.FC = () => {
       height: 1000,
       background_color: '#1a202c',
       elements: [],
+      user_id: user?.id,
     };
     navigate('/editor', { state: { template: newTemplate } });
   };
