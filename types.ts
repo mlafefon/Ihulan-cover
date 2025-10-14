@@ -13,8 +13,10 @@ export type Json =
 // `name` and `previewImage` are kept as top-level columns for efficient querying.
 export interface TemplateRow {
   id: string;
-  name: string;
-  template_data: Json;
+  // Fix: Allowed `name` and `template_data` to be nullable to match the database schema.
+  // An incorrect Row type can cause Supabase client to infer `never` for insert/update payloads.
+  name: string | null;
+  template_data: Json | null;
   previewImage?: string | null;
   user_id?: string | null;
   is_public?: boolean;

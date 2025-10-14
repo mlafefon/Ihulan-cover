@@ -1,5 +1,8 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+// Fix: Use `import type` for Session and User as they are only used as types.
+// This also helps with potential module resolution issues causing "not exported" errors.
+import type { Session, User } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from './supabaseClient';
 
 interface AuthContextType {
@@ -18,31 +21,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    let isMounted = true;
-
-    const getSession = async () => {
+    // Fix: Reverted to Supabase v2 API. `getSession` is an async function.
+    const fetchSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (isMounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    };
-
-    getSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+    };
+
+    fetchSession();
+
+    // Fix: Corrected subscription handling for Supabase v2.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (event === 'SIGNED_IN') {
+        navigate('/templates');
+      }
     });
 
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
 
   return (
     <AuthContext.Provider value={{ session, user, loading }}>

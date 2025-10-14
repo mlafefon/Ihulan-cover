@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
 import TemplatesPage from './pages/TemplatesPage';
 import EditorPage from './pages/EditorPage';
@@ -24,25 +24,23 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
   return (
-    <HashRouter>
-      <div className="min-h-screen bg-slate-900 text-gray-200">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/auth" element={<AuthPage />} />
-          <Route path="/templates" element={
-            <ProtectedRoute>
-              <TemplatesPage />
-            </ProtectedRoute>
-          } />
-          <Route path="/editor" element={
-            <ProtectedRoute>
-              <EditorPage />
-            </ProtectedRoute>
-          } />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </div>
-    </HashRouter>
+    <div className="min-h-screen bg-slate-900 text-gray-200">
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/templates" element={
+          <ProtectedRoute>
+            <TemplatesPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/editor" element={
+          <ProtectedRoute>
+            <EditorPage />
+          </ProtectedRoute>
+        } />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </div>
   );
 }
 

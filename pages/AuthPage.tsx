@@ -14,6 +14,7 @@ const AuthPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    // Fix: Reverted to `signInWithPassword` (Supabase v2 API) to match the imported client library.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
     else navigate('/templates');
@@ -23,6 +24,7 @@ const AuthPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setError(null);
     setLoading(true);
+    // Fix: Reverted to `signInWithOAuth` (Supabase v2 API) to match the imported client library.
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
     if (error) {
       setError(error.message);
