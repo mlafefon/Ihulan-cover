@@ -25,12 +25,7 @@ const AuthPage: React.FC = () => {
     setError(null);
     setLoading(true);
     // Fix: Reverted to `signInWithOAuth` (Supabase v2 API) to match the imported client library.
-    const { error } = await supabase.auth.signInWithOAuth({ 
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin + window.location.pathname
-      }
-    });
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
     if (error) {
       setError(error.message);
       setLoading(false);
