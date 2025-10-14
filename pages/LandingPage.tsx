@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import { useAuth } from '../AuthContext';
 
 const sampleCovers = [
   { title: 'השראה לסלון', subtitle: 'תבניות נקיות', img: 'https://picsum.photos/seed/salon/400/500' },
@@ -12,6 +13,8 @@ const sampleCovers = [
 
 const LandingPage: React.FC = () => {
   const [version, setVersion] = useState<string>('');
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // metadata.json is served at the root
@@ -21,6 +24,18 @@ const LandingPage: React.FC = () => {
       .catch((error) => console.error('Error fetching metadata:', error));
   }, []);
 
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/templates', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen bg-[#111827] text-white">טוען...</div>;
+  }
+
+  // If not loading and no user, render the landing page.
+  // If a user exists, the useEffect above will have already triggered a redirect.
   return (
     <div className="flex flex-col min-h-screen bg-[#111827]">
       <Header />
