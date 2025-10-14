@@ -170,12 +170,14 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
                     </button>
                 </div>
             </div>
+             <div>
+                <label className="flex items-center gap-2">
+                    <span className="text-sm text-slate-400 whitespace-nowrap">שם התבנית</span>
+                    <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
+                </label>
+            </div>
              <Accordion title="הגדרות עמוד">
                  <div className="space-y-3">
-                    <label className="flex items-center gap-2">
-                        <span className="text-sm text-slate-400 whitespace-nowrap">שם התבנית</span>
-                        <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
-                    </label>
                     <div className="flex gap-2">
                         <label className="flex items-center gap-2 w-1/2">
                             <span className="text-sm text-slate-400">רוחב</span>
