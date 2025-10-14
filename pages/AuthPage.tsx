@@ -32,7 +32,9 @@ const AuthPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setError(null);
     setLoading(true);
-    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+    // Construct the redirect URL by taking the current URL and removing any hash fragment.
+    // This is more robust for deployments in subdirectories (like GitHub Pages).
+    const redirectTo = window.location.href.split('#')[0];
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
