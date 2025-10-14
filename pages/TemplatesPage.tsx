@@ -10,11 +10,20 @@ const TemplatesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'my' | 'public'>('my');
+  const [activeTab, setActiveTab] = useState<'my' | 'public'>(() => {
+    const savedTab = sessionStorage.getItem('templatesPageActiveTab');
+    if (savedTab === 'my' || savedTab === 'public') {
+      return savedTab;
+    }
+    return 'public'; // Default to public for the first visit in a session
+  });
   const [myTemplates, setMyTemplates] = useState<Template[]>([]);
   const [publicTemplates, setPublicTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+
 
   const transformRowToTemplate = (row: TemplateRow): Template => {
     const data = row.template_data as {
@@ -30,6 +39,7 @@ const TemplatesPage: React.FC = () => {
         previewImage: row.previewImage,
         user_id: row.user_id,
         is_public: row.is_public ?? false,
+        is_active: row.is_active ?? true,
         created_at: row.created_at,
         width: data?.width || 800,
         height: data?.height || 1000,
@@ -37,6 +47,11 @@ const TemplatesPage: React.FC = () => {
         elements: data?.items || [],
     };
   };
+
+  // Persist the active tab choice in sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem('templatesPageActiveTab', activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     let isMounted = true;
@@ -52,6 +67,8 @@ const TemplatesPage: React.FC = () => {
           .from('templates')
           .select('*')
           .eq('user_id', user.id)
+          .eq('is_active', true)
+          .eq('is_public', false) // Exclude public templates from "My Designs"
           .order('created_at', { ascending: false });
         
         if (myError) throw myError;
@@ -60,7 +77,8 @@ const TemplatesPage: React.FC = () => {
         const { data: publicData, error: publicError } = await supabase
           .from('templates')
           .select('*')
-          .eq('is_public', true);
+          .eq('is_public', true)
+          .eq('is_active', true);
 
         if (publicError) throw publicError;
         if(isMounted) setPublicTemplates((publicData || []).map(transformRowToTemplate));
@@ -79,17 +97,54 @@ const TemplatesPage: React.FC = () => {
     };
   }, [user]);
   
-  const handleDeleteTemplate = async (templateId: string) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק תבנית זו?')) {
-        try {
-            const { error } = await supabase.from('templates').delete().eq('id', templateId);
-            if (error) throw error;
-            setMyTemplates(myTemplates.filter(t => t.id !== templateId));
-        } catch (error: any) {
-            console.error('Error deleting template:', error);
-            setError(`שגיאה במחיקת התבנית: ${error.message}`);
-        }
+  // Step 1: User clicks the trash icon, this function is called.
+  const initiateDelete = (template: Template) => {
+    console.log(`[Debug] Initiate delete for template: "${template.name}" (ID: ${template.id})`);
+    setTemplateToDelete(template);
+  };
+
+  // Step 2: User clicks "Cancel" in the confirmation overlay.
+  const cancelDelete = () => {
+    if (templateToDelete) {
+        console.log(`[Debug] Canceled deletion for template ID: ${templateToDelete.id}`);
     }
+    setTemplateToDelete(null);
+  };
+
+  // Step 3: User clicks "Confirm" in the confirmation overlay.
+  const confirmDelete = async () => {
+    if (!templateToDelete) return;
+    
+    console.log(`[Debug] Confirmed deletion for template ID: ${templateToDelete.id}`);
+    const templateIdToDelete = templateToDelete.id;
+
+    // Hide the confirmation dialog and start the animation
+    setTemplateToDelete(null);
+    setDeletingTemplateId(templateIdToDelete);
+
+    // Wait for animation to complete
+    setTimeout(async () => {
+        try {
+            console.log(`[Debug] Sending soft-delete request to Supabase for ID: ${templateIdToDelete}`);
+            const { error } = await supabase
+                .from('templates')
+                .update({ is_active: false })
+                .eq('id', templateIdToDelete);
+            
+            if (error) {
+                throw error;
+            }
+            
+            console.log(`[Debug] Supabase soft-delete successful. Updating UI for ID: ${templateIdToDelete}`);
+            setMyTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateIdToDelete));
+        } catch (error: any) {
+            console.error('Error soft-deleting template:', error);
+            console.log(`[Debug] Supabase soft-delete failed for ID: ${templateIdToDelete}. Error: ${error.message}`);
+            setError(`שגיאה במחיקת התבנית: ${error.message}`);
+            // On failure, reset the deleting state to make the item reappear.
+            setDeletingTemplateId(null);
+        }
+    }, 300); // Animation duration
   };
 
   const handleSelectTemplate = (template: Template) => {
@@ -106,6 +161,7 @@ const TemplatesPage: React.FC = () => {
       elements: [],
       user_id: user?.id,
       is_public: false,
+      is_active: true,
     };
     navigate('/editor', { state: { template: newTemplate } });
   };
@@ -138,24 +194,53 @@ const TemplatesPage: React.FC = () => {
             </button>
           )}
 
-          {filteredTemplates.map(template => (
-            <div key={template.id} className="group flex flex-col">
-              <div onClick={() => handleSelectTemplate(template)} className="cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
-                <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
-                    <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
+          {filteredTemplates.map(template => {
+            const isDeleting = deletingTemplateId === template.id;
+            return (
+                <div key={template.id} className={`group relative flex flex-col transition-all duration-300 ease-in-out ${isDeleting ? 'opacity-0 scale-90 -translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
+                    <div onClick={() => handleSelectTemplate(template)} className="cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
+                        <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
+                            <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
+                        </div>
+                        <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
+                    </div>
+                    <div className="flex justify-between items-center mt-3">
+                        <h3 className="font-semibold text-white truncate pr-2">{template.name}</h3>
+                        {activeTab === 'my' && (
+                        <button 
+                            onClick={(e) => { e.stopPropagation(); initiateDelete(template); }} 
+                            className="text-slate-500 hover:text-red-500 opacity-50 group-hover:opacity-100 transition-colors"
+                            title="מחק תבנית"
+                        >
+                            <TrashIcon className="w-5 h-5"/>
+                        </button>
+                        )}
+                    </div>
+                    {templateToDelete?.id === template.id && (
+                        <div 
+                            className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-4 rounded-lg text-center transition-opacity duration-300"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <p className="text-white font-bold mb-4">האם למחוק את התבנית "{template.name}"?</p>
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={cancelDelete} 
+                                    className="bg-slate-600 hover:bg-slate-500 text-white font-bold py-2 px-6 rounded-md transition-colors"
+                                >
+                                    ביטול
+                                </button>
+                                <button 
+                                    onClick={confirmDelete} 
+                                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-md transition-colors"
+                                >
+                                    מחק
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-                <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
-              </div>
-              <div className="flex justify-between items-center mt-3">
-                <h3 className="font-semibold text-white truncate pr-2">{template.name}</h3>
-                {activeTab === 'my' && (
-                  <button onClick={(e) => { e.stopPropagation(); handleDeleteTemplate(template.id); }} className="text-slate-500 hover:text-red-500 opacity-50 group-hover:opacity-100 transition-colors">
-                      <TrashIcon className="w-5 h-5"/>
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
     );
   }

@@ -78,9 +78,8 @@ const EditorPage: React.FC = () => {
     };
     
     // "Pack" design data into a single JSON object for storage in `template_data`.
-    // Fix: Explicitly type `templateDataToSave` as `Json` to match the expected Supabase type.
-    // This resolves TypeScript errors in the `.insert()` and `.update()` calls.
-    const templateDataToSave: Json = {
+    // Fix: Removed explicit type annotation to allow TypeScript to infer the type, resolving Supabase client errors.
+    const templateDataToSave = {
         width: templateToSave.width,
         height: templateToSave.height,
         backgroundColor: templateToSave.background_color,
@@ -95,7 +94,7 @@ const EditorPage: React.FC = () => {
 
     try {
       const { data, error } = isNew
-        ? await supabase.from('templates').insert({ ...commonData, user_id: user.id, is_public: false }).select()
+        ? await supabase.from('templates').insert({ ...commonData, user_id: user.id, is_public: false, is_active: true }).select()
         : await supabase.from('templates').update(commonData).eq('id', templateToSave.id).select();
 
       if (error) throw error;
@@ -118,6 +117,7 @@ const EditorPage: React.FC = () => {
             created_at: savedRow.created_at,
             previewImage: savedRow.previewImage,
             is_public: savedRow.is_public ?? false,
+            is_active: savedRow.is_active ?? true,
             width: savedTemplateData.width,
             height: savedTemplateData.height,
             background_color: savedTemplateData.backgroundColor || '#1a202c',

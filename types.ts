@@ -18,6 +18,7 @@ export interface TemplateRow {
   previewImage?: string | null;
   user_id?: string | null;
   is_public?: boolean;
+  is_active?: boolean;
   created_at?: string;
 }
 
@@ -32,6 +33,7 @@ export interface Template {
   previewImage?: string | null;
   user_id?: string | null;
   is_public?: boolean;
+  is_active?: boolean;
   created_at?: string;
 }
 
@@ -43,18 +45,24 @@ export interface Database {
         Row: TemplateRow;
         // Fix: Replaced Omit utility type with an explicit definition to resolve Supabase client type inference errors.
         Insert: {
-          name: string;
-          template_data: Json;
+          // Fix: Made `name` and `template_data` optional and nullable to match the database schema and resolve `never` type errors.
+          name?: string | null;
+          // Fix: Reverted type to `Json` to resolve Supabase client type inference errors.
+          template_data?: Json | null;
           previewImage?: string | null;
           user_id?: string | null;
           is_public?: boolean;
+          is_active?: boolean;
         };
         // Fix: Replaced Partial<Omit<...>> utility types with an explicit definition to resolve Supabase client type inference errors.
         Update: {
-          name?: string;
-          template_data?: Json;
+          // Fix: Allowed `null` for `name` and `template_data` to match the database schema and resolve `never` type errors.
+          name?: string | null;
+          // Fix: Reverted type to `Json` to resolve Supabase client type inference errors.
+          template_data?: Json | null;
           previewImage?: string | null;
           is_public?: boolean;
+          is_active?: boolean;
         };
       }
     }

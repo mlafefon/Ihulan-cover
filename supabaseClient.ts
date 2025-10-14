@@ -31,7 +31,10 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
 ONE-TIME SUPABASE SETUP:
 
 1. Create a new table in your Supabase project called 'templates'.
-   Use the following SQL schema:
+   If the table already exists, add the 'is_active' column for soft-deletes:
+   ALTER TABLE templates ADD COLUMN is_active BOOLEAN DEFAULT true;
+
+   Use the following SQL schema for a new table:
 
 CREATE TABLE templates (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -40,6 +43,7 @@ CREATE TABLE templates (
   previewImage TEXT,
   template_data JSONB,
   is_public BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
