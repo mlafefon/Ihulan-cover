@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 
@@ -11,6 +11,16 @@ const sampleCovers = [
 ];
 
 const LandingPage: React.FC = () => {
+  const [version, setVersion] = useState<string>('');
+
+  useEffect(() => {
+    // metadata.json is served at the root
+    fetch('./metadata.json')
+      .then((response) => response.json())
+      .then((data) => setVersion(data.version || ''))
+      .catch((error) => console.error('Error fetching metadata:', error));
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-[#111827]">
       <Header />
@@ -42,7 +52,10 @@ const LandingPage: React.FC = () => {
         </div>
       </main>
       <footer className="py-6 text-center text-slate-400">
-        <p>&copy; 2024 איחולן. כל הזכויות שמורות.</p>
+        <p>
+          &copy; 2024 איחולן. כל הזכויות שמורות.
+          {version && <span className="text-xs opacity-75 mr-2">v{version}</span>}
+        </p>
       </footer>
     </div>
   );
