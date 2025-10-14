@@ -95,7 +95,7 @@ const EditorPage: React.FC = () => {
 
     try {
       const { data, error } = isNew
-        ? await supabase.from('templates').insert({ ...commonData, user_id: user.id }).select()
+        ? await supabase.from('templates').insert({ ...commonData, user_id: user.id, is_public: false }).select()
         : await supabase.from('templates').update(commonData).eq('id', templateToSave.id).select();
 
       if (error) throw error;
@@ -117,6 +117,7 @@ const EditorPage: React.FC = () => {
             user_id: savedRow.user_id,
             created_at: savedRow.created_at,
             previewImage: savedRow.previewImage,
+            is_public: savedRow.is_public ?? false,
             width: savedTemplateData.width,
             height: savedTemplateData.height,
             background_color: savedTemplateData.backgroundColor || '#1a202c',

@@ -29,6 +29,7 @@ const TemplatesPage: React.FC = () => {
         name: row.name || 'תבנית ללא שם',
         previewImage: row.previewImage,
         user_id: row.user_id,
+        is_public: row.is_public ?? false,
         created_at: row.created_at,
         width: data?.width || 800,
         height: data?.height || 1000,
@@ -59,7 +60,7 @@ const TemplatesPage: React.FC = () => {
         const { data: publicData, error: publicError } = await supabase
           .from('templates')
           .select('*')
-          .is('user_id', null);
+          .eq('is_public', true);
 
         if (publicError) throw publicError;
         if(isMounted) setPublicTemplates((publicData || []).map(transformRowToTemplate));
@@ -104,6 +105,7 @@ const TemplatesPage: React.FC = () => {
       background_color: '#1a202c',
       elements: [],
       user_id: user?.id,
+      is_public: false,
     };
     navigate('/editor', { state: { template: newTemplate } });
   };

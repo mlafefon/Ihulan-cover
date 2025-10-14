@@ -17,6 +17,7 @@ export interface TemplateRow {
   template_data: Json;
   previewImage?: string | null;
   user_id?: string | null;
+  is_public?: boolean;
   created_at?: string;
 }
 
@@ -30,6 +31,7 @@ export interface Template {
   elements: CanvasElement[];
   previewImage?: string | null;
   user_id?: string | null;
+  is_public?: boolean;
   created_at?: string;
 }
 
@@ -39,8 +41,21 @@ export interface Database {
     Tables: {
       templates: {
         Row: TemplateRow;
-        Insert: Omit<TemplateRow, 'id' | 'created_at'>;
-        Update: Partial<Omit<TemplateRow, 'id' | 'created_at' | 'user_id'>>;
+        // Fix: Replaced Omit utility type with an explicit definition to resolve Supabase client type inference errors.
+        Insert: {
+          name: string;
+          template_data: Json;
+          previewImage?: string | null;
+          user_id?: string | null;
+          is_public?: boolean;
+        };
+        // Fix: Replaced Partial<Omit<...>> utility types with an explicit definition to resolve Supabase client type inference errors.
+        Update: {
+          name?: string;
+          template_data?: Json;
+          previewImage?: string | null;
+          is_public?: boolean;
+        };
       }
     }
     Views: {
