@@ -53,7 +53,7 @@ const LandingPage: React.FC = () => {
       </main>
       <footer className="py-6 text-center text-slate-400">
         <p>
-          &copy; 2025 איחולן. כל הזכויות שמורות.
+          &copy; 2024 איחולן. כל הזכויות שמורות.
           {version && <span className="text-xs opacity-75 mr-2">v{version}</span>}
         </p>
       </footer>

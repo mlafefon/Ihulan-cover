@@ -24,8 +24,17 @@ const AuthPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setError(null);
     setLoading(true);
-    // Fix: Reverted to `signInWithOAuth` (Supabase v2 API) to match the imported client library.
-    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    // Dynamically construct the redirect URL to ensure it works in both development and on GitHub Pages.
+    // This provides Supabase with the full path to the application, including the repository name subdirectory.
+    const redirectTo = `${window.location.origin}${window.location.pathname}`;
+
+    // Fix: Reverted to `signInWithOAuth` (Supabase v2 API) and added the essential `redirectTo` option.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo,
+      },
+    });
     if (error) {
       setError(error.message);
       setLoading(false);
