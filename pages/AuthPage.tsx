@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { MagazineIcon, GoogleIcon } from '../components/Icons';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../AuthContext';
 
 const AuthPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -9,12 +10,19 @@ const AuthPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
+  useEffect(() => {
+    // If the auth state is determined and a user exists, redirect them away.
+    if (!authLoading && user) {
+      navigate('/templates', { replace: true });
+    }
+  }, [user, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    // Fix: Reverted to `signInWithPassword` (Supabase v2 API) to match the imported client library.
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) setError(error.message);
     else navigate('/templates');
@@ -24,11 +32,8 @@ const AuthPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setError(null);
     setLoading(true);
-    // Dynamically construct the redirect URL to ensure it works in both development and on GitHub Pages.
-    // This provides Supabase with the full path to the application, including the repository name subdirectory.
     const redirectTo = `${window.location.origin}${window.location.pathname}`;
 
-    // Fix: Reverted to `signInWithOAuth` (Supabase v2 API) and added the essential `redirectTo` option.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -40,6 +45,15 @@ const AuthPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // While checking auth status or if a user is already logged in, show a loading state.
+  if (authLoading || user) {
+    return (
+       <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+         <div className="text-white">טוען...</div>
+       </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
