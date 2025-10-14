@@ -24,20 +24,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fix: Reverted to Supabase v2 API. `getSession` is an async function.
-    const fetchSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    };
-
-    fetchSession();
-
-    // Fix: Corrected subscription handling for Supabase v2.
+    // onAuthStateChange handles all authentication events, including the initial session
+    // from local storage or from an OAuth redirect. By relying on this single source
+    // of truth, we avoid the race condition that occurred previously.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false); // Set loading to false only after the first auth event is received.
 
       if (event === 'SIGNED_IN') {
         navigate('/templates');
