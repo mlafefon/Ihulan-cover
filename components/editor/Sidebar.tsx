@@ -1,7 +1,7 @@
 import React, { useState, Fragment, useRef, useEffect } from 'react';
-import type { Template, CanvasElement, TextElement, ImageElement, TextStyle } from '../../types';
+import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon } from '../Icons';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -15,9 +15,15 @@ interface SidebarProps {
     onEditImage: (element: ImageElement, newSrc?: string) => void;
     onDeselect: () => void;
     onLayerOrderChange: (id: string, direction: 'front' | 'back' | 'forward' | 'backward') => void;
+    onApplyCut: () => void;
+    isApplyingCut: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect, onLayerOrderChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+    selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, 
+    onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect, 
+    onLayerOrderChange, onApplyCut, isApplyingCut
+}) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
 
     useEffect(() => {
@@ -46,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onA
         <aside className="w-80 bg-slate-800 text-white flex flex-col h-full border-r border-slate-700" dir="rtl">
             <div className="p-4 border-b border-slate-700 flex justify-between items-center gap-2">
                 <div>
-                    <h2 className="text-lg font-bold">{selectedElement ? `עריכת ${selectedElement.type === 'text' ? 'טקסט' : 'תמונה'}` : 'איחולן'}</h2>
+                    <h2 className="text-lg font-bold">{selectedElement ? `עריכת ${selectedElement.type === 'text' ? 'טקסט' : selectedElement.type === 'image' ? 'תמונה' : 'צורת חיתוך'}` : 'איחולן'}</h2>
                     {!selectedElement && (
                         <p className="text-xs text-slate-400">עצבו את שער המגזין שלכם...</p>
                     )}
@@ -80,6 +86,18 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onA
                                 className="flex-grow bg-slate-700 border border-slate-600 rounded p-2 text-sm"
                             />
                         </div>
+
+                        {selectedElement.type === ElementType.Cutter && (
+                            <div className="p-4 border-b border-slate-700">
+                                <button 
+                                    onClick={onApplyCut}
+                                    disabled={isApplyingCut}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-wait"
+                                >
+                                    {isApplyingCut ? 'מעבד...' : 'בצע חיתוך'}
+                                </button>
+                            </div>
+                        )}
                         {selectedElement.type === ElementType.Text && (
                             <TextPanel 
                                 element={selectedElement as TextElement} 
@@ -89,9 +107,14 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedElement, onUpdateElement, onA
                              />
                         )}
                         {selectedElement.type === ElementType.Image && (
-                            <ImagePanel element={selectedElement as ImageElement} onUpdate={onUpdateElement} onEditImage={onEditImage} />
+                            <ImagePanel element={selectedElement as ImageElement} onEditImage={onEditImage} />
                         )}
-                        <Accordion title="סדר">
+                        {(selectedElement.type === ElementType.Image || selectedElement.type === ElementType.Cutter) && (
+                            <Accordion title="מיקום וגודל" defaultOpen>
+                                <TransformPanel element={selectedElement} onUpdate={onUpdateElement} />
+                            </Accordion>
+                        )}
+                         <Accordion title="סדר">
                             <LayerPanel 
                                 element={selectedElement} 
                                 onLayerOrderChange={onLayerOrderChange}
@@ -167,6 +190,10 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
                     <button onClick={() => onAddElement(ElementType.Image)} className="flex flex-col items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
                         <ImageIcon className="w-6 h-6" />
                         <span>הוסף תמונה</span>
+                    </button>
+                    <button onClick={() => onAddElement(ElementType.Cutter)} className="col-span-2 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
+                        <ScissorsIcon className="w-6 h-6" />
+                        <span>הוסף צורת חיתוך</span>
                     </button>
                 </div>
             </div>
@@ -305,7 +332,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     );
 };
 
-const ImagePanel: React.FC<{ element: ImageElement; onUpdate: (id: string, updates: Partial<ImageElement>) => void; onEditImage: (element: ImageElement, newSrc?: string) => void }> = ({ element, onUpdate, onEditImage }) => {
+const ImagePanel: React.FC<{ element: ImageElement; onEditImage: (element: ImageElement, newSrc?: string) => void }> = ({ element, onEditImage }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleButtonClick = () => {
@@ -331,79 +358,79 @@ const ImagePanel: React.FC<{ element: ImageElement; onUpdate: (id: string, updat
         if (e.target) e.target.value = ''; // Reset file input
     };
 
-    const handleNumericUpdate = (prop: keyof ImageElement, value: string) => {
+    return (
+        <div className="p-4 border-b border-slate-700">
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+            />
+            <button onClick={handleButtonClick} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                {element.src ? 'ערוך תמונה' : 'הוסף תמונה'}
+            </button>
+        </div>
+    );
+};
+
+const TransformPanel: React.FC<{ element: CanvasElement; onUpdate: (id: string, updates: Partial<CanvasElement>) => void }> = ({ element, onUpdate }) => {
+    const handleNumericUpdate = (prop: keyof CanvasElement, value: string) => {
         const numValue = parseInt(value, 10);
         if (!isNaN(numValue)) {
-            onUpdate(element.id, { [prop]: numValue } as Partial<ImageElement>);
+            onUpdate(element.id, { [prop]: numValue } as Partial<CanvasElement>);
         }
     };
-    
+
     return (
-        <>
-            <div className="p-4 border-b border-slate-700">
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileChange}
+        <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
+            <label>
+                <span className="text-sm text-slate-400">רוחב (W)</span>
+                <input
+                    type="number"
+                    value={Math.round(element.width)}
+                    onChange={(e) => handleNumericUpdate('width', e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
                 />
-                <button onClick={handleButtonClick} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                    {element.src ? 'ערוך תמונה' : 'הוסף תמונה'}
-                </button>
-            </div>
-            
-            <Accordion title="מיקום וגודל" defaultOpen>
-                <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
-                    <label>
-                        <span className="text-sm text-slate-400">רוחב (W)</span>
-                        <input 
-                            type="number" 
-                            value={Math.round(element.width)} 
-                            onChange={(e) => handleNumericUpdate('width', e.target.value)} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
-                        />
-                    </label>
-                    <label>
-                        <span className="text-sm text-slate-400">גובה (H)</span>
-                        <input 
-                            type="number" 
-                            value={Math.round(element.height)} 
-                            onChange={(e) => handleNumericUpdate('height', e.target.value)} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
-                        />
-                    </label>
-                    <label>
-                        <span className="text-sm text-slate-400">מיקום X</span>
-                        <input 
-                            type="number" 
-                            value={Math.round(element.x)} 
-                            onChange={(e) => handleNumericUpdate('x', e.target.value)} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
-                        />
-                    </label>
-                    <label>
-                        <span className="text-sm text-slate-400">מיקום Y</span>
-                        <input 
-                            type="number" 
-                            value={Math.round(element.y)} 
-                            onChange={(e) => handleNumericUpdate('y', e.target.value)} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
-                        />
-                    </label>
-                     <label className="col-span-2">
-                        <span className="text-sm text-slate-400">סיבוב (°)</span>
-                        <input 
-                            type="number" 
-                            value={Math.round(element.rotation)} 
-                            onChange={(e) => handleNumericUpdate('rotation', e.target.value)} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" 
-                        />
-                    </label>
-                </div>
-            </Accordion>
-        </>
-    );
+            </label>
+            <label>
+                <span className="text-sm text-slate-400">גובה (H)</span>
+                <input
+                    type="number"
+                    value={Math.round(element.height)}
+                    onChange={(e) => handleNumericUpdate('height', e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                />
+            </label>
+            <label>
+                <span className="text-sm text-slate-400">מיקום X</span>
+                <input
+                    type="number"
+                    value={Math.round(element.x)}
+                    onChange={(e) => handleNumericUpdate('x', e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                />
+            </label>
+            <label>
+                <span className="text-sm text-slate-400">מיקום Y</span>
+                <input
+                    type="number"
+                    value={Math.round(element.y)}
+                    onChange={(e) => handleNumericUpdate('y', e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                />
+            </label>
+            <label className="col-span-2">
+                <span className="text-sm text-slate-400">סיבוב (°)</span>
+                <input
+                    type="number"
+                    value={Math.round(element.rotation)}
+                    onChange={(e) => handleNumericUpdate('rotation', e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                />
+            </label>
+        </div>
+    )
 };
 
 

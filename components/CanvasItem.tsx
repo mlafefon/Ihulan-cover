@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../types';
+import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement } from '../types';
 import { ElementType } from '../types';
 import { ImageIcon } from './Icons';
 
@@ -312,7 +312,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         const startRotation = element.rotation;
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
+            const angle = Math.atan2(moveEvent.clientY - centerY, e.clientX - centerX);
             const angleDiff = (angle - startAngle) * (180 / Math.PI);
             onUpdate(element.id, { rotation: startRotation + angleDiff }, false);
         };
@@ -426,6 +426,13 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                         )}
                     </>
                 );
+            case ElementType.Cutter:
+                return (
+                    <div
+                        className="w-full h-full bg-red-500/30 border-2 border-dashed border-red-500 pointer-events-none"
+                        style={{ borderRadius: '50%' }}
+                    />
+                );
             default:
                 return null;
         }
@@ -441,6 +448,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             onDoubleClick={handleDoubleClick}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            data-element-id={element.id}
         >
              {element.type === ElementType.Image && (
                  <input 
@@ -451,7 +459,12 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     onChange={handleFileChange}
                 />
             )}
-            {isSelected && <div className="absolute inset-0 border-2 border-blue-500 pointer-events-none" />}
+            {isSelected && (
+                <div 
+                    className="absolute inset-0 border-2 border-blue-500 pointer-events-none"
+                    style={element.type === ElementType.Cutter ? { borderRadius: '50%' } : {}}
+                />
+            )}
             {isHovered && !isSelected && (
                 <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
             )}

@@ -80,6 +80,7 @@ export interface Database {
 export enum ElementType {
   Text = 'text',
   Image = 'image',
+  Cutter = 'cutter',
 }
 
 export interface ElementBase {
@@ -136,4 +137,8 @@ export interface ImageElement extends ElementBase {
   editState?: ImageEditState | null;
 }
 
-export type CanvasElement = TextElement | ImageElement;
+export interface CutterElement extends ElementBase {
+    type: ElementType.Cutter;
+}
+
+export type CanvasElement = TextElement | ImageElement | CutterElement;

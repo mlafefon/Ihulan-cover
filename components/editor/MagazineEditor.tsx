@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle } from '../../types';
+import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
 import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
@@ -185,11 +185,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 return { ...el, ...restOfUpdates, spans } as TextElement;
             }
 
-            if (el.type === ElementType.Image) {
-                return { ...el, ...updates } as ImageElement;
-            }
-
-            return el;
+            return { ...el, ...updates };
         });
 
         handleTemplateChange({ ...template, elements: newElements }, withHistory);
@@ -261,6 +257,18 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 backgroundColor: 'transparent',
                 padding: 10,
             } as TextElement;
+        } else if (type === ElementType.Cutter) {
+            const elementSize = 250;
+            newElement = {
+                id: newId,
+                type: ElementType.Cutter,
+                x: (template.width - elementSize) / 2,
+                y: (template.height - elementSize) / 2,
+                width: elementSize,
+                height: elementSize,
+                rotation: 0,
+                zIndex: 9999, // Always on top
+            } as CutterElement;
         } else { // Image
             const elementWidth = 400;
             const elementHeight = 300;
@@ -337,6 +345,121 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setIsSaving(false);
         // On success, page will navigate away or update state
     };
+
+    const handleApplyCut = async () => {
+        const cutter = template.elements.find(el => el.id === selectedElementId && el.type === ElementType.Cutter) as CutterElement | undefined;
+        if (!cutter) return;
+    
+        const findElementUnder = (cutterEl: CutterElement): CanvasElement | null => {
+            const sortedElements = template.elements
+                .filter(el => el.id !== cutterEl.id && (el.type === 'image' || el.type === 'text'))
+                .sort((a, b) => b.zIndex - a.zIndex);
+    
+            for (const el of sortedElements) {
+                const intersect = !(
+                    cutterEl.x > el.x + el.width ||
+                    cutterEl.x + cutterEl.width < el.x ||
+                    cutterEl.y > el.y + el.height ||
+                    cutterEl.y + cutterEl.height < el.y
+                );
+                if (intersect) return el;
+            }
+            return null;
+        };
+    
+        let targetElement = findElementUnder(cutter);
+        if (!targetElement) {
+            alert("לא נמצא אלמנט לחיתוך מתחת לצורה.");
+            return;
+        }
+    
+        let imageToClipSrc: string | null = null;
+        let imageToClipElement: ImageElement;
+    
+        setIsSaving(true);
+    
+        if (targetElement.type === ElementType.Text) {
+            const domNode = canvasRef.current?.querySelector(`[data-element-id="${targetElement.id}"]`) as HTMLElement;
+            if (domNode) {
+                try {
+                    imageToClipSrc = await (window as any).html2canvas(domNode, { backgroundColor: null, useCORS: true }).then((canvas: any) => canvas.toDataURL());
+                } catch (e) {
+                    console.error("html2canvas failed for text element:", e);
+                    alert("שגיאה בהמרת הטקסט לתמונה.");
+                    setIsSaving(false);
+                    return;
+                }
+            }
+        } else if (targetElement.type === ElementType.Image) {
+            imageToClipSrc = (targetElement as ImageElement).originalSrc || (targetElement as ImageElement).src;
+        }
+    
+        if (!imageToClipSrc) {
+            alert("לא ניתן היה למצוא מקור תמונה לחיתוך.");
+            setIsSaving(false);
+            return;
+        }
+    
+        const image = new Image();
+        image.crossOrigin = "Anonymous";
+    
+        image.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = targetElement!.width;
+            canvas.height = targetElement!.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+    
+            // Draw the image first, filling the target element's bounds
+            ctx.drawImage(image, 0, 0, targetElement!.width, targetElement!.height);
+    
+            // Now, prepare to clip using the cutter shape
+            ctx.globalCompositeOperation = 'destination-out';
+            
+            // Transform context to draw the cutter relative to the target element
+            ctx.translate(cutter.x - targetElement!.x, cutter.y - targetElement!.y);
+            ctx.translate(cutter.width / 2, cutter.height / 2);
+            ctx.rotate(cutter.rotation * Math.PI / 180);
+            ctx.translate(-cutter.width / 2, -cutter.height / 2);
+    
+            // Draw the clipping ellipse
+            ctx.beginPath();
+            ctx.ellipse(cutter.width / 2, cutter.height / 2, cutter.width / 2, cutter.height / 2, 0, 0, 2 * Math.PI);
+            ctx.fill();
+    
+            const clippedDataUrl = canvas.toDataURL('image/png');
+            
+            const newImageElement: ImageElement = {
+                id: `clipped_${Date.now()}`,
+                type: ElementType.Image,
+                x: targetElement!.x,
+                y: targetElement!.y,
+                width: targetElement!.width,
+                height: targetElement!.height,
+                rotation: targetElement!.rotation,
+                zIndex: targetElement!.zIndex,
+                src: clippedDataUrl,
+                originalSrc: clippedDataUrl,
+                objectFit: 'fill',
+            };
+    
+            const newElements = template.elements
+                .filter(el => el.id !== cutter.id && el.id !== targetElement!.id)
+                .concat(newImageElement);
+    
+            handleTemplateChange({ ...template, elements: newElements });
+            setSelectedElementId(newImageElement.id);
+            setIsSaving(false);
+        };
+    
+        image.onerror = () => {
+            alert("שגיאה בטעינת התמונה לחיתוך.");
+            setIsSaving(false);
+        };
+    
+        image.src = imageToClipSrc;
+    };
+
 
     const handleLayerOrderChange = (elementId: string, direction: 'front' | 'back' | 'forward' | 'backward') => {
         let elements = [...template.elements].sort((a, b) => a.zIndex - b.zIndex);
@@ -508,6 +631,8 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 onEditImage={passUpImageEdit}
                 onDeselect={() => handleSelectElement(null)}
                 onLayerOrderChange={handleLayerOrderChange}
+                onApplyCut={handleApplyCut}
+                isApplyingCut={isSaving}
             />
         </div>
     );
