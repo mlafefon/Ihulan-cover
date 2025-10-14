@@ -1,11 +1,8 @@
 {
-  "id": "fashion_mag",
-  "name": "Vogue",
   "width": 800,
   "height": 1000,
   "backgroundColor": "#ffffff",
-  "previewImage": "https://i.imgur.com/f9hJ4Jt.png",
-  "elements": [
+  "items": [
     {
       "id": "el_1760205806252",
       "type": "text",
