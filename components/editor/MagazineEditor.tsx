@@ -374,7 +374,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         }
     
         let imageToClipSrc: string | null = null;
-        let imageToClipElement: ImageElement;
     
         setIsSaving(true);
     
@@ -391,7 +390,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 }
             }
         } else if (targetElement.type === ElementType.Image) {
-            imageToClipSrc = (targetElement as ImageElement).originalSrc || (targetElement as ImageElement).src;
+            imageToClipSrc = (targetElement as ImageElement).src;
         }
     
         if (!imageToClipSrc) {
