@@ -1,55 +1,41 @@
-name: Deploy React + TypeScript (Vite) from main to GitHub Pages
+name: Deploy React amir
 
 on:
-  workflow_dispatch:  # מאפשר להריץ ידנית
   push:
     branches:
-      - main   # אפשר גם להריץ אחרי push ל-main
+      - main   # or master, adjust if needed
+  workflow_dispatch:  # allows manual run from the Actions tab
 
 permissions:
-  contents: write  # דרוש לדחיפה ל-gh-pages
+  contents: write  # needed to push to gh-pages
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout הקוד מ-main
-      - name: Checkout main branch
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: main
 
-      # 2️⃣ התקנת Node.js
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
-      # 3️⃣ התקנת תלויות
       - name: Install dependencies
         run: npm install
 
-      # 4️⃣ עדכון vite.config.ts עם base
-      - name: Update Vite base path
-        run: |
-          sed -i "s|base: .*|base: '/Ihulan-cover/',|" vite.config.ts
-
-      # 5️⃣ בניית הפרויקט
-      - name: Build project
+      - name: Build React project
         run: npm run build
 
-      # 6️⃣ הכנת תיקיית deploy (מעתיק את תוכן dist)
       - name: Prepare deploy folder
         run: |
-          mkdir -p deploy
-          rm -rf deploy/*
-          cp -r dist/* deploy/
+          rm -rf deploy
+          mkdir deploy
+          mv dist/* deploy/
 
-      # 7️⃣ פרסום ל-gh-pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./deploy
-          destination_branch: gh-pages
