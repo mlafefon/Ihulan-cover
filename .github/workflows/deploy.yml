@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # מאפשר להריץ ידנית
   push:
     branches:
-      - '*'   # אפשר גם להריץ אחרי push ל-main
+      - main   # אפשר גם להריץ אחרי push ל-main
 
 permissions:
   contents: write  # דרוש לדחיפה ל-gh-pages
