@@ -74,12 +74,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         });
     }, [historyIndex]);
 
-    const handleTemplateChange = (newTemplate: Template, withHistory: boolean = true) => {
+    const handleTemplateChange = useCallback((newTemplate: Template, withHistory: boolean = true) => {
         setTemplate(newTemplate);
         if (withHistory) {
             updateHistory(newTemplate);
         }
-    }
+    }, [updateHistory]);
     
     const handleInteractionEnd = useCallback(() => {
         updateHistory(templateRef.current);
@@ -207,7 +207,9 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         const newElements = template.elements.map(el => {
             if (el.id === selectedElementId && el.type === ElementType.Text) {
                 const newSpans = applyStyleToSpans(el.spans, rangeToStyle, styleUpdate);
-                return { ...el, spans: newSpans };
+                // Fix: Added a type assertion to ensure TypeScript correctly infers the type of the updated element.
+                // Without this, the spread operator on the union type `CanvasElement` can lead to an incorrect type inference.
+                return { ...el, spans: newSpans } as TextElement;
             }
             return el;
         });
@@ -508,13 +510,26 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         return selectedElement.spans[0]?.style || null;
     }, [selectedElement, selectionRange]);
     
-    const handleSelectElement = (id: string | null) => {
-        if (id !== selectedElementId) {
+    const handleSelectElement = useCallback((id: string | null) => {
+        const previouslySelectedId = selectedElementId;
+    
+        // If the selection is changing and the previously selected element was a Cutter, delete it.
+        if (previouslySelectedId && previouslySelectedId !== id) {
+            const previousElement = templateRef.current.elements.find(el => el.id === previouslySelectedId);
+            if (previousElement && previousElement.type === ElementType.Cutter) {
+                const newElements = templateRef.current.elements.filter(el => el.id !== previouslySelectedId);
+                // This updates the template and history, and triggers a re-render
+                handleTemplateChange({ ...templateRef.current, elements: newElements });
+            }
+        }
+        
+        // Standard selection logic
+        if (id !== previouslySelectedId) {
             lastSelectionRangeRef.current = null;
         }
         setSelectedElementId(id);
         setSelectionRange(null);
-    }
+    }, [selectedElementId, handleTemplateChange]);
     
     const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (e.target === e.currentTarget) {
