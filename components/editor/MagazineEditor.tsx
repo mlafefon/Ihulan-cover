@@ -436,16 +436,44 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             // Now, prepare to clip using the cutter shape
             ctx.globalCompositeOperation = 'destination-out';
             
-            // Transform context to draw the cutter relative to the target element
-            ctx.translate(cutter.x - targetElement!.x, cutter.y - targetElement!.y);
-            ctx.translate(cutter.width / 2, cutter.height / 2);
-            ctx.rotate(cutter.rotation * Math.PI / 180);
-            ctx.translate(-cutter.width / 2, -cutter.height / 2);
-    
-            // Draw the clipping ellipse
+            // Calculate cutter's position and rotation relative to the target's local (unrotated) coordinates.
+            const targetCenter = { 
+                x: targetElement!.x + targetElement!.width / 2, 
+                y: targetElement!.y + targetElement!.height / 2 
+            };
+            const cutterCenter = { 
+                x: cutter.x + cutter.width / 2, 
+                y: cutter.y + cutter.height / 2 
+            };
+
+            const delta = {
+                x: cutterCenter.x - targetCenter.x,
+                y: cutterCenter.y - targetCenter.y,
+            };
+
+            const unrotateRad = -targetElement!.rotation * (Math.PI / 180);
+            const cos_un = Math.cos(unrotateRad);
+            const sin_un = Math.sin(unrotateRad);
+            const delta_local = {
+                x: delta.x * cos_un - delta.y * sin_un,
+                y: delta.x * sin_un + delta.y * cos_un
+            };
+            
+            const cutterCenter_local = {
+                x: targetElement!.width / 2 + delta_local.x,
+                y: targetElement!.height / 2 + delta_local.y,
+            };
+
+            const relativeRotationRad = (cutter.rotation - targetElement!.rotation) * (Math.PI / 180);
+
+            ctx.save();
+            ctx.translate(cutterCenter_local.x, cutterCenter_local.y);
+            ctx.rotate(relativeRotationRad);
+            
             ctx.beginPath();
-            ctx.ellipse(cutter.width / 2, cutter.height / 2, cutter.width / 2, cutter.height / 2, 0, 0, 2 * Math.PI);
+            ctx.ellipse(0, 0, cutter.width / 2, cutter.height / 2, 0, 0, 2 * Math.PI);
             ctx.fill();
+            ctx.restore();
     
             const clippedDataUrl = canvas.toDataURL('image/png');
             
