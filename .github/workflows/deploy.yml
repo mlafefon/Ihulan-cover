@@ -1,21 +1,24 @@
 name: Deploy React + TypeScript (Vite) from main to GitHub Pages
 
 on:
-  workflow_dispatch:  # אפשרות להרצה ידנית
+  workflow_dispatch:  # מאפשר להריץ ידנית
+  push:
+    branches:
+      - main   # אפשר גם להריץ אחרי push ל-main
 
 permissions:
-  contents: write  # נדרש כדי לדחוף ל-gh-pages
+  contents: write  # דרוש לדחיפה ל-gh-pages
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ קבלת הקוד מ-branch main
+      # 1️⃣ Checkout הקוד מ-main
       - name: Checkout main branch
         uses: actions/checkout@v4
         with:
-          ref: main  # לוקח את כל הקוד מ-main
+          ref: main
 
       # 2️⃣ התקנת Node.js
       - name: Setup Node.js
@@ -23,11 +26,11 @@ jobs:
         with:
           node-version: 18
 
-      # 3️⃣ התקנת התלויות
+      # 3️⃣ התקנת תלויות
       - name: Install dependencies
         run: npm install
 
-      # 4️⃣ עדכון vite.config.ts (base path)
+      # 4️⃣ עדכון vite.config.ts עם base
       - name: Update Vite base path
         run: |
           sed -i "s|base: .*|base: '/Ihulan-cover/',|" vite.config.ts
@@ -36,10 +39,17 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # 6️⃣ פרסום ל-gh-pages
+      # 6️⃣ הכנת תיקיית deploy (מעתיק את תוכן dist)
+      - name: Prepare deploy folder
+        run: |
+          mkdir -p deploy
+          rm -rf deploy/*
+          cp -r dist/* deploy/
+
+      # 7️⃣ פרסום ל-gh-pages
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          destination_branch: gh-pages  # אפשר גם project-deploy אם רוצים branch נפרד
+          publish_dir: ./deploy
+          destination_branch: gh-pages
