@@ -313,7 +313,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         const startRotation = element.rotation;
 
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const angle = Math.atan2(moveEvent.clientY - centerY, e.clientX - centerX);
+            const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
             const angleDiff = (angle - startAngle) * (180 / Math.PI);
             onUpdate(element.id, { rotation: startRotation + angleDiff }, false);
         };
@@ -326,7 +326,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
-    }
+    };
     
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
     

@@ -204,7 +204,17 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 return { ...el, ...restOfUpdates, spans } as TextElement;
             }
 
-            return { ...el, ...updates };
+// Fix: When updating a property on a discriminated union member, we must narrow the type
+// before spreading to avoid TypeScript widening the type to an invalid shape.
+            if (el.type === ElementType.Image) {
+                const updatedElement: ImageElement = { ...el, ...updates };
+                return updatedElement;
+            }
+            if (el.type === ElementType.Cutter) {
+                const updatedElement: CutterElement = { ...el, ...updates };
+                return updatedElement;
+            }
+            return el;
         });
 
         const movedElement = newElements.find(el => el.id === id);
@@ -232,8 +242,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         const newElements = template.elements.map(el => {
             if (el.id === selectedElementId && el.type === ElementType.Text) {
                 const newSpans = applyStyleToSpans(el.spans, rangeToStyle, styleUpdate);
-                // Fix: Explicitly type the updated element to prevent incorrect type inference by TypeScript
-                // when spreading a member of a discriminated union.
                 const updatedElement: TextElement = { ...el, spans: newSpans };
                 return updatedElement;
             }
