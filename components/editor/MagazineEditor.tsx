@@ -445,15 +445,13 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     
         let previewImage: string | undefined = template.previewImage || undefined;
         
-        if (canvasRef.current && (window as any).html2canvas) {
+        if (canvasRef.current && (window as any).htmlToImage) {
             try {
-                const canvas = await (window as any).html2canvas(canvasRef.current, { 
-                    backgroundColor: null,
-                    useCORS: true 
+                previewImage = await (window as any).htmlToImage.toPng(canvasRef.current, {
+                    pixelRatio: 2, // For better quality on high-DPI screens
                 });
-                previewImage = canvas.toDataURL('image/png');
             } catch (e) {
-                console.error("html2canvas failed:", e);
+                console.error("html-to-image failed for preview:", e);
             }
         }
         
@@ -480,9 +478,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             const domNode = canvasRef.current?.querySelector(`[data-element-id="${targetElement.id}"]`) as HTMLElement;
             if (domNode) {
                 try {
-                    imageToClipSrc = await (window as any).html2canvas(domNode, { backgroundColor: null, useCORS: true }).then((canvas: any) => canvas.toDataURL());
+                    imageToClipSrc = await (window as any).htmlToImage.toPng(domNode, {
+                        backgroundColor: 'transparent',
+                        pixelRatio: 2
+                    });
                 } catch (e) {
-                    console.error("html2canvas failed for text element:", e);
+                    console.error("html-to-image failed for text element:", e);
                     alert("שגיאה בהמרת הטקסט לתמונה.");
                     setIsSaving(false);
                     return;
@@ -668,16 +669,20 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     };
 
     const handleExportPNG = async () => {
-        if (canvasRef.current && (window as any).html2canvas && (window as any).saveAs) {
+        if (canvasRef.current && (window as any).htmlToImage && (window as any).saveAs) {
             handleSelectElement(null);
             await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render
-            const canvas = await (window as any).html2canvas(canvasRef.current, {
-                backgroundColor: null,
-                useCORS: true,
-            });
-            canvas.toBlob(function(blob: Blob) {
-                if(blob) (window as any).saveAs(blob, `${template.name}.png`);
-            });
+            try {
+                const blob = await (window as any).htmlToImage.toBlob(canvasRef.current, {
+                    pixelRatio: 3, // Use higher quality for export
+                });
+                if (blob) {
+                    (window as any).saveAs(blob, `${template.name}.png`);
+                }
+            } catch (e) {
+                console.error("Error exporting to PNG with html-to-image:", e);
+                alert("שגיאה בייצוא התמונה. נסה שוב.");
+            }
         }
     };
 
