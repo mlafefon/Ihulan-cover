@@ -204,14 +204,16 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 return { ...el, ...restOfUpdates, spans } as TextElement;
             }
 
-// Fix: When updating a property on a discriminated union member, we must narrow the type
-// before spreading to avoid TypeScript widening the type to an invalid shape.
+            // Fix: Cast the result to the specific element type. This is necessary because the `updates` object's type
+            // is a broad partial of all possible canvas elements. Spreading it widens the type of the resulting
+            // object in a way TypeScript cannot reconcile without a cast. This pattern is consistent with how
+            // TextElement updates are handled above.
             if (el.type === ElementType.Image) {
-                const updatedElement: ImageElement = { ...el, ...updates };
+                const updatedElement: ImageElement = { ...el, ...updates } as ImageElement;
                 return updatedElement;
             }
             if (el.type === ElementType.Cutter) {
-                const updatedElement: CutterElement = { ...el, ...updates };
+                const updatedElement: CutterElement = { ...el, ...updates } as CutterElement;
                 return updatedElement;
             }
             return el;
