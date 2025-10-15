@@ -15,6 +15,7 @@ interface MagazineEditorProps {
 
 const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEditImage, onSaveTemplate }) => {
     const navigate = useNavigate();
+    const [cutterTargetId, setCutterTargetId] = useState<string | null>(null);
     const [snapLines, setSnapLines] = useState<{ x: number[], y: number[] }>({ x: [], y: [] });
 
     const [template, setTemplate] = useState<Template>(initialTemplate);
@@ -81,10 +82,28 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         }
     }, [updateHistory]);
     
+    const findElementUnder = useCallback((cutterEl: CutterElement, allElements: CanvasElement[]): CanvasElement | null => {
+        const sortedElements = allElements
+            .filter(el => el.id !== cutterEl.id && (el.type === 'image' || el.type === 'text'))
+            .sort((a, b) => b.zIndex - a.zIndex);
+
+        for (const el of sortedElements) {
+            const intersect = !(
+                cutterEl.x > el.x + el.width ||
+                cutterEl.x + cutterEl.width < el.x ||
+                cutterEl.y > el.y + el.height ||
+                cutterEl.y + cutterEl.height < el.y
+            );
+            if (intersect) return el;
+        }
+        return null;
+    }, []);
+    
     const handleInteractionEnd = useCallback(() => {
         updateHistory(templateRef.current);
         setIsInteracting(false);
         setSnapLines({ x: [], y: [] });
+        setCutterTargetId(null);
     }, [updateHistory]);
 
     const updateElement = (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory: boolean = true, cursorPos?: { start: number; end: number }) => {
@@ -188,6 +207,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             return { ...el, ...updates };
         });
 
+        const movedElement = newElements.find(el => el.id === id);
+        if (movedElement && movedElement.type === ElementType.Cutter) {
+            const target = findElementUnder(movedElement as CutterElement, newElements);
+            setCutterTargetId(target ? target.id : null);
+        }
+
         handleTemplateChange({ ...template, elements: newElements }, withHistory);
 
         if (cursorPos) {
@@ -207,9 +232,10 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         const newElements = template.elements.map(el => {
             if (el.id === selectedElementId && el.type === ElementType.Text) {
                 const newSpans = applyStyleToSpans(el.spans, rangeToStyle, styleUpdate);
-                // Fix: Added a type assertion to ensure TypeScript correctly infers the type of the updated element.
-                // Without this, the spread operator on the union type `CanvasElement` can lead to an incorrect type inference.
-                return { ...el, spans: newSpans } as TextElement;
+                // Fix: Explicitly type the updated element to prevent incorrect type inference by TypeScript
+                // when spreading a member of a discriminated union.
+                const updatedElement: TextElement = { ...el, spans: newSpans };
+                return updatedElement;
             }
             return el;
         });
@@ -352,24 +378,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         const cutter = template.elements.find(el => el.id === selectedElementId && el.type === ElementType.Cutter) as CutterElement | undefined;
         if (!cutter) return;
     
-        const findElementUnder = (cutterEl: CutterElement): CanvasElement | null => {
-            const sortedElements = template.elements
-                .filter(el => el.id !== cutterEl.id && (el.type === 'image' || el.type === 'text'))
-                .sort((a, b) => b.zIndex - a.zIndex);
-    
-            for (const el of sortedElements) {
-                const intersect = !(
-                    cutterEl.x > el.x + el.width ||
-                    cutterEl.x + cutterEl.width < el.x ||
-                    cutterEl.y > el.y + el.height ||
-                    cutterEl.y + cutterEl.height < el.y
-                );
-                if (intersect) return el;
-            }
-            return null;
-        };
-    
-        let targetElement = findElementUnder(cutter);
+        let targetElement = findElementUnder(cutter, template.elements);
         if (!targetElement) {
             alert("לא נמצא אלמנט לחיתוך מתחת לצורה.");
             return;
@@ -523,6 +532,11 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             }
         }
         
+        const newSelectedElement = id ? templateRef.current.elements.find(el => el.id === id) : null;
+        if (!newSelectedElement || newSelectedElement.type !== ElementType.Cutter) {
+            setCutterTargetId(null);
+        }
+
         // Standard selection logic
         if (id !== previouslySelectedId) {
             lastSelectionRangeRef.current = null;
@@ -611,6 +625,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                                 key={element.id}
                                 element={element}
                                 isSelected={selectedElementId === element.id}
+                                isCutterTarget={cutterTargetId === element.id}
                                 onSelect={() => handleSelectElement(element.id)}
                                 onUpdate={updateElement}
                                 onInteractionStart={() => setIsInteracting(true)}

@@ -6,6 +6,7 @@ import { ImageIcon } from './Icons';
 interface CanvasItemProps {
     element: CanvasElement;
     isSelected: boolean;
+    isCutterTarget?: boolean;
     onSelect: () => void;
     onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean, cursorPos?: { start: number; end: number }) => void;
     onInteractionStart: () => void;
@@ -43,7 +44,7 @@ const handleCursorClasses: { [key: string]: string } = {
 
 const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -459,6 +460,12 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     onChange={handleFileChange}
                 />
             )}
+            
+            {renderElement()}
+
+            {isCutterTarget && (
+                <div className="absolute inset-0 border-2 border-dashed border-white pointer-events-none" />
+            )}
             {isSelected && (
                 <div 
                     className="absolute inset-0 border-2 border-blue-500 pointer-events-none"
@@ -468,7 +475,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             {isHovered && !isSelected && (
                 <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
             )}
-            {renderElement()}
             {isSelected && (
                 <>
                     {handles.map(handle => (
