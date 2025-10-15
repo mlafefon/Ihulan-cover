@@ -86,15 +86,93 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         const sortedElements = allElements
             .filter(el => el.id !== cutterEl.id && (el.type === 'image' || el.type === 'text'))
             .sort((a, b) => b.zIndex - a.zIndex);
-
+    
         for (const el of sortedElements) {
-            const intersect = !(
-                cutterEl.x > el.x + el.width ||
-                cutterEl.x + cutterEl.width < el.x ||
-                cutterEl.y > el.y + el.height ||
-                cutterEl.y + cutterEl.height < el.y
-            );
-            if (intersect) return el;
+            // 1. Define ellipse (cutter) and rectangle (el) properties in world coordinates.
+            const cutterCenter = { x: cutterEl.x + cutterEl.width / 2, y: cutterEl.y + cutterEl.height / 2 };
+            const cutterRadii = { a: cutterEl.width / 2, b: cutterEl.height / 2 };
+            if (cutterRadii.a <= 0 || cutterRadii.b <= 0) continue; // Skip if cutter has no area
+            const cutterAngleRad = cutterEl.rotation * (Math.PI / 180);
+    
+            const rectCenter = { x: el.x + el.width / 2, y: el.y + el.height / 2 };
+            const rectHalfSize = { w: el.width / 2, h: el.height / 2 };
+            const rectAngleRad = el.rotation * (Math.PI / 180);
+    
+            // 2. Get rectangle's corner vertices in world coordinates.
+            const rectCorners = [
+                { x: -rectHalfSize.w, y: -rectHalfSize.h },
+                { x:  rectHalfSize.w, y: -rectHalfSize.h },
+                { x:  rectHalfSize.w, y:  rectHalfSize.h },
+                { x: -rectHalfSize.w, y:  rectHalfSize.h }
+            ].map(p => {
+                const cosRect = Math.cos(rectAngleRad);
+                const sinRect = Math.sin(rectAngleRad);
+                const rotatedX = p.x * cosRect - p.y * sinRect;
+                const rotatedY = p.x * sinRect + p.y * cosRect;
+                return { x: rotatedX + rectCenter.x, y: rotatedY + rectCenter.y };
+            });
+    
+            // 3. Transform rectangle's vertices into the ellipse's "squashed" space where it becomes a circle.
+            const circleRadius = cutterRadii.a;
+            const scaleY = cutterRadii.b > 0 ? cutterRadii.a / cutterRadii.b : 0;
+    
+            const transformedCorners = rectCorners.map(p => {
+                // a. Translate so ellipse's center is the origin
+                let tx = p.x - cutterCenter.x;
+                let ty = p.y - cutterCenter.y;
+    
+                // b. Rotate into ellipse's local coordinate system (un-rotate the world)
+                const cosCutter = Math.cos(-cutterAngleRad);
+                const sinCutter = Math.sin(-cutterAngleRad);
+                let rx = tx * cosCutter - ty * sinCutter;
+                let ry = tx * sinCutter + ty * cosCutter;
+                
+                // c. Scale Y-axis to transform ellipse into a circle
+                let scaledY = ry * scaleY;
+                
+                return { x: rx, y: scaledY };
+            });
+    
+            // 4. Check for intersection between the transformed polygon and a circle centered at (0,0) with radius `circleRadius`.
+            
+            // 4a. Check if circle center (origin) is inside the transformed polygon.
+            let isOriginInside = false;
+            for (let i = 0, j = transformedCorners.length - 1; i < transformedCorners.length; j = i++) {
+                const p1 = transformedCorners[i];
+                const p2 = transformedCorners[j];
+                const isBetweenY = (p1.y > 0) !== (p2.y > 0);
+                if (isBetweenY) {
+                     const xIntersection = (p2.x - p1.x) * (0 - p1.y) / (p2.y - p1.y) + p1.x;
+                     if (xIntersection > 0) { // Ray goes to positive X
+                         isOriginInside = !isOriginInside;
+                     }
+                }
+            }
+            if (isOriginInside) return el;
+    
+            // 4b. Check if any edge of the polygon intersects the circle.
+            for (let i = 0, j = transformedCorners.length - 1; i < transformedCorners.length; j = i++) {
+                const p1 = transformedCorners[i];
+                const p2 = transformedCorners[j];
+    
+                const edgeVec = { x: p2.x - p1.x, y: p2.y - p1.y };
+                const p1ToOriginVec = { x: -p1.x, y: -p1.y };
+    
+                const edgeLenSq = edgeVec.x * edgeVec.x + edgeVec.y * edgeVec.y;
+                if (edgeLenSq === 0) continue; 
+    
+                const dot = p1ToOriginVec.x * edgeVec.x + p1ToOriginVec.y * edgeVec.y;
+                const t = Math.max(0, Math.min(1, dot / edgeLenSq));
+                
+                const closestPoint = { 
+                    x: p1.x + t * edgeVec.x, 
+                    y: p1.y + t * edgeVec.y 
+                };
+    
+                const distSq = closestPoint.x * closestPoint.x + closestPoint.y * closestPoint.y;
+                
+                if (distSq <= circleRadius * circleRadius) return el;
+            }
         }
         return null;
     }, []);
