@@ -1,0 +1,39 @@
+name: Sync and Deploy React App
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"  # כל 15 דקות
+  workflow_dispatch:        # אפשר להריץ ידנית גם
+
+permissions:
+  contents: write  # needed to push to gh-pages
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout deploy repo
+        uses: actions/checkout@v4
+
+      - name: Clone source repo
+        run: |
+          git clone --depth 1 https://github.com/YOUR_USERNAME/project-source.git source
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install & Build
+        run: |
+          cd source
+          npm ci || npm install
+          npx vite build --base=/project-deploy/
+          cp -r dist ../dist
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
