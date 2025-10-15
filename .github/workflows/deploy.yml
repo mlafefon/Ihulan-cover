@@ -3,7 +3,7 @@ name: Deploy React amir
 on:
   push:
     branches:
-      - main   # or master, adjust if needed
+      - '*'   # or master, adjust if needed
   workflow_dispatch:  # allows manual run from the Actions tab
 
 permissions:
