@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
-import { PlusIcon, SearchIcon, TrashIcon } from '../components/Icons';
-import type { Template, CanvasElement, TemplateRow } from '../types';
+import { PlusIcon, SearchIcon, TrashIcon, SpinnerIcon } from '../components/Icons';
+import type { Template, CanvasElement, TemplateRow, TemplatePreview } from '../types';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
 
@@ -17,14 +17,14 @@ const TemplatesPage: React.FC = () => {
     }
     return 'public'; // Default to public for the first visit in a session
   });
-  const [myTemplates, setMyTemplates] = useState<Template[]>([]);
-  const [publicTemplates, setPublicTemplates] = useState<Template[]>([]);
+  const [myTemplates, setMyTemplates] = useState<TemplatePreview[]>([]);
+  const [publicTemplates, setPublicTemplates] = useState<TemplatePreview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
-  const [templateToDelete, setTemplateToDelete] = useState<Template | null>(null);
+  const [templateToDelete, setTemplateToDelete] = useState<TemplatePreview | null>(null);
+  const [loadingTemplateId, setLoadingTemplateId] = useState<string | null>(null);
 
-
+  // Transforms a full row (with template_data) into a Template object for the editor.
   const transformRowToTemplate = (row: TemplateRow): Template => {
     const data = row.template_data as {
         width?: number;
@@ -48,6 +48,19 @@ const TemplatesPage: React.FC = () => {
     };
   };
 
+  // Transforms a row with only preview data into a lightweight TemplatePreview object.
+  const transformRowToTemplatePreview = (row: Pick<TemplateRow, 'id' | 'name' | 'previewImage' | 'user_id' | 'is_public' | 'is_active' | 'created_at'>): TemplatePreview => {
+      return {
+        id: row.id,
+        name: row.name || 'תבנית ללא שם',
+        previewImage: row.previewImage,
+        user_id: row.user_id,
+        is_public: row.is_public ?? false,
+        is_active: row.is_active ?? true,
+        created_at: row.created_at,
+      };
+  };
+
   // Persist the active tab choice in sessionStorage
   useEffect(() => {
     sessionStorage.setItem('templatesPageActiveTab', activeTab);
@@ -63,25 +76,28 @@ const TemplatesPage: React.FC = () => {
             setError(null);
         }
         
+        // Fetch only the data needed for the preview gallery
+        const selectQuery = 'id, name, previewImage, user_id, is_public, is_active, created_at';
+
         const { data: myData, error: myError } = await supabase
           .from('templates')
-          .select('*')
+          .select(selectQuery)
           .eq('user_id', user.id)
           .eq('is_active', true)
           .eq('is_public', false) // Exclude public templates from "My Designs"
           .order('created_at', { ascending: false });
         
         if (myError) throw myError;
-        if(isMounted) setMyTemplates((myData || []).map(transformRowToTemplate));
+        if(isMounted) setMyTemplates((myData || []).map(transformRowToTemplatePreview));
 
         const { data: publicData, error: publicError } = await supabase
           .from('templates')
-          .select('*')
+          .select(selectQuery)
           .eq('is_public', true)
           .eq('is_active', true);
 
         if (publicError) throw publicError;
-        if(isMounted) setPublicTemplates((publicData || []).map(transformRowToTemplate));
+        if(isMounted) setPublicTemplates((publicData || []).map(transformRowToTemplatePreview));
 
       } catch (e: any) {
         console.error("Failed to fetch templates:", e);
@@ -97,13 +113,11 @@ const TemplatesPage: React.FC = () => {
     };
   }, [user]);
   
-  // Step 1: User clicks the trash icon, this function is called.
-  const initiateDelete = (template: Template) => {
+  const initiateDelete = (template: TemplatePreview) => {
     console.log(`[Debug] Initiate delete for template: "${template.name}" (ID: ${template.id})`);
     setTemplateToDelete(template);
   };
 
-  // Step 2: User clicks "Cancel" in the confirmation overlay.
   const cancelDelete = () => {
     if (templateToDelete) {
         console.log(`[Debug] Canceled deletion for template ID: ${templateToDelete.id}`);
@@ -111,7 +125,6 @@ const TemplatesPage: React.FC = () => {
     setTemplateToDelete(null);
   };
 
-  // Step 3: User clicks "Confirm" in the confirmation overlay.
   const confirmDelete = async () => {
     if (!templateToDelete) return;
     
@@ -120,35 +133,54 @@ const TemplatesPage: React.FC = () => {
 
     // Hide the confirmation dialog and start the animation
     setTemplateToDelete(null);
-    setDeletingTemplateId(templateIdToDelete);
 
-    // Wait for animation to complete
-    setTimeout(async () => {
-        try {
-            console.log(`[Debug] Sending soft-delete request to Supabase for ID: ${templateIdToDelete}`);
-            const { error } = await supabase
-                .from('templates')
-                .update({ is_active: false })
-                .eq('id', templateIdToDelete);
-            
-            if (error) {
-                throw error;
-            }
-            
-            console.log(`[Debug] Supabase soft-delete successful. Updating UI for ID: ${templateIdToDelete}`);
-            setMyTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateIdToDelete));
-        } catch (error: any) {
-            console.error('Error soft-deleting template:', error);
-            console.log(`[Debug] Supabase soft-delete failed for ID: ${templateIdToDelete}. Error: ${error.message}`);
-            setError(`שגיאה במחיקת התבנית: ${error.message}`);
-            // On failure, reset the deleting state to make the item reappear.
-            setDeletingTemplateId(null);
+    try {
+        console.log(`[Debug] Sending soft-delete request to Supabase for ID: ${templateIdToDelete}`);
+        const { error } = await supabase
+            .from('templates')
+            .update({ is_active: false })
+            .eq('id', templateIdToDelete);
+        
+        if (error) {
+            throw error;
         }
-    }, 300); // Animation duration
+        
+        console.log(`[Debug] Supabase soft-delete successful. Updating UI for ID: ${templateIdToDelete}`);
+        setMyTemplates(prevTemplates => prevTemplates.filter(t => t.id !== templateIdToDelete));
+    } catch (error: any) {
+        console.error('Error soft-deleting template:', error);
+        console.log(`[Debug] Supabase soft-delete failed for ID: ${templateIdToDelete}. Error: ${error.message}`);
+        setError(`שגיאה במחיקת התבנית: ${error.message}`);
+    }
   };
 
-  const handleSelectTemplate = (template: Template) => {
-    navigate('/editor', { state: { template } });
+  const handleSelectTemplate = async (template: TemplatePreview) => {
+    if (loadingTemplateId) return; // Prevent double clicks
+    
+    setLoadingTemplateId(template.id);
+    try {
+        const { data: row, error } = await supabase
+            .from('templates')
+            .select('*')
+            .eq('id', template.id)
+            .single();
+
+        if (error) {
+            throw error;
+        }
+
+        if (row) {
+            const fullTemplate = transformRowToTemplate(row as TemplateRow);
+            navigate('/editor', { state: { template: fullTemplate } });
+        } else {
+            throw new Error("Template not found.");
+        }
+
+    } catch (e: any) {
+        console.error("Failed to fetch full template:", e);
+        setError(`לא ניתן לטעון את התבנית: ${e.message}`);
+        setLoadingTemplateId(null);
+    }
   };
   
   const handleNewDesign = () => {
@@ -195,14 +227,19 @@ const TemplatesPage: React.FC = () => {
           )}
 
           {filteredTemplates.map(template => {
-            const isDeleting = deletingTemplateId === template.id;
+            const isLoading = loadingTemplateId === template.id;
             return (
-                <div key={template.id} className={`group relative flex flex-col transition-all duration-300 ease-in-out ${isDeleting ? 'opacity-0 scale-90 -translate-y-4' : 'opacity-100 scale-100 translate-y-0'}`}>
-                    <div onClick={() => handleSelectTemplate(template)} className="cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
+                <div key={template.id} className="group relative flex flex-col">
+                    <div onClick={() => !isLoading && handleSelectTemplate(template)} className={`cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5] ${isLoading ? 'opacity-50' : ''}`}>
                         <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
                             <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
                         </div>
                         <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
+                        {isLoading && (
+                            <div className="absolute inset-0 bg-slate-900/80 z-10 flex items-center justify-center">
+                                <SpinnerIcon className="w-10 h-10 text-white animate-spin" />
+                            </div>
+                        )}
                     </div>
                     <div className="flex justify-between items-center mt-3">
                         <h3 className="font-semibold text-white truncate pr-2">{template.name}</h3>

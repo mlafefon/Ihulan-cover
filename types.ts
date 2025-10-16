@@ -24,6 +24,17 @@ export interface TemplateRow {
   created_at?: string;
 }
 
+// Represents the lightweight template object for the gallery page, without heavy design data.
+export interface TemplatePreview {
+  id: string;
+  name: string;
+  previewImage?: string | null;
+  user_id?: string | null;
+  is_public?: boolean;
+  is_active?: boolean;
+  created_at?: string;
+}
+
 // Represents the template object used within the application. Data is unpacked from `template_data` for use.
 export interface Template {
   id: string;
