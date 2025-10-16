@@ -4,6 +4,7 @@ import { HashRouter } from 'react-router-dom';
 import App from './App';
 import { AuthProvider } from './AuthContext';
 import { supabase } from './supabaseClient';
+import { FontProvider } from './components/fonts/FontLoader';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -20,7 +21,9 @@ supabase.auth.getSession().finally(() => {
     <React.StrictMode>
       <HashRouter>
         <AuthProvider>
-          <App />
+          <FontProvider>
+            <App />
+          </FontProvider>
         </AuthProvider>
       </HashRouter>
     </React.StrictMode>

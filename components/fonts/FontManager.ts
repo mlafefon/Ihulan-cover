@@ -49,3 +49,52 @@ export const getGoogleFontsUrl = (): string | null => {
     
     return `https://fonts.googleapis.com/css2?${families}&display=swap`;
 };
+
+/**
+ * Fetches the Google Fonts CSS, finds all font file URLs,
+ * fetches them, converts them to Base64 Data URLs, and returns
+ * a new CSS string with the fonts embedded.
+ */
+export const getEmbeddedCss = async (): Promise<string | null> => {
+    const fontUrl = getGoogleFontsUrl();
+    if (!fontUrl) return null;
+
+    try {
+        const cssResponse = await fetch(fontUrl);
+        let cssText = await cssResponse.text();
+
+        // Find all url(...) declarations in the CSS
+        const fontFileUrls = [...cssText.matchAll(/url\((https:\/\/[^)]+)\)/g)].map(match => match[1]);
+
+        // Fetch each font file and convert it to a Base64 Data URL
+        const fontPromises = fontFileUrls.map(async (url) => {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            return new Promise<[string, string]>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (typeof reader.result === 'string') {
+                        resolve([url, reader.result]);
+                    } else {
+                        reject(new Error('Failed to read font file as Data URL'));
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        });
+
+        const fontDataUrls = await Promise.all(fontPromises);
+
+        // Replace the original URLs in the CSS with the Base64 Data URLs
+        for (const [originalUrl, dataUrl] of fontDataUrls) {
+            cssText = cssText.replace(originalUrl, dataUrl);
+        }
+
+        return cssText;
+
+    } catch (error) {
+        console.error("Failed to fetch and embed fonts:", error);
+        return null; // Return null on error
+    }
+};

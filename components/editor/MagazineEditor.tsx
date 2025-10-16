@@ -5,6 +5,7 @@ import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
 import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset } from '../CanvasItem';
+import { useFonts } from '../fonts/FontLoader';
 
 
 interface MagazineEditorProps {
@@ -15,6 +16,7 @@ interface MagazineEditorProps {
 
 const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEditImage, onSaveTemplate }) => {
     const navigate = useNavigate();
+    const { fontCss } = useFonts();
     const [cutterTargetId, setCutterTargetId] = useState<string | null>(null);
     const [snapLines, setSnapLines] = useState<{ x: number[], y: number[] }>({ x: [], y: [] });
 
@@ -449,6 +451,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             try {
                 previewImage = await (window as any).htmlToImage.toPng(canvasRef.current, {
                     pixelRatio: 2, // For better quality on high-DPI screens
+                    fontEmbedCSS: fontCss ?? undefined,
                 });
             } catch (e) {
                 console.error("html-to-image failed for preview:", e);
@@ -464,7 +467,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         const cutter = template.elements.find(el => el.id === selectedElementId && el.type === ElementType.Cutter) as CutterElement | undefined;
         if (!cutter) return;
     
-        let targetElement = findElementUnder(cutter, template.elements);
+        const targetElement = findElementUnder(cutter, template.elements);
         if (!targetElement) {
             alert("לא נמצא אלמנט לחיתוך מתחת לצורה.");
             return;
@@ -475,12 +478,14 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setIsSaving(true);
     
         if (targetElement.type === ElementType.Text) {
-            const domNode = canvasRef.current?.querySelector(`[data-element-id="${targetElement.id}"]`) as HTMLElement;
-            if (domNode) {
+            const domNode = textContentRefMap.current[targetElement.id];
+            
+            if (domNode && fontCss) {
                 try {
                     imageToClipSrc = await (window as any).htmlToImage.toPng(domNode, {
                         backgroundColor: 'transparent',
-                        pixelRatio: 2
+                        pixelRatio: 2,
+                        fontEmbedCSS: fontCss,
                     });
                 } catch (e) {
                     console.error("html-to-image failed for text element:", e);
@@ -488,6 +493,14 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                     setIsSaving(false);
                     return;
                 }
+            } else if (!fontCss) {
+                alert("שגיאה: קובץ הפונטים לא נטען. לא ניתן לבצע חיתוך.");
+                setIsSaving(false);
+                return;
+            } else if (!domNode) {
+                alert("שגיאה: לא ניתן למצוא את רכיב הטקסט.");
+                setIsSaving(false);
+                return;
             }
         } else if (targetElement.type === ElementType.Image) {
             imageToClipSrc = (targetElement as ImageElement).src;
@@ -509,40 +522,17 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
     
-            // Draw the image first, filling the target element's bounds
             ctx.drawImage(image, 0, 0, targetElement!.width, targetElement!.height);
-    
-            // Now, prepare to clip using the cutter shape
             ctx.globalCompositeOperation = 'destination-out';
             
-            // Calculate cutter's position and rotation relative to the target's local (unrotated) coordinates.
-            const targetCenter = { 
-                x: targetElement!.x + targetElement!.width / 2, 
-                y: targetElement!.y + targetElement!.height / 2 
-            };
-            const cutterCenter = { 
-                x: cutter.x + cutter.width / 2, 
-                y: cutter.y + cutter.height / 2 
-            };
-
-            const delta = {
-                x: cutterCenter.x - targetCenter.x,
-                y: cutterCenter.y - targetCenter.y,
-            };
-
+            const targetCenter = { x: targetElement!.x + targetElement!.width / 2, y: targetElement!.y + targetElement!.height / 2 };
+            const cutterCenter = { x: cutter.x + cutter.width / 2, y: cutter.y + cutter.height / 2 };
+            const delta = { x: cutterCenter.x - targetCenter.x, y: cutterCenter.y - targetCenter.y };
             const unrotateRad = -targetElement!.rotation * (Math.PI / 180);
             const cos_un = Math.cos(unrotateRad);
             const sin_un = Math.sin(unrotateRad);
-            const delta_local = {
-                x: delta.x * cos_un - delta.y * sin_un,
-                y: delta.x * sin_un + delta.y * cos_un
-            };
-            
-            const cutterCenter_local = {
-                x: targetElement!.width / 2 + delta_local.x,
-                y: targetElement!.height / 2 + delta_local.y,
-            };
-
+            const delta_local = { x: delta.x * cos_un - delta.y * sin_un, y: delta.x * sin_un + delta.y * cos_un };
+            const cutterCenter_local = { x: targetElement!.width / 2 + delta_local.x, y: targetElement!.height / 2 + delta_local.y };
             const relativeRotationRad = (cutter.rotation - targetElement!.rotation) * (Math.PI / 180);
 
             ctx.save();
@@ -675,6 +665,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             try {
                 const blob = await (window as any).htmlToImage.toBlob(canvasRef.current, {
                     pixelRatio: 3, // Use higher quality for export
+                    fontEmbedCSS: fontCss ?? undefined,
                 });
                 if (blob) {
                     (window as any).saveAs(blob, `${template.name}.png`);
