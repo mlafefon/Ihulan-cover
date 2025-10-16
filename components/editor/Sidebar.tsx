@@ -110,7 +110,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         {selectedElement.type === ElementType.Image && (
                             <ImagePanel element={selectedElement as ImageElement} onEditImage={onEditImage} />
                         )}
-                        {(selectedElement.type === ElementType.Image || selectedElement.type === ElementType.Cutter) && (
+                        {(selectedElement.type === ElementType.Image || selectedElement.type === ElementType.Cutter || selectedElement.type === ElementType.Text) && (
                             <Accordion title="מיקום וגודל" defaultOpen>
                                 <TransformPanel element={selectedElement} onUpdate={onUpdateElement} />
                             </Accordion>
