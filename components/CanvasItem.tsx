@@ -12,7 +12,7 @@ interface CanvasItemProps {
     onInteractionStart: () => void;
     onInteractionEnd: () => void;
     onTextSelect: (range: { start: number, end: number } | null) => void;
-    onTextContentRefChange: (id: string, node: HTMLDivElement | null) => void;
+    onElementRefsChange: (id: string, refs: { content?: HTMLDivElement | null; wrapper?: HTMLDivElement | null; }) => void;
     onEditImage: (element: ImageElement, newSrc?: string) => void;
     canvasWidth: number;
     canvasHeight: number;
@@ -44,22 +44,26 @@ const handleCursorClasses: { [key: string]: string } = {
 
 const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onTextContentRefChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
+    const textWrapperRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
 
     useEffect(() => {
         if (element.type === ElementType.Text) {
-            onTextContentRefChange(element.id, textContentRef.current);
+            onElementRefsChange(element.id, { 
+                content: textContentRef.current,
+                wrapper: textWrapperRef.current
+            });
         }
         return () => {
              if (element.type === ElementType.Text) {
-                onTextContentRefChange(element.id, null);
+                onElementRefsChange(element.id, { content: null, wrapper: null });
              }
         }
-    }, [element.id, element.type, onTextContentRefChange]);
+    }, [element.id, element.type, onElementRefsChange]);
     
     useEffect(() => {
         if (isSelected && element.type === ElementType.Text) {
@@ -382,7 +386,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 };
                 
                 return (
-                    <div style={wrapperStyle}>
+                    <div ref={textWrapperRef} style={wrapperStyle}>
                         <div 
                             ref={textContentRef} 
                             style={editableStyle}

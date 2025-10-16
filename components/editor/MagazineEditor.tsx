@@ -32,13 +32,16 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const [historyIndex, setHistoryIndex] = useState(0);
     const canvasRef = useRef<HTMLDivElement>(null);
     const lastSelectionRangeRef = useRef<{ start: number, end: number } | null>(null);
-    const textContentRefMap = useRef<Record<string, HTMLDivElement | null>>({});
+    const elementRefMap = useRef<Record<string, {
+        content?: HTMLDivElement | null;
+        wrapper?: HTMLDivElement | null;
+    }>>({});
     const [nextCursorPos, setNextCursorPos] = useState<{ id: string; pos: { start: number; end: number } } | null>(null);
 
     useLayoutEffect(() => {
         if (nextCursorPos) {
             const { id, pos } = nextCursorPos;
-            const node = textContentRefMap.current[id];
+            const node = elementRefMap.current[id]?.content;
             if (node) {
                 node.focus({ preventScroll: true });
                 setSelectionByOffset(node, pos.start, pos.end);
@@ -64,8 +67,11 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         }
     }, [selectionRange]);
     
-    const onTextContentRefChange = useCallback((id: string, node: HTMLDivElement | null) => {
-        textContentRefMap.current[id] = node;
+    const onElementRefsChange = useCallback((id: string, refs: { content?: HTMLDivElement | null; wrapper?: HTMLDivElement | null; }) => {
+        if (!elementRefMap.current[id]) {
+            elementRefMap.current[id] = {};
+        }
+        Object.assign(elementRefMap.current[id], refs);
     }, []);
 
     const updateHistory = useCallback((newTemplate: Template) => {
@@ -333,7 +339,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         handleTemplateChange({ ...template, elements: newElements });
     
         setTimeout(() => {
-            const node = textContentRefMap.current[selectedElementId];
+            const node = elementRefMap.current[selectedElementId]?.content;
             if (node && rangeToStyle) {
                 node.focus({ preventScroll: true });
                 setSelectionByOffset(node, rangeToStyle.start, rangeToStyle.end);
@@ -478,7 +484,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setIsSaving(true);
     
         if (targetElement.type === ElementType.Text) {
-            const domNode = textContentRefMap.current[targetElement.id];
+            const domNode = elementRefMap.current[targetElement.id]?.wrapper;
             
             if (domNode && fontCss) {
                 try {
@@ -498,7 +504,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 setIsSaving(false);
                 return;
             } else if (!domNode) {
-                alert("שגיאה: לא ניתן למצוא את רכיב הטקסט.");
+                alert("שגיאה: לא ניתן למצוא את רכיב הטקסט לעיבוד. נסה לבטל את הבחירה ולבחור מחדש.");
                 setIsSaving(false);
                 return;
             }
@@ -743,7 +749,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                                 onInteractionStart={() => setIsInteracting(true)}
                                 onInteractionEnd={handleInteractionEnd}
                                 onTextSelect={setSelectionRange}
-                                onTextContentRefChange={onTextContentRefChange}
+                                onElementRefsChange={onElementRefsChange}
                                 onEditImage={passUpImageEdit}
                                 canvasWidth={template.width}
                                 canvasHeight={template.height}
