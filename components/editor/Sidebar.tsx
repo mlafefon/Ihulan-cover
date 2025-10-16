@@ -2,6 +2,7 @@ import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon } from '../Icons';
+import { availableFonts } from '../fonts/FontManager';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -252,9 +253,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                     <label className="block">
                         <span className="text-sm text-slate-400">פונט</span>
                          <select value={displayStyle.fontFamily} onChange={(e) => handleStyleChange('fontFamily', e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm">
-                            <option value="Heebo">Heebo</option>
-                            <option value="Arial">Arial</option>
-                            <option value="Verdana">Verdana</option>
+                            {availableFonts.map(font => (
+                                <option key={font.name} value={font.name} style={{fontFamily: font.name}}>
+                                    {font.name}
+                                </option>
+                            ))}
                         </select>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
