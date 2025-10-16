@@ -50,6 +50,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const maskCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const lastPointRef = useRef<{ x: number, y: number } | null>(null);
     const replaceImageInputRef = useRef<HTMLInputElement>(null);
+    const isNewImageRef = useRef(false);
     
     const [originalImageSrc, setOriginalImageSrc] = useState(imageSrc);
     const [currentSrc, setCurrentSrc] = useState(imageSrc);
@@ -57,6 +58,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const [cropFrameSize, setCropFrameSize] = useState({ width: 0, height: 0 });
     const [zoom, setZoom] = useState(1);
     const [minZoom, setMinZoom] = useState(1);
+    const [maxZoom, setMaxZoom] = useState(1.0);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
     const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
@@ -283,9 +285,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             reader.onload = (event) => {
                 if (event.target?.result) {
                     const newImageSrc = event.target.result as string;
+                    isNewImageRef.current = true;
                     setCurrentSrc(newImageSrc);
                     setOriginalImageSrc(newImageSrc);
-                    resetAllEdits();
                 }
             };
             reader.readAsDataURL(e.target.files[0]);
@@ -302,18 +304,28 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         const container = containerRef.current;
         if (container) {
             const padding = 40;
-            const containerWidth = container.offsetWidth - padding;
-            const containerHeight = container.offsetHeight - padding;
-            const aspectRatio = elementWidth / elementHeight;
-            
-            let newWidth = containerWidth;
-            let newHeight = newWidth / aspectRatio;
-
-            if (newHeight > containerHeight) {
-                newHeight = containerHeight;
-                newWidth = newHeight * aspectRatio;
+            const workspaceWidth = container.offsetWidth - padding;
+            const workspaceHeight = container.offsetHeight - padding;
+    
+            let frameWidth = elementWidth;
+            let frameHeight = elementHeight;
+    
+            // Check if the original element size overflows the workspace
+            if (elementWidth > workspaceWidth || elementHeight > workspaceHeight) {
+                const aspectRatio = elementWidth / elementHeight;
+                const targetWidth = workspaceWidth * 0.8;
+                const targetHeight = workspaceHeight * 0.8;
+                
+                frameWidth = targetWidth;
+                frameHeight = frameWidth / aspectRatio;
+    
+                if (frameHeight > targetHeight) {
+                    frameHeight = targetHeight;
+                    frameWidth = frameHeight * aspectRatio;
+                }
             }
-            setCropFrameSize({ width: newWidth, height: newHeight });
+            
+            setCropFrameSize({ width: frameWidth, height: frameHeight });
         }
     }, [elementWidth, elementHeight]);
 
@@ -329,34 +341,80 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                 maskCanvasRef.current.width = image.width;
                 maskCanvasRef.current.height = image.height;
             }
-            handleResetBlur();
-            
-            const scaleX = cropFrameSize.width / image.width;
-            const scaleY = cropFrameSize.height / image.height;
-            const initialZoomValue = Math.max(scaleX, scaleY);
-            setMinZoom(initialZoomValue);
 
-            if (initialEditState) {
-                setZoom(initialEditState.zoom);
+            // The zoom level required to make the image cover the crop frame.
+            const zoomToFill = Math.max(cropFrameSize.width / image.width, cropFrameSize.height / image.height);
+            
+            // The zoom level that corresponds to a 1:1 pixel mapping from the cropped area
+            // to the final element size. This is the max zoom to prevent upscaling.
+            const qualityLimitZoom = elementWidth > 0 ? cropFrameSize.width / elementWidth : 1.0;
+
+            let initialZoomValue: number;
+            let minZoomValue: number;
+            let maxZoomValue: number;
+
+            // Condition: Is the source image smaller than the final destination element?
+            if (image.width < elementWidth && image.height < elementHeight) {
+                // Case 1: Small image. Display it proportionally, but don't scale it up.
+                // The zoom is fixed to the level that represents its "natural" size relative to the final output.
+                // Min and max are set to the same value to disable the slider.
+                initialZoomValue = qualityLimitZoom;
+                minZoomValue = qualityLimitZoom;
+                maxZoomValue = qualityLimitZoom;
+            } else {
+                // Case 2: Large image. It must fill the frame.
+                minZoomValue = zoomToFill;
+                initialZoomValue = zoomToFill; // Start by filling the frame.
+                maxZoomValue = qualityLimitZoom;
+                
+                // If filling the frame (minZoom) already requires more zoom than the quality allows (maxZoom),
+                // it means we must upscale to fill. In this case, we allow that initial upscale but disable
+                // any *further* zooming by setting maxZoom equal to minZoom.
+                if (minZoomValue > maxZoomValue) {
+                    maxZoomValue = minZoomValue;
+                }
+            }
+
+            setMinZoom(minZoomValue);
+            setMaxZoom(maxZoomValue);
+
+            const isReplacing = isNewImageRef.current;
+            if (isReplacing) {
+                isNewImageRef.current = false;
+            }
+
+            if (initialEditState && !isReplacing) {
+                setZoom(Math.max(minZoomValue, Math.min(maxZoomValue, initialEditState.zoom)));
                 setOffset(initialEditState.offset);
                 setFilters(initialEditState.filters);
                 setColorReplace(initialEditState.colorReplace);
                 setFrame(initialEditState.frame);
                 setIsBlurApplied(initialEditState.isBlurApplied);
                 setHasMask(initialEditState.hasMask);
+                
+                // When loading state, we still need to clear any existing mask first
+                // before drawing the new one.
+                const maskCtx = maskCanvasRef.current?.getContext('2d');
+                if (maskCtx && maskCanvasRef.current) {
+                    maskCtx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
+                }
+                
                 if (initialEditState.maskDataUrl && maskCanvasRef.current) {
                     const maskImg = new Image();
                     maskImg.src = initialEditState.maskDataUrl;
                     maskImg.onload = () => {
                         maskCanvasRef.current?.getContext('2d')?.drawImage(maskImg, 0, 0);
-                    }
+                    };
                 }
             } else {
+                // This branch handles both a newly replaced image, and the initial load of an
+                // element that has no prior editState. In both cases, we reset.
+                resetAllEdits();
                 setZoom(initialZoomValue);
-                setOffset({x: 0, y: 0});
+                setOffset({ x: 0, y: 0 });
             }
         };
-    }, [currentSrc, cropFrameSize, handleResetBlur, initialEditState]);
+    }, [currentSrc, cropFrameSize, initialEditState, elementWidth, elementHeight, resetAllEdits]);
     
     useEffect(() => {
         draw();
@@ -465,7 +523,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
 
         const scaleFactor = 1.1;
         const newZoom = e.deltaY < 0 ? zoom * scaleFactor : zoom / scaleFactor;
-        const clampedZoom = Math.max(minZoom, Math.min(1.0, newZoom));
+        const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
 
         if (clampedZoom === zoom) return;
         
@@ -683,7 +741,15 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                  <div className="p-3 border-b border-slate-700">
                     <div className="flex items-center gap-2 text-sm">
                         <span className="w-20">זום</span>
-                        <input type="range" min={minZoom * 100} max="100" value={zoom * 100} onChange={e => setZoom(parseInt(e.target.value) / 100)} className="w-full" />
+                        <input
+                            type="range"
+                            min={minZoom * 100}
+                            max={maxZoom * 100}
+                            value={zoom * 100}
+                            onChange={e => setZoom(parseInt(e.target.value) / 100)}
+                            className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={maxZoom <= minZoom}
+                        />
                         <span className="w-8 text-right">{Math.round(zoom * 100)}%</span>
                     </div>
                 </div>
