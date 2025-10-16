@@ -680,13 +680,13 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                     <p className="text-xs text-slate-400">רזולוציית מקור: {imageRef.current?.width}x{imageRef.current?.height}</p>
                     <p className="text-xs text-slate-400">רזולוציית יעד: {Math.round(elementWidth)}x{Math.round(elementHeight)}</p>
                  </div>
-                 <Accordion title="זום">
-                    <div className="flex items-center gap-2">
-                        <span>זום</span>
+                 <div className="p-3 border-b border-slate-700">
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="w-20">זום</span>
                         <input type="range" min={minZoom * 100} max="100" value={zoom * 100} onChange={e => setZoom(parseInt(e.target.value) / 100)} className="w-full" />
-                        <span>{Math.round(zoom * 100)}%</span>
+                        <span className="w-8 text-right">{Math.round(zoom * 100)}%</span>
                     </div>
-                </Accordion>
+                </div>
                 <Accordion title="פילטרים">
                     <div className="space-y-2">
                         {(['brightness', 'contrast', 'saturate', 'grayscale', 'sepia'] as const).map(filter => (
