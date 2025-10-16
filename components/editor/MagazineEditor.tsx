@@ -653,6 +653,8 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         // Standard selection logic
         if (id !== previouslySelectedId) {
             lastSelectionRangeRef.current = null;
+            // Deselect any text that might be selected in the window.
+            window.getSelection()?.removeAllRanges();
         }
         setSelectedElementId(id);
         setSelectionRange(null);
