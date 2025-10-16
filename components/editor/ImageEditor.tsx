@@ -511,30 +511,51 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         lastPointRef.current = null;
         setMousePos(null);
     }
+    
+    // Unified function to handle all zoom updates and ensure offset is clamped.
+    const updateZoom = useCallback((newZoomValue: number, focalPoint?: { x: number; y: number }) => {
+        const canvas = canvasRef.current;
+        const image = imageRef.current;
+        if (!canvas || !image) return;
+
+        const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoomValue));
+
+        if (clampedZoom === zoom) return;
+        
+        let newOffsetX = offset.x;
+        let newOffsetY = offset.y;
+
+        if (focalPoint) {
+            // Mouse-centric zoom logic
+            const worldMouseX = (focalPoint.x - (canvas.width / 2 + offset.x)) / zoom;
+            const worldMouseY = (focalPoint.y - (canvas.height / 2 + offset.y)) / zoom;
+            newOffsetX = offset.x - worldMouseX * (clampedZoom - zoom);
+            newOffsetY = offset.y - worldMouseY * (clampedZoom - zoom);
+        } else {
+            // Slider/center-based zoom logic: scale the offset proportionally.
+            const zoomRatio = clampedZoom / zoom;
+            newOffsetX *= zoomRatio;
+            newOffsetY *= zoomRatio;
+        }
+
+        const maxX = Math.max(0, (image.width * clampedZoom - cropFrameSize.width) / 2);
+        const maxY = Math.max(0, (image.height * clampedZoom - cropFrameSize.height) / 2);
+
+        const clampedX = Math.max(-maxX, Math.min(maxX, newOffsetX));
+        const clampedY = Math.max(-maxY, Math.min(maxY, newOffsetY));
+        
+        setZoom(clampedZoom);
+        setOffset({ x: clampedX, y: clampedY });
+    }, [zoom, offset, minZoom, maxZoom, cropFrameSize]);
 
     const handleWheel = (e: React.WheelEvent) => {
         e.preventDefault();
         const canvas = canvasRef.current;
         if (!canvas) return;
-
         const rect = canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-
         const scaleFactor = 1.1;
-        const newZoom = e.deltaY < 0 ? zoom * scaleFactor : zoom / scaleFactor;
-        const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
-
-        if (clampedZoom === zoom) return;
-        
-        const worldMouseX = (mouseX - (canvas.width/2 + offset.x)) / zoom;
-        const worldMouseY = (mouseY - (canvas.height/2 + offset.y)) / zoom;
-
-        const newOffsetX = offset.x - worldMouseX * (clampedZoom - zoom);
-        const newOffsetY = offset.y - worldMouseY * (clampedZoom - zoom);
-        
-        setZoom(clampedZoom);
-        setOffset({ x: newOffsetX, y: newOffsetY });
+        const newZoomValue = e.deltaY < 0 ? zoom * scaleFactor : zoom / scaleFactor;
+        updateZoom(newZoomValue, { x: e.clientX - rect.left, y: e.clientY - rect.top });
     };
 
     // Fix: Changed event type from MouseEvent<HTMLCanvasElement> to MouseEvent<HTMLDivElement> to match the element it's attached to.
@@ -746,7 +767,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                             min={minZoom * 100}
                             max={maxZoom * 100}
                             value={zoom * 100}
-                            onChange={e => setZoom(parseInt(e.target.value) / 100)}
+                            onChange={e => updateZoom(parseInt(e.target.value, 10) / 100)}
                             className="w-full disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled={maxZoom <= minZoom}
                         />
