@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement } from '../types';
 import { ElementType } from '../types';
 import { ImageIcon } from './Icons';
@@ -50,6 +51,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const textWrapperRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
+    const [isRotating, setIsRotating] = useState(false);
+    const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; text: string; }>({ visible: false, x: 0, y: 0, text: '' });
+
 
     useEffect(() => {
         if (element.type === ElementType.Text) {
@@ -308,26 +312,44 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         e.preventDefault();
         e.stopPropagation();
         onInteractionStart();
-
+        setIsRotating(true);
+    
         const el = itemRef.current!;
         const rect = el.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
         const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
         const startRotation = element.rotation;
-
+    
+        document.body.style.cursor = `url('${rotateCursorUrl}') 12 12, auto`;
+    
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
             const angleDiff = (angle - startAngle) * (180 / Math.PI);
-            onUpdate(element.id, { rotation: startRotation + angleDiff }, false);
-        };
+            const newRotation = startRotation + angleDiff;
 
+            const SNAP_ANGLE = 5;
+            const snappedRotation = Math.round(newRotation / SNAP_ANGLE) * SNAP_ANGLE;
+            
+            onUpdate(element.id, { rotation: snappedRotation }, false);
+            
+            setTooltip({
+                visible: true,
+                x: moveEvent.clientX,
+                y: moveEvent.clientY,
+                text: `${Math.round(snappedRotation)}°`
+            });
+        };
+    
         const handleMouseUp = () => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
             onInteractionEnd();
+            setTooltip({ visible: false, x: 0, y: 0, text: '' });
+            document.body.style.cursor = '';
+            setIsRotating(false);
         };
-
+    
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
     };
@@ -343,7 +365,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         height: `${element.height}px`,
         transform: `rotate(${element.rotation}deg)`,
         zIndex: element.zIndex,
-        cursor: 'move',
+        cursor: isRotating ? `url('${rotateCursorUrl}') 12 12, auto` : 'move',
         boxSizing: 'border-box',
     };
     
@@ -445,58 +467,88 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     
     const handles = ['tl', 't', 'tr', 'l', 'r', 'bl', 'b', 'br'];
     
-    return (
-        <div
-            ref={itemRef}
-            style={itemStyle}
-            onMouseDown={handleMouseDown}
-            onDoubleClick={handleDoubleClick}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-            data-element-id={element.id}
-        >
-             {element.type === ElementType.Image && (
-                 <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                />
-            )}
-            
-            {renderElement()}
+    const renderTooltip = () => {
+        if (!tooltip.visible) return null;
 
-            {isCutterTarget && (
-                <div className="absolute inset-0 border-2 border-dashed border-white pointer-events-none" />
-            )}
-            {isSelected && (
-                <div 
-                    className="absolute inset-0 border-2 border-blue-500 pointer-events-none"
-                    style={element.type === ElementType.Cutter ? { borderRadius: '50%' } : {}}
-                />
-            )}
-            {isHovered && !isSelected && (
-                <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
-            )}
-            {isSelected && (
-                <>
-                    {handles.map(handle => (
-                       <div
-                            key={handle}
-                            onMouseDown={(e) => handleResize(e, handle)}
-                            className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${handleCursorClasses[handle]}`}
-                        />
-                    ))}
-                     <div
-                        onMouseDown={handleRotate}
-                        style={{ cursor: `url('${rotateCursorUrl}') 12 12, auto` }}
-                        className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full z-50
-                                    before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2 before:top-full before:w-0.5 before:h-4 before:bg-blue-500"
+        return ReactDOM.createPortal(
+            <div
+                style={{
+                    position: 'fixed',
+                    top: `${tooltip.y}px`,
+                    left: `${tooltip.x}px`,
+                    transform: 'translate(15px, -25px)',
+                    backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                    color: 'white',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    pointerEvents: 'none',
+                    zIndex: 10000,
+                    whiteSpace: 'nowrap',
+                }}
+            >
+                {tooltip.text}
+            </div>,
+            document.body
+        );
+    };
+
+    return (
+        <>
+            {renderTooltip()}
+            <div
+                ref={itemRef}
+                style={itemStyle}
+                onMouseDown={handleMouseDown}
+                onDoubleClick={handleDoubleClick}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+                data-element-id={element.id}
+            >
+                {element.type === ElementType.Image && (
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileChange}
                     />
-                </>
-            )}
-        </div>
+                )}
+                
+                {renderElement()}
+
+                {isCutterTarget && (
+                    <div className="absolute inset-0 border-2 border-dashed border-white pointer-events-none" />
+                )}
+                {isSelected && (
+                    <div 
+                        className="absolute inset-0 border-2 border-blue-500 pointer-events-none"
+                        style={element.type === ElementType.Cutter ? { borderRadius: '50%' } : {}}
+                    />
+                )}
+                {isHovered && !isSelected && (
+                    <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
+                )}
+                {isSelected && (
+                    <>
+                        {handles.map(handle => (
+                        <div
+                                key={handle}
+                                onMouseDown={(e) => handleResize(e, handle)}
+                                style={isRotating ? { cursor: `url('${rotateCursorUrl}') 12 12, auto` } : {}}
+                                className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${handleCursorClasses[handle]}`}
+                            />
+                        ))}
+                        <div
+                            onMouseDown={handleRotate}
+                            style={{ cursor: `url('${rotateCursorUrl}') 12 12, auto` }}
+                            className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full z-50
+                                        before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2 before:top-full before:w-0.5 before:h-4 before:bg-blue-500"
+                        />
+                    </>
+                )}
+            </div>
+        </>
     );
 };
 
