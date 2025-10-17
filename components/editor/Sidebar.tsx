@@ -1,5 +1,4 @@
 
-
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
@@ -187,7 +186,7 @@ const LayerPanel: React.FC<{ element: CanvasElement, onLayerOrderChange: Sidebar
     const isAtBack = element.zIndex <= 1;
     const isAtFront = element.zIndex >= totalElements;
     
-    const buttonClass = "flex flex-col items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 p-2 rounded-md text-xs disabled:opacity-50 disabled:cursor-not-allowed";
+    const buttonClass = "flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-2 rounded-md text-xs disabled:opacity-50 disabled:cursor-not-allowed h-[30px]";
 
     return (
         <div className="grid grid-cols-4 gap-2">
@@ -317,11 +316,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
 
     return (
         <div>
-            <Accordion title="טיפוגרפיה" defaultOpen>
+            <Accordion title="טיפוגרפיה וצבע" defaultOpen>
                 <div className="space-y-3">
                     <label className="block">
                         <span className="text-sm text-slate-400">פונט</span>
-                         <select value={displayStyle.fontFamily} onChange={(e) => handleStyleChange('fontFamily', e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm">
+                         <select value={displayStyle.fontFamily} onChange={(e) => handleStyleChange('fontFamily', e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm">
                             {availableFonts.map(font => (
                                 <option key={font.name} value={font.name} style={{fontFamily: font.name}}>
                                     {font.name}
@@ -332,11 +331,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                     <div className="grid grid-cols-2 gap-2">
                          <label>
                             <span className="text-sm text-slate-400">גודל</span>
-                            <input type="number" value={displayStyle.fontSize} onChange={(e) => handleStyleChange('fontSize', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
+                            <input type="number" value={displayStyle.fontSize} onChange={(e) => handleStyleChange('fontSize', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
                         </label>
                         <label>
                             <span className="text-sm text-slate-400">משקל</span>
-                            <select value={displayStyle.fontWeight} onChange={(e) => handleStyleChange('fontWeight', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm">
+                            <select value={displayStyle.fontWeight} onChange={(e) => handleStyleChange('fontWeight', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm">
                                 <option value="400">רגיל</option>
                                 <option value="500">בינוני</option>
                                 <option value="700">מודגש</option>
@@ -344,39 +343,36 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             </select>
                         </label>
                     </div>
-                     <div>
-                        <span className="text-sm text-slate-400">צל טקסט</span>
-                        <button
-                            onClick={handleShadowToggle}
-                            title={hasShadow ? "הסר צל טקסט" : "הוסף צל טקסט"}
-                            className={`w-full flex items-center justify-center p-2 rounded mt-1 transition-colors ${hasShadow ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
-                        >
-                            <ShadowIcon className="w-5 h-5"/>
-                        </button>
-                    </div>
-                </div>
-            </Accordion>
-            
-            <Accordion title="צבע ומראה">
-                <div className="space-y-4">
-                     <label>
-                        <span className="text-sm text-slate-400">צבע טקסט</span>
-                        <div className="flex items-center gap-2 mt-1">
-                            <div
-                                onClick={() => textColorInputRef.current?.click()}
-                                className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden"
-                            >
-                                <div className="w-full h-full" style={{ backgroundColor: displayStyle.color }} />
-                                <input
-                                    ref={textColorInputRef}
-                                    type="color"
-                                    value={displayStyle.color}
-                                    onChange={(e) => handleStyleChange('color', e.target.value)}
-                                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                />
+                     <div className="grid grid-cols-2 gap-2">
+                         <label>
+                            <span className="text-sm text-slate-400">צבע טקסט</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <div
+                                    onClick={() => textColorInputRef.current?.click()}
+                                    className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20"
+                                >
+                                    <div className="w-full h-full rounded-sm" style={{ backgroundColor: displayStyle.color }} />
+                                    <input
+                                        ref={textColorInputRef}
+                                        type="color"
+                                        value={displayStyle.color}
+                                        onChange={(e) => handleStyleChange('color', e.target.value)}
+                                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                </div>
                             </div>
+                        </label>
+                        <div>
+                            <span className="text-sm text-slate-400">צל טקסט</span>
+                            <button
+                                onClick={handleShadowToggle}
+                                title={hasShadow ? "הסר צל טקסט" : "הוסף צל טקסט"}
+                                className={`w-full flex items-center justify-center h-[30px] rounded mt-1 transition-colors ${hasShadow ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <ShadowIcon className="w-5 h-5"/>
+                            </button>
                         </div>
-                    </label>
+                    </div>
                 </div>
             </Accordion>
 
@@ -387,10 +383,10 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                         <div className="flex items-center gap-2 mt-1">
                             <div
                                 onClick={() => bgColorInputRef.current?.click()}
-                                className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden"
+                                className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20"
                             >
                                 <div
-                                    className="w-full h-full"
+                                    className="w-full h-full rounded-sm"
                                     style={{
                                         backgroundColor: element.backgroundColor,
                                         backgroundImage: element.backgroundColor === 'transparent'
@@ -413,7 +409,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             </div>
                             <button
                                 onClick={() => handleBlockUpdate('backgroundColor', 'transparent')}
-                                className="h-10 w-10 bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0 flex items-center justify-center"
+                                className="h-[30px] w-[30px] bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0 flex items-center justify-center"
                                 title="הפוך רקע לשקוף"
                                 aria-label="Set background to transparent"
                             >
@@ -439,7 +435,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                          <select 
                             value={element.backgroundShape || 'rectangle'} 
                             onChange={(e) => handleBlockUpdate('backgroundShape', e.target.value as TextElement['backgroundShape'])} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                            className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm"
                         >
                            <option value="rectangle">מלבן</option>
                            <option value="rounded">מלבן מעוגל</option>
@@ -466,15 +462,15 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                                         min="0"
                                         value={outline.width} 
                                         onChange={(e) => handleOutlineChange({ width: parseInt(e.target.value, 10) || 0 })}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
+                                        className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
                                 </label>
                                 <label>
                                     <span className="text-xs text-slate-400">צבע</span>
                                     <div
                                         onClick={() => outlineColorInputRef.current?.click()}
-                                        className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden mt-1"
+                                        className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20 mt-1"
                                     >
-                                        <div className="w-full h-full" style={{ backgroundColor: outline.color }} />
+                                        <div className="w-full h-full rounded-sm" style={{ backgroundColor: outline.color }} />
                                         <input
                                             ref={outlineColorInputRef}
                                             type="color"
@@ -495,31 +491,31 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                      <div className="grid grid-cols-2 gap-2">
                          <label>
                             <span className="text-sm text-slate-400">מרווח שורות</span>
-                            <input type="number" step="0.1" value={element.lineHeight} onChange={(e) => handleBlockUpdate('lineHeight', parseFloat(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
+                            <input type="number" step="0.1" value={element.lineHeight} onChange={(e) => handleBlockUpdate('lineHeight', parseFloat(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
                         </label>
                         <label>
                             <span className="text-sm text-slate-400">מרווח אותיות</span>
-                            <input type="number" value={element.letterSpacing} onChange={(e) => handleBlockUpdate('letterSpacing', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
+                            <input type="number" value={element.letterSpacing} onChange={(e) => handleBlockUpdate('letterSpacing', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
                         </label>
                     </div>
                      <label>
                         <span className="text-sm text-slate-400">ריפוד</span>
-                        <input type="number" value={element.padding} onChange={(e) => handleBlockUpdate('padding', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
+                        <input type="number" value={element.padding} onChange={(e) => handleBlockUpdate('padding', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
                     </label>
                     <div>
                         <span className="text-sm text-slate-400">יישור אופקי</span>
                          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
                             {(['left', 'center', 'right'] as const).map(align => (
-                                <button key={align} onClick={() => handleBlockUpdate('textAlign', align)} className={`p-2 rounded capitalize ${element.textAlign === align ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}>{align}</button>
+                                <button key={align} onClick={() => handleBlockUpdate('textAlign', align)} className={`px-2 h-[30px] rounded capitalize ${element.textAlign === align ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}>{align}</button>
                             ))}
                         </div>
                     </div>
                     <div>
                         <span className="text-sm text-slate-400">יישור אנכי</span>
                          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
-                            <button onClick={() => handleBlockUpdate('verticalAlign', 'top')} className={`p-2 rounded ${element.verticalAlign === 'top' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyStart className="w-5 h-5 mx-auto"/></button>
-                            <button onClick={() => handleBlockUpdate('verticalAlign', 'middle')} className={`p-2 rounded ${element.verticalAlign === 'middle' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyCenter className="w-5 h-5 mx-auto"/></button>
-                            <button onClick={() => handleBlockUpdate('verticalAlign', 'bottom')} className={`p-2 rounded ${element.verticalAlign === 'bottom' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyEnd className="w-5 h-5 mx-auto"/></button>
+                            <button onClick={() => handleBlockUpdate('verticalAlign', 'top')} className={`px-2 h-[30px] rounded ${element.verticalAlign === 'top' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyStart className="w-5 h-5 mx-auto"/></button>
+                            <button onClick={() => handleBlockUpdate('verticalAlign', 'middle')} className={`px-2 h-[30px] rounded ${element.verticalAlign === 'middle' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyCenter className="w-5 h-5 mx-auto"/></button>
+                            <button onClick={() => handleBlockUpdate('verticalAlign', 'bottom')} className={`px-2 h-[30px] rounded ${element.verticalAlign === 'bottom' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyEnd className="w-5 h-5 mx-auto"/></button>
                         </div>
                     </div>
                 </div>
