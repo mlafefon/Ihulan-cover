@@ -127,6 +127,12 @@ export interface TextElement extends ElementBase {
   letterSpacing: number;
   backgroundColor: string;
   padding: number;
+  backgroundShape?: 'rectangle' | 'rounded' | 'ellipse' | 'sun';
+  outline?: {
+    color: string;
+    width: number;
+    enabled: boolean;
+  };
 }
 
 export interface ImageEditState {

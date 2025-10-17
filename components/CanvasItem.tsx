@@ -45,6 +45,24 @@ const handleCursorClasses: { [key: string]: string } = {
 
 const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
+const getSunClipPath = () => {
+    const points = [];
+    const numRays = 10;
+    const outerRadius = 50; 
+    const innerRadius = 40; 
+    const centerX = 50;
+    const centerY = 50;
+
+    for (let i = 0; i < numRays * 2; i++) {
+        const radius = i % 2 === 0 ? outerRadius : innerRadius;
+        const angle = (i * Math.PI) / numRays - (Math.PI / 2); 
+        const x = centerX + radius * Math.cos(angle);
+        const y = centerY + radius * Math.sin(angle);
+        points.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`);
+    }
+    return `polygon(${points.join(', ')})`;
+};
+
 const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
@@ -388,6 +406,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         switch (element.type) {
             case ElementType.Text:
                 const textElement = element as TextElement;
+                const backgroundShape = textElement.backgroundShape || 'rectangle';
+                const outline = textElement.outline || { enabled: false, width: 0, color: '#FFFFFF' };
+                
                 const wrapperStyle: React.CSSProperties = {
                     width: '100%',
                     height: '100%',
@@ -397,6 +418,18 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     backgroundColor: textElement.backgroundColor,
                     overflow: 'hidden',
                 };
+
+                if (backgroundShape === 'rounded') {
+                    wrapperStyle.borderRadius = '25px';
+                } else if (backgroundShape === 'ellipse') {
+                    wrapperStyle.borderRadius = '50%';
+                } else if (backgroundShape === 'sun') {
+                    wrapperStyle.clipPath = getSunClipPath();
+                }
+
+                if (outline.enabled && outline.width > 0) {
+                    wrapperStyle.border = `${outline.width}px solid ${outline.color}`;
+                }
 
                 const firstSpanStyle = textElement.spans[0]?.style;
                 const editableStyle: React.CSSProperties = {

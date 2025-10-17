@@ -269,6 +269,7 @@ interface TextPanelProps {
 const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, activeStyle }) => {
     const textColorInputRef = useRef<HTMLInputElement>(null);
     const bgColorInputRef = useRef<HTMLInputElement>(null);
+    const outlineColorInputRef = useRef<HTMLInputElement>(null);
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
         onUpdate(element.id, { [prop]: value } as Partial<TextElement>);
@@ -280,6 +281,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
 
     const displayStyle = activeStyle || element.spans[0]?.style;
     const { hex: bgColorHex, alpha: bgColorAlpha } = parseColor(element.backgroundColor);
+    const outline = element.outline || { enabled: false, color: '#FFFFFF', width: 1 };
 
     const handleBgColorChange = (newHex: string) => {
         const rgb = hexToRgb(newHex);
@@ -307,6 +309,10 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     const handleShadowToggle = () => {
         const newShadow = hasShadow ? '' : SHADOW_VALUE;
         handleStyleChange('textShadow', newShadow);
+    };
+    
+    const handleOutlineChange = (updates: Partial<typeof outline>) => {
+        onUpdate(element.id, { outline: { ...outline, ...updates } });
     };
 
     return (
@@ -338,71 +344,83 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             </select>
                         </label>
                     </div>
+                     <div>
+                        <span className="text-sm text-slate-400">צל טקסט</span>
+                        <button
+                            onClick={handleShadowToggle}
+                            title={hasShadow ? "הסר צל טקסט" : "הוסף צל טקסט"}
+                            className={`w-full flex items-center justify-center p-2 rounded mt-1 transition-colors ${hasShadow ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        >
+                            <ShadowIcon className="w-5 h-5"/>
+                        </button>
+                    </div>
                 </div>
             </Accordion>
             
             <Accordion title="צבע ומראה">
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-2">
-                        <label>
-                            <span className="text-sm text-slate-400">צבע טקסט</span>
-                            <div className="flex items-center gap-2 mt-1">
-                                <div
-                                    onClick={() => textColorInputRef.current?.click()}
-                                    className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden"
-                                >
-                                    <div className="w-full h-full" style={{ backgroundColor: displayStyle.color }} />
-                                    <input
-                                        ref={textColorInputRef}
-                                        type="color"
-                                        value={displayStyle.color}
-                                        onChange={(e) => handleStyleChange('color', e.target.value)}
-                                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                </div>
-                                <div className="w-10 h-10 flex-shrink-0" />
+                     <label>
+                        <span className="text-sm text-slate-400">צבע טקסט</span>
+                        <div className="flex items-center gap-2 mt-1">
+                            <div
+                                onClick={() => textColorInputRef.current?.click()}
+                                className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden"
+                            >
+                                <div className="w-full h-full" style={{ backgroundColor: displayStyle.color }} />
+                                <input
+                                    ref={textColorInputRef}
+                                    type="color"
+                                    value={displayStyle.color}
+                                    onChange={(e) => handleStyleChange('color', e.target.value)}
+                                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                />
                             </div>
-                        </label>
-                        <label>
-                            <span className="text-sm text-slate-400">צבע רקע (תיבה)</span>
-                            <div className="flex items-center gap-2 mt-1">
+                        </div>
+                    </label>
+                </div>
+            </Accordion>
+
+            <Accordion title="רקע וצורה">
+                <div className="space-y-4">
+                     <label>
+                        <span className="text-sm text-slate-400">צבע רקע</span>
+                        <div className="flex items-center gap-2 mt-1">
+                            <div
+                                onClick={() => bgColorInputRef.current?.click()}
+                                className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden"
+                            >
                                 <div
-                                    onClick={() => bgColorInputRef.current?.click()}
-                                    className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden"
-                                >
-                                    <div
-                                        className="w-full h-full"
-                                        style={{
-                                            backgroundColor: element.backgroundColor,
-                                            backgroundImage: element.backgroundColor === 'transparent'
-                                                ? `linear-gradient(45deg, #ccc 25%, transparent 25%),
-                                                   linear-gradient(-45deg, #ccc 25%, transparent 25%),
-                                                   linear-gradient(45deg, transparent 75%, #ccc 75%),
-                                                   linear-gradient(-45deg, transparent 75%, #ccc 75%)`
-                                                : 'none',
-                                            backgroundSize: '10px 10px',
-                                            backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
-                                        }}
-                                    />
-                                    <input
-                                        ref={bgColorInputRef}
-                                        type="color"
-                                        value={bgColorHex}
-                                        onChange={(e) => handleBgColorChange(e.target.value)}
-                                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                </div>
-                                <button
-                                    onClick={() => handleBlockUpdate('backgroundColor', 'transparent')}
-                                    className="h-10 w-10 bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0 flex items-center justify-center"
-                                    title="הפוך רקע לשקוף"
-                                    aria-label="Set background to transparent"
-                                >
-                                    <BanIcon className="w-5 h-5 text-slate-400" />
-                                </button>
+                                    className="w-full h-full"
+                                    style={{
+                                        backgroundColor: element.backgroundColor,
+                                        backgroundImage: element.backgroundColor === 'transparent'
+                                            ? `linear-gradient(45deg, #ccc 25%, transparent 25%),
+                                               linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                                               linear-gradient(45deg, transparent 75%, #ccc 75%),
+                                               linear-gradient(-45deg, transparent 75%, #ccc 75%)`
+                                            : 'none',
+                                        backgroundSize: '10px 10px',
+                                        backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
+                                    }}
+                                />
+                                <input
+                                    ref={bgColorInputRef}
+                                    type="color"
+                                    value={bgColorHex}
+                                    onChange={(e) => handleBgColorChange(e.target.value)}
+                                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                />
                             </div>
-                        </label>
-                    </div>
+                            <button
+                                onClick={() => handleBlockUpdate('backgroundColor', 'transparent')}
+                                className="h-10 w-10 bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0 flex items-center justify-center"
+                                title="הפוך רקע לשקוף"
+                                aria-label="Set background to transparent"
+                            >
+                                <BanIcon className="w-5 h-5 text-slate-400" />
+                            </button>
+                        </div>
+                    </label>
                     <div>
                         <label className="block text-sm text-slate-400 mb-1">
                             שקיפות רקע: {Math.round(bgColorAlpha * 100)}%
@@ -416,15 +434,58 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             className="w-full"
                         />
                     </div>
-                    <div>
-                        <span className="text-sm text-slate-400">צל טקסט</span>
-                        <button
-                            onClick={handleShadowToggle}
-                            title={hasShadow ? "הסר צל טקסט" : "הוסף צל טקסט"}
-                            className={`w-full flex items-center justify-center p-2 rounded mt-1 transition-colors ${hasShadow ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                    <label className="block">
+                        <span className="text-sm text-slate-400">צורת רקע</span>
+                         <select 
+                            value={element.backgroundShape || 'rectangle'} 
+                            onChange={(e) => handleBlockUpdate('backgroundShape', e.target.value as TextElement['backgroundShape'])} 
+                            className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
                         >
-                            <ShadowIcon className="w-5 h-5"/>
-                        </button>
+                           <option value="rectangle">מלבן</option>
+                           <option value="rounded">מלבן מעוגל</option>
+                           <option value="ellipse">אליפסה</option>
+                           <option value="sun">שמש</option>
+                        </select>
+                    </label>
+                    <div className="space-y-2 pt-2 border-t border-slate-700">
+                        <label className="flex items-center gap-2 text-sm text-slate-300">
+                            <input 
+                                type="checkbox"
+                                checked={outline.enabled}
+                                onChange={(e) => handleOutlineChange({ enabled: e.target.checked })}
+                                className="w-4 h-4 rounded bg-slate-600 border-slate-500 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span>קו מתאר</span>
+                        </label>
+                        {outline.enabled && (
+                            <div className="grid grid-cols-2 gap-2">
+                                <label>
+                                    <span className="text-xs text-slate-400">עובי (px)</span>
+                                    <input 
+                                        type="number" 
+                                        min="0"
+                                        value={outline.width} 
+                                        onChange={(e) => handleOutlineChange({ width: parseInt(e.target.value, 10) || 0 })}
+                                        className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
+                                </label>
+                                <label>
+                                    <span className="text-xs text-slate-400">צבע</span>
+                                    <div
+                                        onClick={() => outlineColorInputRef.current?.click()}
+                                        className="relative w-full h-10 border border-slate-600 rounded cursor-pointer overflow-hidden mt-1"
+                                    >
+                                        <div className="w-full h-full" style={{ backgroundColor: outline.color }} />
+                                        <input
+                                            ref={outlineColorInputRef}
+                                            type="color"
+                                            value={outline.color}
+                                            onChange={(e) => handleOutlineChange({ color: e.target.value })}
+                                            className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                        />
+                                    </div>
+                                </label>
+                            </div>
+                        )}
                     </div>
                 </div>
             </Accordion>

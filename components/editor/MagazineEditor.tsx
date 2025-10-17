@@ -380,6 +380,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 letterSpacing: 0,
                 backgroundColor: 'transparent',
                 padding: 10,
+                backgroundShape: 'rectangle',
+                outline: {
+                    enabled: false,
+                    color: '#FFFFFF',
+                    width: 2,
+                }
             } as TextElement;
         } else if (type === ElementType.Cutter) {
             const elementSize = 250;
