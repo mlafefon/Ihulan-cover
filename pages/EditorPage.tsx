@@ -46,9 +46,10 @@ const EditorPage: React.FC = () => {
   const handleSaveTemplate = async (templateToSave: Template, newPreview: string | undefined) => {
     if (!user || !originalTemplate) return;
 
+    const isOriginallyPublic = originalTemplate.is_public === true;
     const nameHasChanged = templateToSave.name !== originalTemplate.name;
-    const isFork = templateToSave.user_id !== user.id;
-    const isNew = templateToSave.id.startsWith('new_') || isFork || nameHasChanged;
+    // Force a new record if it's a new design, a public template, or a rename (fork).
+    const isNew = templateToSave.id.startsWith('new_') || isOriginallyPublic || nameHasChanged;
     
     const sanitizeForSupabase = (obj: any): any => {
         if (obj === null || typeof obj !== 'object') return obj;
