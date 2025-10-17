@@ -139,7 +139,7 @@ export interface ImageEditState {
     zoom: number;
     offset: { x: number; y: number };
     filters: { brightness: number; contrast: number; saturate: number; grayscale: number; sepia: number };
-    colorReplace: { from: string; to: string; tolerance: number; enabled: boolean };
+    colorReplace: { from: string[]; to: string; tolerance: number; enabled: boolean };
     frame: { thickness: number; style: string; color: string };
     isBlurApplied: boolean;
     hasMask: boolean;

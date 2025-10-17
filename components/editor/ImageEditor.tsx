@@ -1,7 +1,5 @@
-
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon } from '../Icons';
+import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon, TrashIcon } from '../Icons';
 import type { ImageEditState } from '../../types';
 
 interface ImageEditorProps {
@@ -64,7 +62,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
     const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
-    const [colorReplace, setColorReplace] = useState({ from: '#00ff00', to: '#ff00ff', tolerance: 20, enabled: false });
+    const [colorReplace, setColorReplace] = useState({ from: [], to: '#ff00ff', tolerance: 20, enabled: false });
     const [isPickingColor, setIsPickingColor] = useState(false);
     const [frame, setFrame] = useState({ thickness: 0, style: 'none', color: '#000000' });
 
@@ -77,7 +75,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const [hasMask, setHasMask] = useState(false);
 
     const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
-    const resetColorReplace = () => setColorReplace(prev => ({ ...prev, enabled: false }));
+    const resetColorReplace = () => setColorReplace({ from: [], to: '#ff00ff', tolerance: 20, enabled: false });
 
     const handleResetBlur = useCallback(() => {
         const maskCtx = maskCanvasRef.current?.getContext('2d');
@@ -137,21 +135,24 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         filteredCtx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) sepia(${filters.sepia}%)`;
         filteredCtx.drawImage(image, 0, 0);
 
-        if (colorReplace.enabled) {
-            // Apply color replace to the filtered image
-            const fromRgb = hexToRgb(colorReplace.from);
+        if (colorReplace.enabled && colorReplace.from.length > 0) {
+            const fromRgbArray = colorReplace.from.map(hexToRgb).filter(Boolean) as { r: number; g: number; b: number }[];
             const toRgb = hexToRgb(colorReplace.to);
-            if (fromRgb && toRgb) {
+        
+            if (fromRgbArray.length > 0 && toRgb) {
                 const imageData = filteredCtx.getImageData(0, 0, image.width, image.height);
                 const data = imageData.data;
                 const tolerance = colorReplace.tolerance * 2.55; 
-
+        
                 for (let i = 0; i < data.length; i += 4) {
                     const pixelRgb = { r: data[i], g: data[i + 1], b: data[i + 2] };
-                    if (colorDistance(pixelRgb, fromRgb) < tolerance) {
-                        data[i] = toRgb.r;
-                        data[i + 1] = toRgb.g;
-                        data[i + 2] = toRgb.b;
+                    for (const fromRgb of fromRgbArray) {
+                        if (colorDistance(pixelRgb, fromRgb) < tolerance) {
+                            data[i] = toRgb.r;
+                            data[i + 1] = toRgb.g;
+                            data[i + 2] = toRgb.b;
+                            break; // Move to the next pixel once a match is found and replaced
+                        }
                     }
                 }
                 filteredCtx.putImageData(imageData, 0, 0);
@@ -407,7 +408,12 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                 setZoom(newZoom);
                 setOffset(clampedOffset);
                 setFilters(initialEditState.filters);
-                setColorReplace(initialEditState.colorReplace);
+                
+                // Backward compatibility for colorReplace.from (string -> string[])
+                const from = initialEditState.colorReplace.from;
+                const fromAsArray = Array.isArray(from) ? from : (typeof from === 'string' ? [from] : []);
+                setColorReplace({ ...initialEditState.colorReplace, from: fromAsArray });
+                
                 setFrame(initialEditState.frame);
                 setIsBlurApplied(initialEditState.isBlurApplied);
                 setHasMask(initialEditState.hasMask);
@@ -592,10 +598,20 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             const pixel = ctx.getImageData(x, y, 1, 1).data;
             const hex = "#" + ("000000" + ((pixel[0] << 16) | (pixel[1] << 8) | pixel[2]).toString(16)).slice(-6);
             
-            setColorReplace(prev => ({...prev, from: hex, enabled: true}));
+            setColorReplace(prev => {
+                if (prev.from.includes(hex)) return prev;
+                return { ...prev, from: [...prev.from, hex], enabled: true };
+            });
             setIsPickingColor(false);
         }
     }
+    
+    const handleRemoveSourceColor = (indexToRemove: number) => {
+        setColorReplace(prev => {
+            const newFrom = prev.from.filter((_, index) => index !== indexToRemove);
+            return { ...prev, from: newFrom, enabled: newFrom.length > 0 };
+        });
+    };
     
     const handleConfirm = () => {
         const offscreenCanvas = document.createElement('canvas');
@@ -619,19 +635,22 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         pCtx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) sepia(${filters.sepia}%)`;
         pCtx.drawImage(image, 0, 0);
 
-        if (colorReplace.enabled) {
-            const fromRgb = hexToRgb(colorReplace.from);
+        if (colorReplace.enabled && colorReplace.from.length > 0) {
+            const fromRgbArray = colorReplace.from.map(hexToRgb).filter(Boolean) as { r: number; g: number; b: number }[];
             const toRgb = hexToRgb(colorReplace.to);
-            if (fromRgb && toRgb) {
+            if (fromRgbArray.length > 0 && toRgb) {
                 const imageData = pCtx.getImageData(0, 0, image.width, image.height);
                 const data = imageData.data;
                 const tolerance = colorReplace.tolerance * 2.55;
                 for (let i = 0; i < data.length; i += 4) {
                     const pixelRgb = { r: data[i], g: data[i + 1], b: data[i + 2] };
-                    if (colorDistance(pixelRgb, fromRgb) < tolerance) {
-                        data[i] = toRgb.r;
-                        data[i + 1] = toRgb.g;
-                        data[i + 2] = toRgb.b;
+                    for (const fromRgb of fromRgbArray) {
+                        if (colorDistance(pixelRgb, fromRgb) < tolerance) {
+                            data[i] = toRgb.r;
+                            data[i + 1] = toRgb.g;
+                            data[i + 2] = toRgb.b;
+                            break;
+                        }
                     }
                 }
                 pCtx.putImageData(imageData, 0, 0);
@@ -811,22 +830,50 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                 </Accordion>
                 <Accordion title="החלפת צבע">
                     <div className="space-y-3">
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setIsPickingColor(true)} className="p-2 bg-slate-700 hover:bg-slate-600 rounded" title="בחר צבע מהתמונה">
-                                <EyeDropperIcon className="w-5 h-5"/>
+                        <div className="flex items-end gap-3">
+                            <div className="flex-grow">
+                                <label className="text-xs text-slate-400 block mb-1">צבעי מקור (לחץ להסרה)</label>
+                                <div className="flex flex-wrap items-center gap-2 p-2 bg-slate-900/50 rounded-md min-h-[48px]">
+                                    {colorReplace.from.map((color, index) => (
+                                        <button 
+                                            key={`${color}-${index}`} 
+                                            onClick={() => handleRemoveSourceColor(index)}
+                                            style={{ backgroundColor: color }} 
+                                            className="w-8 h-8 rounded-md border-2 border-slate-500 relative flex items-center justify-center"
+                                            title={`הסר צבע ${color}`}
+                                        >
+                                            <TrashIcon className="w-4 h-4 text-white transition-opacity" style={{ mixBlendMode: 'difference' }} />
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                             <button 
+                                onClick={() => setIsPickingColor(true)} 
+                                className={`p-2 h-10 flex items-center justify-center rounded-md border-2 transition-colors ${isPickingColor ? 'border-blue-500 ring-2 ring-blue-500/50' : 'border-slate-600 hover:border-slate-500'}`}
+                                title="בחר צבע מהתמונה"
+                            >
+                                <EyeDropperIcon className="w-6 h-6 text-white" />
                             </button>
-                            <label className="flex-grow">
-                                <span className="text-xs text-slate-400">צבע מקור</span>
-                                <input type="color" value={colorReplace.from} onChange={e => setColorReplace(prev => ({...prev, from: e.target.value, enabled: true}))} className="w-full h-8 bg-slate-700 border border-slate-600 rounded p-1 mt-1"/>
-                            </label>
-                            <label className="flex-grow">
-                                <span className="text-xs text-slate-400">צבע יעד</span>
-                                <input type="color" value={colorReplace.to} onChange={e => setColorReplace(prev => ({...prev, to: e.target.value, enabled: true}))} className="w-full h-8 bg-slate-700 border border-slate-600 rounded p-1 mt-1"/>
-                            </label>
+                            <div className="text-slate-400 pb-2 text-xl">&larr;</div>
+                            <div>
+                                <label className="text-xs text-slate-400 block mb-1 text-center">יעד</label>
+                                <div className="relative">
+                                    <div 
+                                        className="w-10 h-10 rounded-md border-2 border-slate-600"
+                                        style={{ backgroundColor: colorReplace.to }}
+                                    ></div>
+                                    <input 
+                                        type="color" 
+                                        value={colorReplace.to} 
+                                        onChange={e => setColorReplace(prev => ({...prev, to: e.target.value, enabled: prev.from.length > 0}))} 
+                                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                    />
+                                </div>
+                            </div>
                         </div>
                          <label className="text-sm text-slate-400">רגישות: {colorReplace.tolerance}</label>
-                            <input type="range" min="0" max="100" value={colorReplace.tolerance} onChange={e => setColorReplace(prev => ({...prev, tolerance: parseInt(e.target.value), enabled: true}))} className="w-full mt-1" />
-                        <button onClick={resetColorReplace} disabled={!colorReplace.enabled} className="w-full mt-2 text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <input type="range" min="0" max="100" value={colorReplace.tolerance} onChange={e => setColorReplace(prev => ({...prev, tolerance: parseInt(e.target.value), enabled: prev.from.length > 0}))} className="w-full mt-1" />
+                        <button onClick={resetColorReplace} disabled={!colorReplace.enabled && colorReplace.from.length === 0} className="w-full mt-2 text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded flex items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed">
                             אפס החלפה
                         </button>
                     </div>
