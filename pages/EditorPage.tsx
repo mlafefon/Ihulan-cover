@@ -2,11 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MagazineEditor from '../components/editor/MagazineEditor';
 import ImageEditor from '../components/editor/ImageEditor';
-// Fix: Import `Json` type to correctly type payloads for Supabase.
-import type { Template, ImageElement, ImageEditState, CanvasElement, TemplateRow, Json } from '../types';
+import type { Template, ImageElement, ImageEditState, CanvasElement, TemplateRow, TemplatePreview } from '../types';
 import { useAuth } from '../AuthContext';
 import { supabase } from '../supabaseClient';
-import { ElementType } from '../types';
+import { useTemplates } from '../components/TemplateContext';
 
 interface EditingImageState {
   id: string;
@@ -24,9 +23,10 @@ const EditorPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { upsertTemplate } = useTemplates();
 
   const [template, setTemplate] = useState<Template | null>(null);
-  const [originalTemplate, setOriginalTemplate] = useState<Template | null>(null); // To track name changes
+  const [originalTemplate, setOriginalTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
   const [editorKey, setEditorKey] = useState(0);
   const [editingImage, setEditingImage] = useState<EditingImageState | null>(null);
@@ -39,7 +39,6 @@ const EditorPage: React.FC = () => {
       setOriginalTemplate(state.template);
       setLoading(false);
     } else {
-      // No template provided, redirect
       navigate('/templates');
     }
   }, [location.state, navigate]);
@@ -48,37 +47,22 @@ const EditorPage: React.FC = () => {
     if (!user || !originalTemplate) return;
 
     const nameHasChanged = templateToSave.name !== originalTemplate.name;
-
-    // A template is considered "new" and should be inserted if:
-    // 1. It's a temporary template created from scratch.
-    // 2. It's a fork of another user's template or a public template.
-    // 3. The user has changed its name, triggering a "Save As" behavior.
     const isFork = templateToSave.user_id !== user.id;
     const isNew = templateToSave.id.startsWith('new_') || isFork || nameHasChanged;
-
+    
     const sanitizeForSupabase = (obj: any): any => {
-        if (obj === null || typeof obj !== 'object') {
-            return obj;
-        }
-        if (Array.isArray(obj)) {
-            return obj.map(item => sanitizeForSupabase(item));
-        }
+        if (obj === null || typeof obj !== 'object') return obj;
+        if (Array.isArray(obj)) return obj.map(item => sanitizeForSupabase(item));
         const newObj: { [key: string]: any } = {};
         for (const key in obj) {
             if (Object.prototype.hasOwnProperty.call(obj, key)) {
                 const value = obj[key];
-                if (typeof value !== 'undefined') {
-                    newObj[key] = sanitizeForSupabase(value);
-                } else {
-                    newObj[key] = null;
-                }
+                newObj[key] = (typeof value !== 'undefined') ? sanitizeForSupabase(value) : null;
             }
         }
         return newObj;
     };
     
-    // "Pack" design data into a single JSON object for storage in `template_data`.
-    // Fix: Removed explicit type annotation to allow TypeScript to infer the type, resolving Supabase client errors.
     const templateDataToSave = {
         width: templateToSave.width,
         height: templateToSave.height,
@@ -102,8 +86,7 @@ const EditorPage: React.FC = () => {
       if (data && data[0]) {
         const savedRow = data[0] as TemplateRow;
         
-        // "Unpack" the data from the DB row into the application's Template model.
-        // Fix: Cast through `unknown` to fix unsafe type conversion from `Json`.
+        // Unpack data for local editor state
         const savedTemplateData = savedRow.template_data as unknown as {
             width: number;
             height: number;
@@ -112,7 +95,7 @@ const EditorPage: React.FC = () => {
         };
         const sanitizedTemplate: Template = {
             id: savedRow.id,
-            name: savedRow.name,
+            name: savedRow.name || 'תבנית ללא שם',
             user_id: savedRow.user_id,
             created_at: savedRow.created_at,
             previewImage: savedRow.previewImage,
@@ -124,28 +107,40 @@ const EditorPage: React.FC = () => {
             elements: savedTemplateData.items || [],
         };
 
-        // After saving, update the editor's state to reflect the saved version.
-        // This prevents the user from being navigated away and allows them to continue editing.
-        setTemplate(sanitizedTemplate);
+        // Create a lightweight preview object to update the global context
+        const templatePreview: TemplatePreview = {
+          id: savedRow.id,
+          name: savedRow.name || 'תבנית ללא שם',
+          previewImage: savedRow.previewImage,
+          user_id: savedRow.user_id,
+          is_public: savedRow.is_public ?? false,
+          is_active: savedRow.is_active ?? true,
+          created_at: savedRow.created_at,
+        };
         
-        // If it was a "Save As" or fork, the "original" template is now the one just saved.
+        // Update the global state so the templates page is instantly updated.
+        // Also pass the full template data to populate the cache.
+        if (!templatePreview.is_public) {
+            upsertTemplate(templatePreview, sanitizedTemplate);
+        }
+
+        // Update local state to continue editing
+        setTemplate(sanitizedTemplate);
         if (isNew) {
           setOriginalTemplate(sanitizedTemplate);
         }
-
-        // Re-key the editor to force it to re-render with the latest template data.
         setEditorKey(prev => prev + 1);
       }
     } catch (error: any) {
       console.error('Error saving template:', error);
-      const errorMessage = error?.message || 'An unexpected error occurred. Check the console for details.';
+      const errorMessage = error?.message || 'An unexpected error occurred.';
       alert(`שגיאה בשמירת התבנית: ${errorMessage}`);
     }
   };
 
   const handleEditImage = (element: ImageElement, currentTemplate: Template, newSrc?: string) => {
     const imageToEdit = newSrc || element.originalSrc || element.src;
-    setTemplate(currentTemplate); // Sync state from MagazineEditor before switching views
+    setTemplate(currentTemplate);
     setEditingImage({ 
       id: element.id, 
       src: imageToEdit || '',

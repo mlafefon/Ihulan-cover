@@ -5,6 +5,7 @@ import App from './App';
 import { AuthProvider } from './AuthContext';
 import { supabase } from './supabaseClient';
 import { FontProvider } from './components/fonts/FontLoader';
+import { TemplateProvider } from './components/TemplateContext';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -21,9 +22,11 @@ supabase.auth.getSession().finally(() => {
     <React.StrictMode>
       <HashRouter>
         <AuthProvider>
-          <FontProvider>
-            <App />
-          </FontProvider>
+          <TemplateProvider>
+            <FontProvider>
+              <App />
+            </FontProvider>
+          </TemplateProvider>
         </AuthProvider>
       </HashRouter>
     </React.StrictMode>
