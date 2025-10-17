@@ -1,9 +1,11 @@
 
+
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
+import NumericStepper from './NumericStepper';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -239,14 +241,18 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
              <Accordion title="הגדרות עמוד">
                  <div className="space-y-3">
                     <div className="flex gap-2">
-                        <label className="flex items-center gap-2 w-1/2">
-                            <span className="text-sm text-slate-400">רוחב</span>
-                            <input type="number" value={template.width} onChange={(e) => onUpdateTemplate({width: parseInt(e.target.value)})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
-                        </label>
-                        <label className="flex items-center gap-2 w-1/2">
-                            <span className="text-sm text-slate-400">גובה</span>
-                            <input type="number" value={template.height} onChange={(e) => onUpdateTemplate({height: parseInt(e.target.value)})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
-                        </label>
+                         <NumericStepper 
+                            label="רוחב"
+                            value={template.width}
+                            onChange={(newValue) => onUpdateTemplate({width: newValue})}
+                            step={10}
+                        />
+                         <NumericStepper 
+                            label="גובה"
+                            value={template.height}
+                            onChange={(newValue) => onUpdateTemplate({height: newValue})}
+                            step={10}
+                        />
                     </div>
                      <label className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-400">צבע רקע</span>
@@ -329,10 +335,12 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                         </select>
                     </label>
                     <div className="grid grid-cols-2 gap-2">
-                         <label>
-                            <span className="text-sm text-slate-400">גודל</span>
-                            <input type="number" value={displayStyle.fontSize} onChange={(e) => handleStyleChange('fontSize', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
-                        </label>
+                        <NumericStepper
+                            label="גודל"
+                            value={displayStyle.fontSize}
+                            onChange={(newSize) => handleStyleChange('fontSize', newSize)}
+                            min={1}
+                        />
                         <label>
                             <span className="text-sm text-slate-400">משקל</span>
                             <select value={displayStyle.fontWeight} onChange={(e) => handleStyleChange('fontWeight', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm">
@@ -455,15 +463,12 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                         </label>
                         {outline.enabled && (
                             <div className="grid grid-cols-2 gap-2">
-                                <label>
-                                    <span className="text-xs text-slate-400">עובי (px)</span>
-                                    <input 
-                                        type="number" 
-                                        min="0"
-                                        value={outline.width} 
-                                        onChange={(e) => handleOutlineChange({ width: parseInt(e.target.value, 10) || 0 })}
-                                        className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
-                                </label>
+                                <NumericStepper 
+                                    label="עובי (px)"
+                                    value={outline.width}
+                                    onChange={(newValue) => handleOutlineChange({ width: newValue })}
+                                    min={0}
+                                />
                                 <label>
                                     <span className="text-xs text-slate-400">צבע</span>
                                     <div
@@ -489,19 +494,25 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
             <Accordion title="יישור ופריסה">
                 <div className="space-y-4">
                      <div className="grid grid-cols-2 gap-2">
-                         <label>
-                            <span className="text-sm text-slate-400">מרווח שורות</span>
-                            <input type="number" step="0.1" value={element.lineHeight} onChange={(e) => handleBlockUpdate('lineHeight', parseFloat(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
-                        </label>
-                        <label>
-                            <span className="text-sm text-slate-400">מרווח אותיות</span>
-                            <input type="number" value={element.letterSpacing} onChange={(e) => handleBlockUpdate('letterSpacing', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
-                        </label>
+                        <NumericStepper
+                            label="מרווח שורות"
+                            value={element.lineHeight}
+                            onChange={(newValue) => handleBlockUpdate('lineHeight', newValue)}
+                            step={0.1}
+                            min={0}
+                        />
+                        <NumericStepper
+                            label="מרווח אותיות"
+                            value={element.letterSpacing}
+                            onChange={(newValue) => handleBlockUpdate('letterSpacing', newValue)}
+                        />
                     </div>
-                     <label>
-                        <span className="text-sm text-slate-400">ריפוד</span>
-                        <input type="number" value={element.padding} onChange={(e) => handleBlockUpdate('padding', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm" />
-                    </label>
+                     <NumericStepper
+                        label="ריפוד"
+                        value={element.padding}
+                        onChange={(newValue) => handleBlockUpdate('padding', newValue)}
+                        min={0}
+                     />
                     <div>
                         <span className="text-sm text-slate-400">יישור אופקי</span>
                          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
@@ -567,60 +578,45 @@ const ImagePanel: React.FC<{ element: ImageElement; onEditImage: (element: Image
 };
 
 const TransformPanel: React.FC<{ element: CanvasElement; onUpdate: (id: string, updates: Partial<CanvasElement>) => void }> = ({ element, onUpdate }) => {
-    const handleNumericUpdate = (prop: keyof CanvasElement, value: string) => {
-        const numValue = parseInt(value, 10);
-        if (!isNaN(numValue)) {
-            onUpdate(element.id, { [prop]: numValue } as Partial<CanvasElement>);
+    const handleUpdate = (prop: keyof CanvasElement, value: number) => {
+        if (!isNaN(value)) {
+            onUpdate(element.id, { [prop]: value } as Partial<CanvasElement>);
         }
     };
 
     return (
         <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
-            <label>
-                <span className="text-sm text-slate-400">רוחב (W)</span>
-                <input
-                    type="number"
-                    value={Math.round(element.width)}
-                    onChange={(e) => handleNumericUpdate('width', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
-                />
-            </label>
-            <label>
-                <span className="text-sm text-slate-400">גובה (H)</span>
-                <input
-                    type="number"
-                    value={Math.round(element.height)}
-                    onChange={(e) => handleNumericUpdate('height', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
-                />
-            </label>
-            <label>
-                <span className="text-sm text-slate-400">מיקום X</span>
-                <input
-                    type="number"
-                    value={Math.round(element.x)}
-                    onChange={(e) => handleNumericUpdate('x', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
-                />
-            </label>
-            <label>
-                <span className="text-sm text-slate-400">מיקום Y</span>
-                <input
-                    type="number"
-                    value={Math.round(element.y)}
-                    onChange={(e) => handleNumericUpdate('y', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
-                />
-            </label>
-            <label className="col-span-2">
-                <span className="text-sm text-slate-400">סיבוב (°)</span>
-                <input
-                    type="number"
+            <NumericStepper
+                label="רוחב (W)"
+                value={Math.round(element.width)}
+                onChange={(newValue) => handleUpdate('width', newValue)}
+                min={10}
+            />
+            <NumericStepper
+                label="גובה (H)"
+                value={Math.round(element.height)}
+                onChange={(newValue) => handleUpdate('height', newValue)}
+                min={10}
+            />
+            <NumericStepper
+                label="מיקום X"
+                value={Math.round(element.x)}
+                onChange={(newValue) => handleUpdate('x', newValue)}
+            />
+            <NumericStepper
+                label="מיקום Y"
+                value={Math.round(element.y)}
+                onChange={(newValue) => handleUpdate('y', newValue)}
+            />
+            <div className="col-span-2">
+                <NumericStepper
+                    label="סיבוב (°)"
                     value={Math.round(element.rotation)}
-                    onChange={(e) => handleNumericUpdate('rotation', e.target.value)}
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm"
+                    onChange={(newValue) => handleUpdate('rotation', newValue)}
+                    min={-360}
+                    max={360}
                 />
-            </label>
+            </div>
         </div>
     )
 };
