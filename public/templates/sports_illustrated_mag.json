@@ -1,0 +1,52 @@
+{
+  "width": 800,
+  "height": 1000,
+  "backgroundColor": "#e0e0e0",
+  "items": [
+    {
+      "id": "main_image",
+      "type": "image",
+      "x": 0,
+      "y": 0,
+      "width": 800,
+      "height": 1000,
+      "rotation": 0,
+      "zIndex": 1,
+      "src": "https://images.unsplash.com/photo-1554060197-27a3e4981504?q=80&w=800&h=1000&auto=format&fit=crop",
+      "originalSrc": "https://images.unsplash.com/photo-1554060197-27a3e4981504?q=80&w=800&h=1000&auto=format&fit=crop",
+      "objectFit": "cover"
+    },
+    {
+      "id": "title",
+      "type": "text",
+      "x": 40,
+      "y": 40,
+      "width": 600,
+      "height": 100,
+      "rotation": 0,
+      "zIndex": 2,
+      "spans": [{ "text": "Sports Illustrated", "style": { "fontFamily": "Heebo", "fontSize": 82, "fontWeight": 700, "color": "#ffffff", "textShadow": "2px 2px 4px #000000", "lineHeight": 1 } }],
+      "textAlign": "left",
+      "verticalAlign": "middle",
+      "letterSpacing": 0,
+      "backgroundColor": "transparent",
+      "padding": 0
+    },
+    {
+      "id": "headline",
+      "type": "text",
+      "x": 50,
+      "y": 800,
+      "width": 700,
+      "height": 120,
+      "rotation": 0,
+      "zIndex": 3,
+      "spans": [{ "text": "THE GREATEST\nCOMEBACK", "style": { "fontFamily": "Heebo", "fontSize": 72, "fontWeight": 900, "color": "#000000", "textShadow": "", "lineHeight": 1.1 } }],
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "letterSpacing": 1,
+      "backgroundColor": "rgba(255, 255, 0, 0.85)",
+      "padding": 15
+    }
+  ]
+}

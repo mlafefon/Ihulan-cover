@@ -1,0 +1,69 @@
+{
+  "width": 800,
+  "height": 1000,
+  "backgroundColor": "#ffffff",
+  "items": [
+    {
+      "id": "main_image",
+      "type": "image",
+      "x": 0,
+      "y": 0,
+      "width": 800,
+      "height": 1000,
+      "rotation": 0,
+      "zIndex": 1,
+      "src": "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&h=1000&auto=format&fit=crop",
+      "originalSrc": "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&h=1000&auto=format&fit=crop",
+      "objectFit": "cover"
+    },
+    {
+      "id": "title",
+      "type": "text",
+      "x": 450,
+      "y": 50,
+      "width": 300,
+      "height": 80,
+      "rotation": 0,
+      "zIndex": 2,
+      "spans": [{ "text": "כלכליסט", "style": { "fontFamily": "Heebo", "fontSize": 72, "fontWeight": 900, "color": "#000000", "textShadow": "2px 2px 4px #ffffff", "lineHeight": 1.2 } }],
+      "textAlign": "right",
+      "verticalAlign": "middle",
+      "letterSpacing": 0,
+      "backgroundColor": "transparent",
+      "padding": 10
+    },
+    {
+      "id": "headline",
+      "type": "text",
+      "x": 50,
+      "y": 400,
+      "width": 700,
+      "height": 200,
+      "rotation": 0,
+      "zIndex": 3,
+      "spans": [{ "text": "הזינוק הגדול:\nלאן הולך שוק הנדל\"ן?", "style": { "fontFamily": "Heebo", "fontSize": 64, "fontWeight": 700, "color": "#ffffff", "textShadow": "2px 2px 5px #000000", "lineHeight": 1.3 } }],
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "letterSpacing": 0,
+      "backgroundColor": "rgba(0,0,0,0.3)",
+      "padding": 20,
+      "backgroundShape": "rectangle"
+    },
+    {
+      "id": "issue_tag",
+      "type": "text",
+      "x": 50,
+      "y": 900,
+      "width": 250,
+      "height": 50,
+      "rotation": 0,
+      "zIndex": 4,
+      "spans": [{ "text": "גיליון מיוחד | 2025", "style": { "fontFamily": "Heebo", "fontSize": 24, "fontWeight": 400, "color": "#000000", "textShadow": "", "lineHeight": 1.2 } }],
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "letterSpacing": 0,
+      "backgroundColor": "#ff9900",
+      "padding": 10
+    }
+  ]
+}

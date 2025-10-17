@@ -4,6 +4,7 @@ import { ElementType } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
+import { defaultTextStyle } from '../CanvasItem';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -327,7 +328,13 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
         onStyleUpdate({ [prop]: value });
     }
 
-    const displayStyle = activeStyle || element.spans[0]?.style;
+    const baseStyle = activeStyle || element.spans[0]?.style;
+    if (!baseStyle) return null; // Guard against an element somehow having no spans/style.
+
+    // This is the fix. It ensures that any style object used for display
+    // is complete, preventing crashes when accessing properties like .fontSize.
+    const displayStyle: TextStyle = { ...defaultTextStyle, ...baseStyle };
+
     const { hex: bgColorHex, alpha: bgColorAlpha } = parseColor(element.backgroundColor);
     const outline = element.outline || { enabled: false, color: '#FFFFFF', width: 1 };
 
@@ -348,8 +355,6 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
             handleBlockUpdate('backgroundColor', newColor);
         }
     };
-
-    if (!displayStyle) return null; // Should not happen if element exists
     
     const hasShadow = displayStyle.textShadow && displayStyle.textShadow !== 'none' && displayStyle.textShadow !== '';
     const SHADOW_VALUE = '2px 2px 4px rgba(0,0,0,0.5)';

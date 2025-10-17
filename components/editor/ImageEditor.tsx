@@ -63,7 +63,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const [offset, setOffset] = useState({ x: 0, y: 0 });
     const [isPanning, setIsPanning] = useState(false);
     const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
-    const [colorReplace, setColorReplace] = useState({ from: [], to: '#ff00ff', tolerance: 20, enabled: false });
+    const [colorReplace, setColorReplace] = useState({ from: [] as string[], to: '#ff00ff', tolerance: 20, enabled: false });
     const [isPickingColor, setIsPickingColor] = useState(false);
     const [frame, setFrame] = useState({ thickness: 0, style: 'none', color: '#000000' });
 
@@ -398,35 +398,33 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             }
 
             if (initialEditState && !isReplacing) {
-                // Determine the new zoom level, clamped within the new min/max bounds.
                 const newZoom = Math.max(minZoomValue, Math.min(maxZoomValue, initialEditState.zoom));
-                
-                // Calculate the maximum allowed offset based on the NEW zoom level.
                 const maxX = Math.max(0, (image.width * newZoom - cropFrameSize.width) / 2);
                 const maxY = Math.max(0, (image.height * newZoom - cropFrameSize.height) / 2);
 
-                // Clamp the initial offset from the saved state to these new bounds.
                 const clampedOffset = {
                     x: Math.max(-maxX, Math.min(maxX, initialEditState.offset.x)),
                     y: Math.max(-maxY, Math.min(maxY, initialEditState.offset.y)),
                 };
 
-                // Set all states based on the calculated and clamped values.
                 setZoom(newZoom);
                 setOffset(clampedOffset);
-                setFilters(initialEditState.filters);
                 
-                // Backward compatibility for colorReplace.from (string -> string[])
-                const from = initialEditState.colorReplace.from;
+                // Sanitize and set state from initialEditState, providing defaults
+                const defaultFilters = { brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 };
+                setFilters({ ...defaultFilters, ...initialEditState.filters });
+
+                const defaultColorReplace = { from: [], to: '#ff00ff', tolerance: 20, enabled: false };
+                const from = initialEditState.colorReplace?.from;
                 const fromAsArray = Array.isArray(from) ? from : (typeof from === 'string' ? [from] : []);
-                setColorReplace({ ...initialEditState.colorReplace, from: fromAsArray });
+                setColorReplace({ ...defaultColorReplace, ...initialEditState.colorReplace, from: fromAsArray });
                 
-                setFrame(initialEditState.frame);
-                setIsBlurApplied(initialEditState.isBlurApplied);
-                setHasMask(initialEditState.hasMask);
+                const defaultFrame = { thickness: 0, style: 'none', color: '#000000' };
+                setFrame({ ...defaultFrame, ...initialEditState.frame });
                 
-                // When loading state, we still need to clear any existing mask first
-                // before drawing the new one.
+                setIsBlurApplied(initialEditState.isBlurApplied ?? false);
+                setHasMask(initialEditState.hasMask ?? false);
+                
                 const maskCtx = maskCanvasRef.current?.getContext('2d');
                 if (maskCtx && maskCanvasRef.current) {
                     maskCtx.clearRect(0, 0, maskCanvasRef.current.width, maskCanvasRef.current.height);
@@ -440,8 +438,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                     };
                 }
             } else {
-                // This branch handles both a newly replaced image, and the initial load of an
-                // element that has no prior editState. In both cases, we reset.
                 resetAllEdits();
                 setZoom(initialZoomValue);
                 setOffset({ x: 0, y: 0 });

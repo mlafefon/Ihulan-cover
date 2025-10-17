@@ -4,7 +4,7 @@ import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, Text
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
 import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
-import CanvasItem, { applyStyleToSpans, setSelectionByOffset } from '../CanvasItem';
+import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
 
@@ -226,7 +226,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     
                         const newMiddleText = newText.substring(prefixLen, newText.length - suffixLen);
                         
-                        // Fix: Added missing `lineHeight` to the fallback style object to conform to the TextStyle type.
                         let styleForMiddle: TextStyle = el.spans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '', lineHeight: 1.2 };
                         let currentIndex = 0;
                         for (const span of el.spans) {
@@ -288,6 +287,10 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                         if (spans.length === 0) {
                              spans.push({ text: '', style: styleForMiddle });
                         }
+                        
+                        // Fix: Sanitize the newly constructed spans to ensure they have a complete style object.
+                        // This prevents crashes when an incomplete style (e.g., missing `fontSize`) is passed to other components.
+                        spans = spans.map(s => ({ ...s, style: { ...defaultTextStyle, ...s.style } }));
                     }
                 }
     
@@ -390,13 +393,9 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 spans: [{
                     text: 'טקסט לדוגמה',
                     style: {
-                        fontFamily: 'Heebo',
+                        ...defaultTextStyle,
                         fontSize: 48,
                         fontWeight: 700,
-                        color: '#FFFFFF',
-                        textShadow: '',
-                        // Fix: Moved `lineHeight` into the style object to match the TextStyle type and fix a TypeScript error.
-                        lineHeight: 1.2,
                     }
                 }],
                 textAlign: 'right',

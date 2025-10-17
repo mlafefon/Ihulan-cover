@@ -63,6 +63,17 @@ const getSunClipPath = () => {
     return `polygon(${points.join(', ')})`;
 };
 
+// A default style object to ensure all required properties exist on a text style.
+export const defaultTextStyle: TextStyle = {
+    fontFamily: 'Heebo',
+    fontSize: 32,
+    fontWeight: 400,
+    color: '#FFFFFF',
+    textShadow: '',
+    lineHeight: 1.2,
+};
+
+
 const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
@@ -749,7 +760,7 @@ export function applyStyleToSpans(
             const isCursorInSpan = start >= charIndex && start <= spanEnd;
             charIndex = spanEnd;
             if (isCursorInSpan) {
-                return { ...span, style: { ...span.style, ...styleUpdate } };
+                return { ...span, style: { ...defaultTextStyle, ...span.style, ...styleUpdate } };
             }
             return span;
         });
@@ -770,7 +781,10 @@ export function applyStyleToSpans(
             const afterText = span.text.substring(Math.min(span.text.length, end - currentIndex));
 
             if (beforeText) newSpans.push({ ...span, text: beforeText });
-            if (selectedText) newSpans.push({ ...span, text: selectedText, style: { ...span.style, ...styleUpdate } });
+            if (selectedText) {
+                const newStyle = { ...defaultTextStyle, ...span.style, ...styleUpdate };
+                newSpans.push({ ...span, text: selectedText, style: newStyle });
+            }
             if (afterText) newSpans.push({ ...span, text: afterText });
         }
         

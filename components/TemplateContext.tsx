@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
-import type { Template, TemplatePreview, TemplateRow, CanvasElement } from '../types';
+import type { Template, TemplatePreview, TemplateRow, CanvasElement, TextStyle, TextSpan, TextElement, ImageElement, CutterElement } from '../types';
+import { ElementType } from '../types';
 
 // State and context type definitions
 interface TemplateState {
@@ -34,32 +35,99 @@ const transformRowToTemplatePreview = (row: Pick<TemplateRow, 'id' | 'name' | 'p
   };
 };
 
+// A default style object to ensure all required properties exist on a text style.
+const defaultTextStyle: TextStyle = {
+    fontFamily: 'Heebo',
+    fontSize: 32,
+    fontWeight: 400,
+    color: '#FFFFFF',
+    textShadow: '',
+    lineHeight: 1.2,
+};
+
 // Helper function to transform a full DB row into a complete Template object for the editor
 const transformRowToTemplate = (row: TemplateRow): Template => {
     const data = row.template_data as {
         width?: number;
         height?: number;
         backgroundColor?: string;
-        items?: any[]; // Use 'any' to handle legacy template formats during migration
+        items?: any[];
     } | null;
 
-    const elements = (data?.items || []).map((el: any) => {
-        // Data migration: if an old text element has a top-level `lineHeight`,
-        // move it into the style of each of its spans.
-        if (el.type === 'text' && el.lineHeight !== undefined && el.spans) {
-            const globalLineHeight = el.lineHeight;
-            delete el.lineHeight; // Remove the old property from the element root
-            el.spans = el.spans.map((span: any) => ({
-                ...span,
-                style: {
-                    ...span.style,
-                    // Set the new lineHeight, but prioritize any that might already exist on the span
-                    lineHeight: span.style.lineHeight || globalLineHeight 
+    const elements = (data?.items || []).map((el: any): CanvasElement | null => {
+        if (!el || !el.type) return null;
+
+        const baseElement = {
+            id: el.id,
+            type: el.type,
+            x: el.x ?? 0,
+            y: el.y ?? 0,
+            width: el.width ?? 100,
+            height: el.height ?? 100,
+            rotation: el.rotation ?? 0,
+            zIndex: el.zIndex ?? 1,
+        };
+
+        if (el.type === 'text') {
+            const spans = Array.isArray(el.spans) ? el.spans : [];
+            let globalLineHeight: number | undefined = el.lineHeight;
+
+            const sanitizedSpans = spans.map((span: any): TextSpan => {
+                const existingStyle = (span.style && typeof span.style === 'object') ? span.style : {};
+                const newStyle: TextStyle = { ...defaultTextStyle, ...existingStyle };
+                if (globalLineHeight !== undefined) {
+                    newStyle.lineHeight = existingStyle.lineHeight ?? globalLineHeight;
                 }
-            }));
+                return {
+                    text: typeof span.text === 'string' ? span.text : '',
+                    style: newStyle,
+                };
+            });
+            if (sanitizedSpans.length === 0) {
+                sanitizedSpans.push({ text: '', style: defaultTextStyle });
+            }
+
+            const textElement: TextElement = {
+                ...baseElement,
+                type: ElementType.Text,
+                spans: sanitizedSpans,
+                textAlign: el.textAlign ?? 'right',
+                verticalAlign: el.verticalAlign ?? 'middle',
+                letterSpacing: el.letterSpacing ?? 0,
+                backgroundColor: el.backgroundColor ?? 'transparent',
+                padding: el.padding ?? 10,
+                backgroundShape: el.backgroundShape ?? 'rectangle',
+                outline: {
+                    enabled: el.outline?.enabled ?? false,
+                    color: el.outline?.color ?? '#FFFFFF',
+                    width: el.outline?.width ?? 2,
+                },
+            };
+            return textElement;
         }
-        return el as CanvasElement;
-    });
+
+        if (el.type === 'image') {
+            const imageElement: ImageElement = {
+                ...baseElement,
+                type: ElementType.Image,
+                src: el.src ?? null,
+                originalSrc: el.originalSrc ?? el.src ?? null,
+                objectFit: el.objectFit ?? 'cover',
+                editState: el.editState ?? null,
+            };
+            return imageElement;
+        }
+
+        if (el.type === 'cutter') {
+            const cutterElement: CutterElement = {
+                ...baseElement,
+                type: ElementType.Cutter,
+            };
+            return cutterElement;
+        }
+
+        return null;
+    }).filter((el): el is CanvasElement => el !== null);
 
     return {
         id: row.id,
@@ -75,6 +143,7 @@ const transformRowToTemplate = (row: TemplateRow): Template => {
         elements: elements,
     };
 };
+
 
 export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
