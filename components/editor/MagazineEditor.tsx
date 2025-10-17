@@ -744,8 +744,15 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     };
 
     const handleExportJSON = () => {
+        const exportData = {
+            width: template.width,
+            height: template.height,
+            backgroundColor: template.background_color,
+            items: template.elements,
+        };
+
         const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-            JSON.stringify(template, null, 2)
+            JSON.stringify(exportData, null, 2)
         )}`;
         const link = document.createElement("a");
         link.href = jsonString;

@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Database } from './types';
+import type { Database } from './types';
 
 // IMPORTANT: Replace with your Supabase project URL and Anon Key.
 // You can get these from your Supabase project settings.
