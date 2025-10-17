@@ -11,7 +11,7 @@ import { useTemplates } from '../components/TemplateContext';
 const TemplatesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { myTemplates, publicTemplates, loading, error, removeTemplate, fetchFullTemplate, getTemplateFromCache } = useTemplates();
+  const { myTemplates, publicTemplates, loading, error, removeTemplate, getTemplateFromCache } = useTemplates();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'my' | 'public'>(() => {
@@ -20,7 +20,6 @@ const TemplatesPage: React.FC = () => {
   });
   const [localError, setLocalError] = useState<string | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<TemplatePreview | null>(null);
-  const [loadingTemplateId, setLoadingTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
     sessionStorage.setItem('templatesPageActiveTab', activeTab);
@@ -58,38 +57,14 @@ const TemplatesPage: React.FC = () => {
   };
 
   const handleSelectTemplate = (template: TemplatePreview) => {
-    if (loadingTemplateId) {
-      return;
-    }
-
-    // Check cache synchronously
     const cachedTemplate = getTemplateFromCache(template.id);
     if (cachedTemplate) {
-      // If found in cache, navigate immediately without a loading indicator.
       navigate('/editor', { state: { template: cachedTemplate } });
-      return;
+    } else {
+      // This is now an error case, as all templates should be pre-cached.
+      console.error("Template not found in cache:", template.id);
+      setLocalError(`שגיאה: התבנית לא נמצאה בזיכרון המטמון. נסה לרענן את הדף.`);
     }
-
-    // If not in cache, define an async function to fetch and then navigate.
-    const fetchAndNavigate = async () => {
-      setLoadingTemplateId(template.id);
-      setLocalError(null);
-
-      try {
-        const fullTemplate = await fetchFullTemplate(template.id);
-        if (fullTemplate) {
-          navigate('/editor', { state: { template: fullTemplate } });
-        } else {
-          throw new Error("Template not found.");
-        }
-      } catch (e: any) {
-        console.error("Failed to fetch full template:", e);
-        setLocalError(`לא ניתן לטעון את התבנית: ${e.message}`);
-        setLoadingTemplateId(null);
-      }
-    };
-
-    fetchAndNavigate();
   };
   
   const handleNewDesign = () => {
@@ -140,19 +115,13 @@ const TemplatesPage: React.FC = () => {
           )}
 
           {filteredTemplates.map(template => {
-            const isLoading = loadingTemplateId === template.id;
             return (
                 <div key={template.id} className="group relative flex flex-col">
-                    <div onClick={() => handleSelectTemplate(template)} className={`cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5] ${isLoading ? 'opacity-50' : ''}`}>
+                    <div onClick={() => handleSelectTemplate(template)} className="cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
                         <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
                             <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
                         </div>
                         <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
-                        {isLoading && (
-                            <div className="absolute inset-0 bg-slate-900/80 z-10 flex items-center justify-center">
-                                <SpinnerIcon className="w-10 h-10 text-white animate-spin" />
-                            </div>
-                        )}
                     </div>
                     <div className="flex justify-between items-center mt-3">
                         <h3 className="font-semibold text-white truncate pr-2">{template.name}</h3>

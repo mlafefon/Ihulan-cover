@@ -70,16 +70,15 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [fullTemplateCache, setFullTemplateCache] = useState<Record<string, Template>>({});
 
   useEffect(() => {
-    // Fetch all templates once after user logs in.
+    // Fetch all templates (full data) once after user logs in.
     if (user && !state.initialLoadComplete) {
       const fetchTemplates = async () => {
         setState(s => ({ ...s, loading: true, error: null }));
         try {
-          const selectQuery = 'id, name, previewImage, user_id, is_public, is_active, created_at';
-
+          // Fetch full data for user's templates
           const { data: myData, error: myError } = await supabase
             .from('templates')
-            .select(selectQuery)
+            .select('*') // Fetch all data
             .eq('user_id', user.id)
             .eq('is_active', true)
             .eq('is_public', false)
@@ -87,17 +86,30 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           if (myError) throw myError;
 
+          // Fetch full data for public templates
           const { data: publicData, error: publicError } = await supabase
             .from('templates')
-            .select(selectQuery)
+            .select('*') // Fetch all data
             .eq('is_public', true)
             .eq('is_active', true);
 
           if (publicError) throw publicError;
           
+          const myTemplateRows = (myData as TemplateRow[]) || [];
+          const publicTemplateRows = (publicData as TemplateRow[]) || [];
+
+          const myFullTemplates = myTemplateRows.map(transformRowToTemplate);
+          const publicFullTemplates = publicTemplateRows.map(transformRowToTemplate);
+
+          const newCache: Record<string, Template> = {};
+          myFullTemplates.forEach(t => { newCache[t.id] = t; });
+          publicFullTemplates.forEach(t => { newCache[t.id] = t; });
+          
+          setFullTemplateCache(newCache);
+          
           setState({
-            myTemplates: (myData || []).map(transformRowToTemplatePreview),
-            publicTemplates: (publicData || []).map(transformRowToTemplatePreview),
+            myTemplates: myTemplateRows.map(transformRowToTemplatePreview),
+            publicTemplates: publicTemplateRows.map(transformRowToTemplatePreview),
             loading: false,
             error: null,
             initialLoadComplete: true,
