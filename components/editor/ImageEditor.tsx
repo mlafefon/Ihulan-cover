@@ -1,5 +1,7 @@
+
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { RotateCcw, EyeDropperIcon, BrushIcon } from '../Icons';
+import { ResetIcon, EyeDropperIcon, BrushPlusIcon, BrushMinusIcon, EyeIcon } from '../Icons';
 import type { ImageEditState } from '../../types';
 
 interface ImageEditorProps {
@@ -173,7 +175,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             blurCanvas.height = image.height;
             const blurCtx = blurCanvas.getContext('2d');
             if (blurCtx) {
-                blurCtx.filter = 'blur(4px)';
+                blurCtx.filter = 'blur(8px)';
                 blurCtx.drawImage(filteredImageCanvas, 0, 0);
                 ctx.drawImage(blurCanvas, -image.width / 2, -image.height / 2);
             }
@@ -295,10 +297,14 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
          if (e.target) e.target.value = '';
     };
 
-    const handleApplyBlur = () => {
-        setIsBlurApplied(true);
-        setBlurTool(null);
-    }
+    const handleToggleBlurPreview = () => {
+        if (hasMask) {
+            setIsBlurApplied(prev => !prev);
+            // Deactivate any drawing tool when toggling the preview on/off
+            // to make the action's intent clearer (preview vs. edit).
+            setBlurTool(null);
+        }
+    };
     
     useEffect(() => {
         const container = containerRef.current;
@@ -646,7 +652,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                 blurCanvas.height = image.height;
                 const blurCtx = blurCanvas.getContext('2d');
                 if (blurCtx) {
-                    blurCtx.filter = 'blur(4px)';
+                    blurCtx.filter = 'blur(8px)';
                     blurCtx.drawImage(processedImageCanvas, 0, 0);
                     finalCtx.drawImage(blurCanvas, 0, 0);
 
@@ -798,7 +804,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                             </div>
                         ))}
                          <button onClick={resetFilters} className="w-full mt-2 text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded flex items-center justify-center gap-1">
-                            <RotateCcw className="w-3 h-3"/>
+                            <ResetIcon className="w-3 h-3"/>
                             אפס פילטרים
                         </button>
                     </div>
@@ -827,26 +833,30 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                 </Accordion>
                 <Accordion title="טשטוש">
                     <div className="space-y-4">
-                        <div>
-                             <p className="text-xs text-slate-400 mb-2">סמן את האזור שיישאר חד. כל השאר יטושטש.</p>
-                             <div className="grid grid-cols-2 gap-2">
-                                <button onClick={() => { setBlurTool('brush'); setIsBlurApplied(false); }} className={`p-2 rounded flex items-center justify-center gap-2 text-sm ${blurTool === 'brush' ? activeToolClass : inactiveToolClass}`}>
-                                    <BrushIcon className="w-4 h-4"/>
-                                    מברשת סימון
-                                </button>
-                                <button onClick={() => { setBlurTool('eraser'); setIsBlurApplied(false); }} className={`p-2 rounded flex items-center justify-center gap-2 text-sm ${blurTool === 'eraser' ? activeToolClass : inactiveToolClass}`}>
-                                     <BrushIcon className="w-4 h-4"/>
-                                     מחק
-                                </button>
-                             </div>
+                        <p className="text-xs text-slate-400">סמן את האזור שיישאר חד. כל השאר יטושטש.</p>
+                        <div className="flex items-center gap-2">
+                            <label htmlFor="brush-size-slider" className="text-sm text-slate-400 whitespace-nowrap">גודל מברשת:</label>
+                            <input id="brush-size-slider" type="range" min="5" max="300" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value, 10))} className="w-full" />
+                            <span className="text-sm w-8 text-right">{brushSize}</span>
                         </div>
-                         <div>
-                            <label className="text-sm text-slate-400">גודל מברשת: {brushSize}</label>
-                            <input type="range" min="5" max="300" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} className="w-full mt-1" />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={handleResetBlur} className="text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded">איפוס טשטוש</button>
-                            <button onClick={handleApplyBlur} disabled={!hasMask} className="text-sm bg-slate-600 hover:bg-slate-500 p-2 rounded disabled:opacity-50 disabled:cursor-not-allowed">בצע טשטוש</button>
+                        <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-700">
+                            <button onClick={() => { setBlurTool('brush'); setIsBlurApplied(false); }} title="מברשת סימון" className={`p-2 rounded flex items-center justify-center text-sm ${blurTool === 'brush' ? activeToolClass : inactiveToolClass}`}>
+                                <BrushPlusIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={() => { setBlurTool('eraser'); setIsBlurApplied(false); }} title="מחק מברשת" className={`p-2 rounded flex items-center justify-center text-sm ${blurTool === 'eraser' ? activeToolClass : inactiveToolClass}`}>
+                                <BrushMinusIcon className="w-5 h-5" />
+                            </button>
+                            <button 
+                                onClick={handleToggleBlurPreview} 
+                                disabled={!hasMask} 
+                                title="החל/הסתר טשטוש" 
+                                className={`p-2 rounded flex items-center justify-center text-sm ${isBlurApplied ? activeToolClass : 'bg-slate-600 hover:bg-slate-500'} disabled:opacity-50 disabled:cursor-not-allowed`}
+                            >
+                                <EyeIcon className="w-5 h-5" />
+                            </button>
+                            <button onClick={handleResetBlur} title="איפוס טשטוש" className="p-2 rounded flex items-center justify-center text-sm bg-slate-700 hover:bg-slate-600">
+                                <ResetIcon className="w-5 h-5" />
+                            </button>
                         </div>
                     </div>
                 </Accordion>
