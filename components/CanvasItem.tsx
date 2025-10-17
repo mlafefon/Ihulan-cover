@@ -167,34 +167,38 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             const dy = moveEvent.clientY - startY;
             let newX = startElX + dx;
             let newY = startElY + dy;
-
-            const SNAP_THRESHOLD = 5;
-            const currentElementPoints = {
-                left: newX,
-                right: newX + element.width,
-                top: newY,
-                bottom: newY + element.height,
-                hCenter: newX + element.width / 2,
-                vCenter: newY + element.height / 2,
-            };
-
-            const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
-            const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
             
-            const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
+            if (element.type !== ElementType.Cutter) {
+                const SNAP_THRESHOLD = 5;
+                const currentElementPoints = {
+                    left: newX,
+                    right: newX + element.width,
+                    top: newY,
+                    bottom: newY + element.height,
+                    hCenter: newX + element.width / 2,
+                    vCenter: newY + element.height / 2,
+                };
 
-            for (const targetX of snapTargetsX) {
-                if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) { newX = targetX; activeSnapLines.x.push(targetX); break; }
-                if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width / 2; activeSnapLines.x.push(targetX); break; }
-                if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width; activeSnapLines.x.push(targetX); break; }
-            }
-            for (const targetY of snapTargetsY) {
-                if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) { newY = targetY; activeSnapLines.y.push(targetY); break; }
-                if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height / 2; activeSnapLines.y.push(targetY); break; }
-                if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height; activeSnapLines.y.push(targetY); break; }
-            }
+                const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
+                const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
+                
+                const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
-            setSnapLines(activeSnapLines);
+                for (const targetX of snapTargetsX) {
+                    if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) { newX = targetX; activeSnapLines.x.push(targetX); break; }
+                    if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width / 2; activeSnapLines.x.push(targetX); break; }
+                    if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width; activeSnapLines.x.push(targetX); break; }
+                }
+                for (const targetY of snapTargetsY) {
+                    if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) { newY = targetY; activeSnapLines.y.push(targetY); break; }
+                    if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height / 2; activeSnapLines.y.push(targetY); break; }
+                    if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height; activeSnapLines.y.push(targetY); break; }
+                }
+
+                setSnapLines(activeSnapLines);
+            } else {
+                 setSnapLines({ x: [], y: [] });
+            }
             onUpdate(element.id, { x: newX, y: newY }, false);
         };
 
@@ -272,27 +276,31 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 let newX = newCenterX - newWidth / 2;
                 let newY = newCenterY - newHeight / 2;
  
-                const SNAP_THRESHOLD = 5;
-                const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
-                const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
-                const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
+                if (element.type !== ElementType.Cutter) {
+                    const SNAP_THRESHOLD = 5;
+                    const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
+                    const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
+                    const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
-                const elementPoints = {
-                    left: newX, right: newX + newWidth, top: newY, bottom: newY + newHeight,
-                    hCenter: newX + newWidth / 2, vCenter: newY + newHeight / 2,
-                };
-                
-                for (const target of snapTargetsX) {
-                    if (Math.abs(elementPoints.left - target) < SNAP_THRESHOLD) { newX = target; activeSnapLines.x.push(target); break; }
-                    if (Math.abs(elementPoints.hCenter - target) < SNAP_THRESHOLD) { newX = target - newWidth / 2; activeSnapLines.x.push(target); break; }
-                    if (Math.abs(elementPoints.right - target) < SNAP_THRESHOLD) { newX = target - newWidth; activeSnapLines.x.push(target); break; }
+                    const elementPoints = {
+                        left: newX, right: newX + newWidth, top: newY, bottom: newY + newHeight,
+                        hCenter: newX + newWidth / 2, vCenter: newY + newHeight / 2,
+                    };
+                    
+                    for (const target of snapTargetsX) {
+                        if (Math.abs(elementPoints.left - target) < SNAP_THRESHOLD) { newX = target; activeSnapLines.x.push(target); break; }
+                        if (Math.abs(elementPoints.hCenter - target) < SNAP_THRESHOLD) { newX = target - newWidth / 2; activeSnapLines.x.push(target); break; }
+                        if (Math.abs(elementPoints.right - target) < SNAP_THRESHOLD) { newX = target - newWidth; activeSnapLines.x.push(target); break; }
+                    }
+                    for (const target of snapTargetsY) {
+                        if (Math.abs(elementPoints.top - target) < SNAP_THRESHOLD) { newY = target; activeSnapLines.y.push(target); break; }
+                        if (Math.abs(elementPoints.vCenter - target) < SNAP_THRESHOLD) { newY = target - newHeight / 2; activeSnapLines.y.push(target); break; }
+                        if (Math.abs(elementPoints.bottom - target) < SNAP_THRESHOLD) { newY = target - newHeight; activeSnapLines.y.push(target); break; }
+                    }
+                    setSnapLines(activeSnapLines);
+                } else {
+                    setSnapLines({ x: [], y: [] });
                 }
-                for (const target of snapTargetsY) {
-                    if (Math.abs(elementPoints.top - target) < SNAP_THRESHOLD) { newY = target; activeSnapLines.y.push(target); break; }
-                    if (Math.abs(elementPoints.vCenter - target) < SNAP_THRESHOLD) { newY = target - newHeight / 2; activeSnapLines.y.push(target); break; }
-                    if (Math.abs(elementPoints.bottom - target) < SNAP_THRESHOLD) { newY = target - newHeight; activeSnapLines.y.push(target); break; }
-                }
-                setSnapLines(activeSnapLines);
     
                 onUpdate(element.id, { width: newWidth, height: newHeight, x: newX, y: newY }, false);
             }
@@ -328,16 +336,19 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             const angleDiff = (angle - startAngle) * (180 / Math.PI);
             const newRotation = startRotation + angleDiff;
 
-            const SNAP_ANGLE = 5;
-            const snappedRotation = Math.round(newRotation / SNAP_ANGLE) * SNAP_ANGLE;
+            let finalRotation = newRotation;
+            if (element.type !== ElementType.Cutter) {
+                const SNAP_ANGLE = 5;
+                finalRotation = Math.round(newRotation / SNAP_ANGLE) * SNAP_ANGLE;
+            }
             
-            onUpdate(element.id, { rotation: snappedRotation }, false);
+            onUpdate(element.id, { rotation: finalRotation }, false);
             
             setTooltip({
                 visible: true,
                 x: moveEvent.clientX,
                 y: moveEvent.clientY,
-                text: `${Math.round(snappedRotation)}°`
+                text: `${Math.round(finalRotation)}°`
             });
         };
     
