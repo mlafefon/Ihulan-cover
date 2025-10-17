@@ -566,9 +566,13 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             case ElementType.Cutter:
                 return (
                     <div
-                        className="w-full h-full bg-red-500/30 border-2 border-dashed border-red-500 pointer-events-none"
+                        className="w-full h-full bg-red-500/30 border-2 border-dashed border-red-500 pointer-events-none flex items-center justify-center text-center p-4"
                         style={{ borderRadius: '50%' }}
-                    />
+                    >
+                        <span className="text-white text-sm">
+                            מקם את הצורה כדי ליצור אזור שקוף בתמונה או בטקסט שמתחתיה.
+                        </span>
+                    </div>
                 );
             default:
                 return null;
