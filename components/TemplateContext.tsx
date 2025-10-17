@@ -157,15 +157,15 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [fullTemplateCache, setFullTemplateCache] = useState<Record<string, Template>>({});
 
   useEffect(() => {
-    // Fetch all templates (full data) once after user logs in.
+    // Fetch all templates (previews only) once after user logs in.
     if (user && !state.initialLoadComplete) {
-      const fetchTemplates = async () => {
+      const fetchPreviews = async () => {
         setState(s => ({ ...s, loading: true, error: null }));
         try {
-          // Fetch full data for user's templates
+          // Fetch preview data for user's templates
           const { data: myData, error: myError } = await supabase
             .from('templates')
-            .select('*') // Fetch all data
+            .select('id, name, previewImage, user_id, is_public, is_active, created_at')
             .eq('user_id', user.id)
             .eq('is_active', true)
             .eq('is_public', false)
@@ -173,40 +173,28 @@ export const TemplateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
           if (myError) throw myError;
 
-          // Fetch full data for public templates
+          // Fetch preview data for public templates
           const { data: publicData, error: publicError } = await supabase
             .from('templates')
-            .select('*') // Fetch all data
+            .select('id, name, previewImage, user_id, is_public, is_active, created_at')
             .eq('is_public', true)
             .eq('is_active', true);
 
           if (publicError) throw publicError;
           
-          const myTemplateRows = (myData as TemplateRow[]) || [];
-          const publicTemplateRows = (publicData as TemplateRow[]) || [];
-
-          const myFullTemplates = myTemplateRows.map(transformRowToTemplate);
-          const publicFullTemplates = publicTemplateRows.map(transformRowToTemplate);
-
-          const newCache: Record<string, Template> = {};
-          myFullTemplates.forEach(t => { newCache[t.id] = t; });
-          publicFullTemplates.forEach(t => { newCache[t.id] = t; });
-          
-          setFullTemplateCache(newCache);
-          
           setState({
-            myTemplates: myTemplateRows.map(transformRowToTemplatePreview),
-            publicTemplates: publicTemplateRows.map(transformRowToTemplatePreview),
+            myTemplates: (myData || []).map(transformRowToTemplatePreview),
+            publicTemplates: (publicData || []).map(transformRowToTemplatePreview),
             loading: false,
             error: null,
             initialLoadComplete: true,
           });
         } catch (e: any) {
-          console.error("Failed to fetch templates in context:", e);
+          console.error("Failed to fetch template previews in context:", e);
           setState(s => ({ ...s, loading: false, error: 'לא ניתן לטעון את התבניות. נסה שוב מאוחר יותר.' }));
         }
       };
-      fetchTemplates();
+      fetchPreviews();
     } else if (!user) {
         // Reset state on logout to ensure fresh data for the next user.
         setState({

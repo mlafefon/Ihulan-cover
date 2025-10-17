@@ -11,7 +11,7 @@ import { useTemplates } from '../components/TemplateContext';
 const TemplatesPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { myTemplates, publicTemplates, loading, error, removeTemplate, getTemplateFromCache } = useTemplates();
+  const { myTemplates, publicTemplates, loading, error, removeTemplate, fetchFullTemplate } = useTemplates();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'my' | 'public'>(() => {
@@ -20,6 +20,7 @@ const TemplatesPage: React.FC = () => {
   });
   const [localError, setLocalError] = useState<string | null>(null);
   const [templateToDelete, setTemplateToDelete] = useState<TemplatePreview | null>(null);
+  const [selectingTemplateId, setSelectingTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
     sessionStorage.setItem('templatesPageActiveTab', activeTab);
@@ -56,14 +57,20 @@ const TemplatesPage: React.FC = () => {
     }
   };
 
-  const handleSelectTemplate = (template: TemplatePreview) => {
-    const cachedTemplate = getTemplateFromCache(template.id);
-    if (cachedTemplate) {
-      navigate('/editor', { state: { template: cachedTemplate } });
-    } else {
-      // This is now an error case, as all templates should be pre-cached.
-      console.error("Template not found in cache:", template.id);
-      setLocalError(`שגיאה: התבנית לא נמצאה בזיכרון המטמון. נסה לרענן את הדף.`);
+  const handleSelectTemplate = async (template: TemplatePreview) => {
+    setLocalError(null);
+    setSelectingTemplateId(template.id);
+    try {
+      const fullTemplate = await fetchFullTemplate(template.id);
+      if (fullTemplate) {
+        navigate('/editor', { state: { template: fullTemplate } });
+      } else {
+        throw new Error('לא ניתן היה לטעון את פרטי התבנית.');
+      }
+    } catch (err: any) {
+      console.error("Error fetching full template:", err);
+      setLocalError(`שגיאה בטעינת התבנית: ${err.message}`);
+      setSelectingTemplateId(null);
     }
   };
   
@@ -103,7 +110,7 @@ const TemplatesPage: React.FC = () => {
     }
     
     return (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 ${selectingTemplateId ? 'opacity-50 pointer-events-none' : ''}`}>
           {activeTab === 'my' && (
             <button
               onClick={handleNewDesign}
@@ -115,11 +122,17 @@ const TemplatesPage: React.FC = () => {
           )}
 
           {filteredTemplates.map(template => {
+            const isBeingSelected = selectingTemplateId === template.id;
             return (
                 <div key={template.id} className="group relative flex flex-col">
-                    <div onClick={() => handleSelectTemplate(template)} className="w-[70%] mx-auto cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
+                    <div onClick={() => !selectingTemplateId && handleSelectTemplate(template)} className="w-[70%] mx-auto cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
                         <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300"></div>
+                        {isBeingSelected && (
+                            <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center">
+                                <SpinnerIcon className="w-8 h-8 text-white animate-spin" />
+                            </div>
+                        )}
                     </div>
                     <div className="w-[70%] mx-auto flex justify-center items-center mt-3 relative">
                         <h3 className="font-semibold text-white text-center truncate">{template.name}</h3>
