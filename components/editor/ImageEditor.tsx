@@ -1,7 +1,7 @@
 
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ResetIcon, EyeDropperIcon, BrushPlusIcon, BrushMinusIcon, EyeIcon } from '../Icons';
+import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon } from '../Icons';
 import type { ImageEditState } from '../../types';
 
 interface ImageEditorProps {
@@ -840,11 +840,13 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                             <span className="text-sm w-8 text-right">{brushSize}</span>
                         </div>
                         <div className="grid grid-cols-4 gap-2 pt-2 border-t border-slate-700">
-                            <button onClick={() => { setBlurTool('brush'); setIsBlurApplied(false); }} title="מברשת סימון" className={`p-2 rounded flex items-center justify-center text-sm ${blurTool === 'brush' ? activeToolClass : inactiveToolClass}`}>
-                                <BrushPlusIcon className="w-5 h-5" />
+                            <button onClick={() => { setBlurTool('brush'); setIsBlurApplied(false); }} title="מברשת סימון" className={`p-2 rounded flex items-center justify-center text-sm gap-1 ${blurTool === 'brush' ? activeToolClass : inactiveToolClass}`}>
+                                <PlusIcon className="w-4 h-4" />
+                                <BrushIcon className="w-5 h-5" />
                             </button>
-                            <button onClick={() => { setBlurTool('eraser'); setIsBlurApplied(false); }} title="מחק מברשת" className={`p-2 rounded flex items-center justify-center text-sm ${blurTool === 'eraser' ? activeToolClass : inactiveToolClass}`}>
-                                <BrushMinusIcon className="w-5 h-5" />
+                            <button onClick={() => { setBlurTool('eraser'); setIsBlurApplied(false); }} title="מחק מברשת" className={`p-2 rounded flex items-center justify-center text-sm gap-1 ${blurTool === 'eraser' ? activeToolClass : inactiveToolClass}`}>
+                                <MinusIcon className="w-4 h-4" />
+                                <BrushIcon className="w-5 h-5" />
                             </button>
                             <button 
                                 onClick={handleToggleBlurPreview} 
