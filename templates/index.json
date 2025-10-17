@@ -6,15 +6,45 @@
     "previewImage": "https://i.imgur.com/QjxqfF4.png"
   },
   {
-    "id": "fashion_mag",
-    "name": "Vogue",
-    "path": "templates/fashion_mag.json",
-    "previewImage": "https://i.imgur.com/f9hJ4Jt.png"
-  },
-  {
     "id": "leisha_mag",
     "name": "Leisha",
     "path": "templates/leisha_mag.json",
     "previewImage": "https://i.imgur.com/dKbozWp.png"
+  },
+  {
+    "id": "calcalist_mag",
+    "name": "כלכליסט",
+    "path": "templates/calcalist_mag.json",
+    "previewImage": "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?q=80&w=800&h=1000&auto=format&fit=crop"
+  },
+  {
+    "id": "at_mag",
+    "name": "את",
+    "path": "templates/at_mag.json",
+    "previewImage": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&h=1000&auto=format&fit=crop"
+  },
+  {
+    "id": "sport_mag",
+    "name": "ערוץ הספורט",
+    "path": "templates/sport_mag.json",
+    "previewImage": "https://images.unsplash.com/photo-1577412645439-519371a3e35a?q=80&w=800&h=1000&auto=format&fit=crop"
+  },
+  {
+    "id": "time_mag",
+    "name": "TIME",
+    "path": "templates/time_mag.json",
+    "previewImage": "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=800&h=1000&auto=format&fit=crop"
+  },
+  {
+    "id": "elle_mag",
+    "name": "ELLE",
+    "path": "templates/elle_mag.json",
+    "previewImage": "https://images.unsplash.com/photo-1617195821021-c14371b6d16a?q=80&w=800&h=1000&auto=format&fit=crop"
+  },
+  {
+    "id": "sports_illustrated_mag",
+    "name": "Sports Illustrated",
+    "path": "templates/sports_illustrated_mag.json",
+    "previewImage": "https://images.unsplash.com/photo-1554060197-27a3e4981504?q=80&w=800&h=1000&auto=format&fit=crop"
   }
 ]

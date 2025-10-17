@@ -1,0 +1,69 @@
+{
+  "width": 800,
+  "height": 1000,
+  "backgroundColor": "#f0e8e0",
+  "items": [
+    {
+      "id": "main_image",
+      "type": "image",
+      "x": 150,
+      "y": 100,
+      "width": 500,
+      "height": 800,
+      "rotation": 0,
+      "zIndex": 1,
+      "src": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&h=1000&auto=format&fit=crop",
+      "originalSrc": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&h=1000&auto=format&fit=crop",
+      "objectFit": "cover"
+    },
+    {
+      "id": "title_at",
+      "type": "text",
+      "x": 300,
+      "y": 30,
+      "width": 200,
+      "height": 100,
+      "rotation": 0,
+      "zIndex": 2,
+      "spans": [{ "text": "את", "style": { "fontFamily": "Fredoka", "fontSize": 120, "fontWeight": 700, "color": "#000000", "textShadow": "", "lineHeight": 1 } }],
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "letterSpacing": -10,
+      "backgroundColor": "transparent",
+      "padding": 0
+    },
+    {
+      "id": "headline_summer",
+      "type": "text",
+      "x": 40,
+      "y": 250,
+      "width": 300,
+      "height": 150,
+      "rotation": -10,
+      "zIndex": 3,
+      "spans": [{ "text": "קיץ לוהט", "style": { "fontFamily": "Heebo", "fontSize": 72, "fontWeight": 900, "color": "#ff3366", "textShadow": "", "lineHeight": 1.1 } }],
+      "textAlign": "right",
+      "verticalAlign": "top",
+      "letterSpacing": 0,
+      "backgroundColor": "transparent",
+      "padding": 10
+    },
+    {
+      "id": "sub_headline",
+      "type": "text",
+      "x": 450,
+      "y": 750,
+      "width": 320,
+      "height": 120,
+      "rotation": 5,
+      "zIndex": 4,
+      "spans": [{ "text": "קולקציית בגדי הים שאת חייבת לראות", "style": { "fontFamily": "Heebo", "fontSize": 28, "fontWeight": 500, "color": "#ffffff", "textShadow": "", "lineHeight": 1.3 } }],
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "letterSpacing": 0,
+      "backgroundColor": "#000000",
+      "padding": 15,
+      "backgroundShape": "rounded"
+    }
+  ]
+}
