@@ -316,9 +316,22 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         });
 
         const movedElement = newElements.find(el => el.id === id);
-        if (movedElement && movedElement.type === ElementType.Cutter) {
-            const target = findElementUnder(movedElement as CutterElement, newElements);
-            setCutterTargetId(target ? target.id : null);
+        if (movedElement) {
+            if (movedElement.type === ElementType.Cutter) {
+                const cutterElement = movedElement as CutterElement;
+                const target = findElementUnder(cutterElement, newElements);
+                setCutterTargetId(target ? target.id : null);
+
+                // Save cutter state to sessionStorage for persistence within the session
+                const { x, y, width, height, rotation } = cutterElement;
+                const stateToSave = { x, y, width, height, rotation };
+                const storageKey = `cutterState_${template.id}`;
+                try {
+                    sessionStorage.setItem(storageKey, JSON.stringify(stateToSave));
+                } catch (e) {
+                    console.error("Failed to save cutter state to sessionStorage", e);
+                }
+            }
         }
 
         handleTemplateChange({ ...template, elements: newElements }, withHistory);
@@ -398,15 +411,25 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 }
             } as TextElement;
         } else if (type === ElementType.Cutter) {
-            const elementSize = 250;
+            const storageKey = `cutterState_${template.id}`;
+            const savedStateJSON = sessionStorage.getItem(storageKey);
+            let savedState = null;
+            if (savedStateJSON) {
+                try {
+                    savedState = JSON.parse(savedStateJSON);
+                } catch (e) {
+                    console.error("Failed to parse cutter state from sessionStorage", e);
+                }
+            }
+            const defaultSize = 250;
             newElement = {
                 id: newId,
                 type: ElementType.Cutter,
-                x: (template.width - elementSize) / 2,
-                y: (template.height - elementSize) / 2,
-                width: elementSize,
-                height: elementSize,
-                rotation: 0,
+                x: savedState?.x ?? (template.width - defaultSize) / 2,
+                y: savedState?.y ?? (template.height - defaultSize) / 2,
+                width: savedState?.width ?? defaultSize,
+                height: savedState?.height ?? defaultSize,
+                rotation: savedState?.rotation ?? 0,
                 zIndex: 9999, // Always on top
             } as CutterElement;
         } else { // Image
