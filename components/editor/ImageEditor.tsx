@@ -761,7 +761,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const inactiveToolClass = 'bg-slate-700 hover:bg-slate-600';
 
     return (
-        <div className="flex h-screen bg-[#111827] text-white" dir="rtl">
+        <div className="fixed inset-0 z-[100] flex h-screen bg-[#111827] text-white" dir="rtl">
             <main className="flex-grow flex flex-col">
                 <header className="bg-slate-800 px-4 py-2 flex justify-between items-center border-b border-slate-700">
                      <button onClick={onCancel} className="text-sm p-2 rounded hover:bg-slate-700">

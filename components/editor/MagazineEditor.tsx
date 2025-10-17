@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement } from '../../types';
+import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
 import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
@@ -10,11 +10,16 @@ import { useFonts } from '../fonts/FontLoader';
 
 interface MagazineEditorProps {
     initialTemplate: Template;
-    onEditImage: (element: ImageElement, currentTemplate: Template, newSrc?: string) => void;
+    onEditImage: (element: ImageElement, newSrc?: string) => void;
     onSaveTemplate: (template: Template, newPreview: string | undefined) => Promise<void>;
 }
 
-const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEditImage, onSaveTemplate }) => {
+export interface MagazineEditorHandle {
+    updateTemplateFromParent: (newTemplate: Template) => void;
+    applyImageEdit: (elementId: string, data: { newSrc: string; newOriginalSrc: string; editState: ImageEditState; }) => void;
+}
+
+const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ initialTemplate, onEditImage, onSaveTemplate }, ref) => {
     const navigate = useNavigate();
     const { fontCss } = useFonts();
     const [cutterTargetId, setCutterTargetId] = useState<string | null>(null);
@@ -23,6 +28,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const [template, setTemplate] = useState<Template>(initialTemplate);
     const templateRef = useRef(template);
     templateRef.current = template;
+    const templateBeforeImageEdit = useRef<Template | null>(null);
     
     const [isSaving, setIsSaving] = useState(false);
     const [isDirty, setIsDirty] = useState(false);
@@ -92,6 +98,24 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             updateHistory(newTemplate);
         }
     }, [updateHistory]);
+
+    useImperativeHandle(ref, () => ({
+        updateTemplateFromParent: (newTemplate: Template) => {
+            handleTemplateChange(newTemplate, true);
+        },
+        applyImageEdit: (elementId, data) => {
+            const baseTemplate = templateBeforeImageEdit.current;
+            if (!baseTemplate) return;
+
+            const { newSrc, newOriginalSrc, editState } = data;
+            const updatedElements = baseTemplate.elements.map(el =>
+                el.id === elementId ? { ...el, src: newSrc, originalSrc: newOriginalSrc, editState: editState } : el
+            );
+            const newTemplate: Template = { ...baseTemplate, elements: updatedElements as CanvasElement[] };
+            handleTemplateChange(newTemplate, true);
+            templateBeforeImageEdit.current = null; // Clear the ref
+        }
+    }), [handleTemplateChange]);
     
     const findElementUnder = useCallback((cutterEl: CutterElement, allElements: CanvasElement[]): CanvasElement | null => {
         const sortedElements = allElements
@@ -455,12 +479,15 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         setSelectedElementId(newId);
 
         if (type === ElementType.Image && payload?.src) {
-            passUpImageEdit(newElement as ImageElement, payload.src);
+            handleImageEditRequest(newElement as ImageElement, payload.src);
         }
     };
     
-    const passUpImageEdit = (element: ImageElement, newSrc?: string) => {
-        onEditImage(element, template, newSrc);
+    const handleImageEditRequest = (element: ImageElement, newSrc?: string) => {
+        // Store the "before" state
+        templateBeforeImageEdit.current = template; 
+        // Tell the parent to open the editor
+        onEditImage(element, newSrc);
     };
 
     const deleteElement = (id: string) => {
@@ -821,7 +848,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                                 onInteractionEnd={handleInteractionEnd}
                                 onTextSelect={setSelectionRange}
                                 onElementRefsChange={onElementRefsChange}
-                                onEditImage={passUpImageEdit}
+                                onEditImage={handleImageEditRequest}
                                 canvasWidth={template.width}
                                 canvasHeight={template.height}
                                 otherElements={template.elements.filter(e => e.id !== element.id)}
@@ -846,7 +873,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                 onDeleteElement={deleteElement}
                 template={template}
                 onUpdateTemplate={updateTemplateSettings}
-                onEditImage={passUpImageEdit}
+                onEditImage={handleImageEditRequest}
                 onDeselect={() => handleSelectElement(null)}
                 onLayerOrderChange={handleLayerOrderChange}
                 onApplyCut={handleApplyCut}
@@ -854,6 +881,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             />
         </div>
     );
-};
+});
 
 export default MagazineEditor;

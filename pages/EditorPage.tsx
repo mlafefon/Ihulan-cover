@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import MagazineEditor from '../components/editor/MagazineEditor';
+import MagazineEditor, { MagazineEditorHandle } from '../components/editor/MagazineEditor';
 import ImageEditor from '../components/editor/ImageEditor';
 import type { Template, ImageElement, ImageEditState, CanvasElement, TemplateRow, TemplatePreview } from '../types';
 import { useAuth } from '../AuthContext';
@@ -24,18 +24,18 @@ const EditorPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { upsertTemplate } = useTemplates();
-
-  const [template, setTemplate] = useState<Template | null>(null);
+  const editorRef = useRef<MagazineEditorHandle>(null);
+  
+  const [initialTemplateData, setInitialTemplateData] = useState<Template | null>(null);
   const [originalTemplate, setOriginalTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editorKey, setEditorKey] = useState(0);
   const [editingImage, setEditingImage] = useState<EditingImageState | null>(null);
 
   useEffect(() => {
     const state = location.state as LocationState | null;
 
     if (state?.template) {
-      setTemplate(state.template);
+      setInitialTemplateData(state.template);
       setOriginalTemplate(state.template);
       setLoading(false);
     } else {
@@ -126,11 +126,12 @@ const EditorPage: React.FC = () => {
         }
 
         // Update local state to continue editing
-        setTemplate(sanitizedTemplate);
         if (isNew) {
+          // After a "Save As", we update the original template reference to prevent future saves from creating yet another copy.
           setOriginalTemplate(sanitizedTemplate);
+          // We could also call editorRef.current?.updateTemplateFromParent(sanitizedTemplate) here to update the editor's state
+          // with the new ID, but this might reset history which could be undesirable. For now, we leave it as is.
         }
-        setEditorKey(prev => prev + 1);
       }
     } catch (error: any) {
       console.error('Error saving template:', error);
@@ -139,9 +140,8 @@ const EditorPage: React.FC = () => {
     }
   };
 
-  const handleEditImage = (element: ImageElement, currentTemplate: Template, newSrc?: string) => {
+  const handleEditImageRequest = (element: ImageElement, newSrc?: string) => {
     const imageToEdit = newSrc || element.originalSrc || element.src;
-    setTemplate(currentTemplate);
     setEditingImage({ 
       id: element.id, 
       src: imageToEdit || '',
@@ -152,14 +152,8 @@ const EditorPage: React.FC = () => {
   };
 
   const handleImageEditorComplete = (data: { newSrc: string; newOriginalSrc: string; editState: ImageEditState; }) => {
-    if (template && editingImage) {
-      const { newSrc, newOriginalSrc, editState } = data;
-      const updatedElements = template.elements.map(el =>
-        el.id === editingImage.id ? { ...el, src: newSrc, originalSrc: newOriginalSrc, editState: editState } : el
-      );
-      const newTemplate = { ...template, elements: updatedElements };
-      setTemplate(newTemplate);
-      setEditorKey(prev => prev + 1);
+    if (editorRef.current && editingImage) {
+        editorRef.current.applyImageEdit(editingImage.id, data);
     }
     setEditingImage(null);
   };
@@ -168,7 +162,7 @@ const EditorPage: React.FC = () => {
     setEditingImage(null);
   };
 
-  if (loading || !template) {
+  if (loading || !initialTemplateData) {
     return (
         <div className="flex items-center justify-center min-h-screen bg-slate-900 text-white">
             טוען עורך...
@@ -178,7 +172,13 @@ const EditorPage: React.FC = () => {
 
   return (
     <>
-      {editingImage ? (
+      <MagazineEditor
+        ref={editorRef}
+        initialTemplate={initialTemplateData}
+        onEditImage={handleEditImageRequest}
+        onSaveTemplate={handleSaveTemplate}
+      />
+      {editingImage && (
         <ImageEditor
           imageSrc={editingImage.src}
           elementWidth={editingImage.width}
@@ -186,13 +186,6 @@ const EditorPage: React.FC = () => {
           onComplete={handleImageEditorComplete}
           onCancel={handleImageEditorCancel}
           initialEditState={editingImage.editState ?? undefined}
-        />
-      ) : (
-        <MagazineEditor
-          key={editorKey}
-          initialTemplate={template}
-          onEditImage={handleEditImage}
-          onSaveTemplate={handleSaveTemplate}
         />
       )}
     </>
