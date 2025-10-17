@@ -117,18 +117,16 @@ const TemplatesPage: React.FC = () => {
           {filteredTemplates.map(template => {
             return (
                 <div key={template.id} className="group relative flex flex-col">
-                    <div onClick={() => handleSelectTemplate(template)} className="cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
-                        <div className="absolute inset-0 bg-black bg-opacity-40 group-hover:bg-opacity-20 transition-opacity duration-300 flex items-center justify-center">
-                            <span className="text-white text-lg font-bold opacity-0 group-hover:opacity-100 transition-opacity">ערוך תבנית</span>
-                        </div>
+                    <div onClick={() => handleSelectTemplate(template)} className="w-[70%] mx-auto cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
                         <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300"></div>
                     </div>
-                    <div className="flex justify-between items-center mt-3">
-                        <h3 className="font-semibold text-white truncate pr-2">{template.name}</h3>
+                    <div className="w-[70%] mx-auto flex justify-center items-center mt-3 relative">
+                        <h3 className="font-semibold text-white text-center truncate">{template.name}</h3>
                         {activeTab === 'my' && (
                         <button 
                             onClick={(e) => { e.stopPropagation(); initiateDelete(template); }} 
-                            className="text-slate-500 hover:text-red-500 opacity-50 group-hover:opacity-100 transition-colors"
+                            className="absolute left-0 text-slate-500 hover:text-red-500 opacity-50 group-hover:opacity-100 transition-colors"
                             title="מחק תבנית"
                         >
                             <TrashIcon className="w-5 h-5"/>
