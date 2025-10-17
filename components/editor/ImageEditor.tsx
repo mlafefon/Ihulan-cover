@@ -828,7 +828,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         </div>
                          <div>
                             <label className="text-sm text-slate-400">גודל מברשת: {brushSize}</label>
-                            <input type="range" min="5" max="100" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} className="w-full mt-1" />
+                            <input type="range" min="5" max="300" value={brushSize} onChange={e => setBrushSize(parseInt(e.target.value))} className="w-full mt-1" />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <button onClick={handleResetBlur} className="text-xs bg-slate-700 hover:bg-slate-600 p-2 rounded">איפוס טשטוש</button>
