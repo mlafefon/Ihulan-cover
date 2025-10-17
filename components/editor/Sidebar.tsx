@@ -1,5 +1,3 @@
-
-
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
@@ -60,12 +58,30 @@ const Sidebar: React.FC<SidebarProps> = ({
     onLayerOrderChange, onApplyCut, isApplyingCut
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
+    const [openAccordion, setOpenAccordion] = useState<string | null>(null);
 
     useEffect(() => {
         if (selectedElement) {
             setElementId(selectedElement.id);
         }
     }, [selectedElement]);
+
+    useEffect(() => {
+        if (selectedElement) {
+            if (selectedElement.type === ElementType.Text) {
+                setOpenAccordion('טיפוגרפיה וצבע');
+            } else {
+                setOpenAccordion('מיקום וגודל');
+            }
+        } else {
+            setOpenAccordion('הגדרות עמוד');
+        }
+    }, [selectedElement?.id, selectedElement?.type]);
+
+    const handleAccordionToggle = (title: string) => {
+        setOpenAccordion(prev => (prev === title ? null : title));
+    };
+
 
     const handleIdUpdate = () => {
         if (!selectedElement) return;
@@ -139,17 +155,27 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 onUpdate={onUpdateElement}
                                 onStyleUpdate={onStyleUpdate}
                                 activeStyle={activeStyle}
+                                openAccordion={openAccordion}
+                                onAccordionToggle={handleAccordionToggle}
                              />
                         )}
                         {selectedElement.type === ElementType.Image && (
                             <ImagePanel element={selectedElement as ImageElement} onEditImage={onEditImage} />
                         )}
                         {(selectedElement.type === ElementType.Image || selectedElement.type === ElementType.Cutter || selectedElement.type === ElementType.Text) && (
-                            <Accordion title="מיקום וגודל" defaultOpen>
+                            <Accordion 
+                                title="מיקום וגודל" 
+                                isOpen={openAccordion === 'מיקום וגודל'}
+                                onToggle={() => handleAccordionToggle('מיקום וגודל')}
+                            >
                                 <TransformPanel element={selectedElement} onUpdate={onUpdateElement} />
                             </Accordion>
                         )}
-                         <Accordion title="סדר">
+                         <Accordion 
+                            title="סדר"
+                            isOpen={openAccordion === 'סדר'}
+                            onToggle={() => handleAccordionToggle('סדר')}
+                        >
                             <LayerPanel 
                                 element={selectedElement} 
                                 onLayerOrderChange={onLayerOrderChange}
@@ -164,22 +190,29 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                     </>
                 ) : (
-                    <DefaultPanel onAddElement={onAddElement} template={template} onUpdateTemplate={onUpdateTemplate}/>
+                    <DefaultPanel 
+                        onAddElement={onAddElement} 
+                        template={template} 
+                        onUpdateTemplate={onUpdateTemplate}
+                        openAccordion={openAccordion}
+                        onAccordionToggle={handleAccordionToggle}
+                    />
                 )}
             </div>
         </aside>
     );
 };
 
-const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
+const Accordion: React.FC<{ title: string; children: React.ReactNode; isOpen: boolean; onToggle: () => void; }> = ({ title, children, isOpen, onToggle }) => {
     return (
         <div className="border-b border-slate-700">
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-4 hover:bg-slate-700/50">
+            <button onClick={onToggle} className="w-full flex items-center p-4 hover:bg-slate-700/50 gap-2">
+                <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                 <span className="font-semibold">{title}</span>
-                <ChevronDown className={`w-5 h-5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
-            {isOpen && <div className="p-4 bg-slate-900/50">{children}</div>}
+            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="py-4 pl-4 pr-11 bg-slate-900/50">{children}</div>
+            </div>
         </div>
     );
 };
@@ -212,7 +245,15 @@ const LayerPanel: React.FC<{ element: CanvasElement, onLayerOrderChange: Sidebar
     );
 }
 
-const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src: string }) => void; template: Template, onUpdateTemplate: (settings: Partial<Template>) => void }> = ({ onAddElement, template, onUpdateTemplate }) => {
+interface DefaultPanelProps {
+    onAddElement: (type: ElementType, payload?: { src: string }) => void;
+    template: Template;
+    onUpdateTemplate: (settings: Partial<Template>) => void;
+    openAccordion: string | null;
+    onAccordionToggle: (title: string) => void;
+}
+
+const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle }) => {
     return (
         <div className="p-4 space-y-4">
             <div>
@@ -238,7 +279,11 @@ const DefaultPanel: React.FC<{ onAddElement: (type: ElementType, payload?: { src
                     <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
                 </label>
             </div>
-             <Accordion title="הגדרות עמוד">
+             <Accordion 
+                title="הגדרות עמוד"
+                isOpen={openAccordion === 'הגדרות עמוד'}
+                onToggle={() => onAccordionToggle('הגדרות עמוד')}
+            >
                  <div className="space-y-3">
                     <div className="flex gap-2">
                          <NumericStepper 
@@ -269,9 +314,11 @@ interface TextPanelProps {
     onUpdate: (id: string, updates: Partial<TextElement>) => void;
     onStyleUpdate: (styleUpdate: Partial<TextStyle>) => void;
     activeStyle: TextStyle | null;
+    openAccordion: string | null;
+    onAccordionToggle: (title: string) => void;
 }
 
-const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, activeStyle }) => {
+const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
     const textColorInputRef = useRef<HTMLInputElement>(null);
     const bgColorInputRef = useRef<HTMLInputElement>(null);
     const outlineColorInputRef = useRef<HTMLInputElement>(null);
@@ -328,7 +375,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
 
     return (
         <div>
-            <Accordion title="טיפוגרפיה וצבע" defaultOpen>
+            <Accordion 
+                title="טיפוגרפיה וצבע" 
+                isOpen={openAccordion === 'טיפוגרפיה וצבע'}
+                onToggle={() => onAccordionToggle('טיפוגרפיה וצבע')}
+            >
                 <div className="space-y-3">
                     <label className="block">
                         <span className="text-sm text-slate-400">פונט</span>
@@ -390,7 +441,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                 </div>
             </Accordion>
 
-            <Accordion title="רקע וצורה">
+            <Accordion 
+                title="רקע וצורה"
+                isOpen={openAccordion === 'רקע וצורה'}
+                onToggle={() => onAccordionToggle('רקע וצורה')}
+            >
                 <div className="space-y-4">
                      <label>
                         <span className="text-sm text-slate-400">צבע רקע</span>
@@ -497,7 +552,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                 </div>
             </Accordion>
 
-            <Accordion title="יישור ופריסה">
+            <Accordion 
+                title="יישור ופריסה"
+                isOpen={openAccordion === 'יישור ופריסה'}
+                onToggle={() => onAccordionToggle('יישור ופריסה')}
+            >
                 <div className="space-y-4">
                      <div className="grid grid-cols-2 gap-2">
                         <NumericStepper

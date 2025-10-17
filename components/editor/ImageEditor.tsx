@@ -30,15 +30,16 @@ const colorDistance = (rgb1: { r: number; g: number; b: number }, rgb2: { r: num
 };
 
 
-const Accordion: React.FC<{ title: string; children: React.ReactNode; defaultOpen?: boolean }> = ({ title, children, defaultOpen = false }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
+const Accordion: React.FC<{ title: string; children: React.ReactNode; isOpen: boolean; onToggle: () => void; }> = ({ title, children, isOpen, onToggle }) => {
     return (
         <div className="border-b border-slate-700">
-            <button onClick={() => setIsOpen(!isOpen)} className="w-full flex justify-between items-center p-3 hover:bg-slate-700/50">
+            <button onClick={onToggle} className="w-full flex items-center p-3 hover:bg-slate-700/50 gap-2">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
                 <span className="font-semibold text-sm">{title}</span>
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
             </button>
-            {isOpen && <div className="p-3 bg-slate-900/50">{children}</div>}
+            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="py-3 pl-3 pr-10 bg-slate-900/50">{children}</div>
+            </div>
         </div>
     );
 };
@@ -73,6 +74,12 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const [isDrawingMask, setIsDrawingMask] = useState(false);
     const [mousePos, setMousePos] = useState<{ x: number, y: number } | null>(null);
     const [hasMask, setHasMask] = useState(false);
+    
+    const [openAccordion, setOpenAccordion] = useState<string | null>('מסגרת');
+
+    const handleAccordionToggle = (title: string) => {
+        setOpenAccordion(prev => (prev === title ? null : title));
+    };
 
     const resetFilters = () => setFilters({ brightness: 100, contrast: 100, saturate: 100, grayscale: 0, sepia: 0 });
     const resetColorReplace = () => setColorReplace({ from: [], to: '#ff00ff', tolerance: 20, enabled: false });
@@ -813,7 +820,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         <span className="w-8 text-right">{Math.round(zoom * 100)}%</span>
                     </div>
                 </div>
-                <Accordion title="פילטרים">
+                <Accordion 
+                    title="פילטרים"
+                    isOpen={openAccordion === 'פילטרים'}
+                    onToggle={() => handleAccordionToggle('פילטרים')}
+                >
                     <div className="space-y-2">
                         {(['brightness', 'contrast', 'saturate', 'grayscale', 'sepia'] as const).map(filter => (
                             <div key={filter} className="flex items-center gap-2 text-sm">
@@ -828,7 +839,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         </button>
                     </div>
                 </Accordion>
-                <Accordion title="החלפת צבע">
+                <Accordion 
+                    title="החלפת צבע"
+                    isOpen={openAccordion === 'החלפת צבע'}
+                    onToggle={() => handleAccordionToggle('החלפת צבע')}
+                >
                     <div className="space-y-3">
                         <div className="flex items-end gap-3">
                             <div className="flex-grow">
@@ -878,7 +893,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         </button>
                     </div>
                 </Accordion>
-                <Accordion title="טשטוש">
+                <Accordion 
+                    title="טשטוש"
+                    isOpen={openAccordion === 'טשטוש'}
+                    onToggle={() => handleAccordionToggle('טשטוש')}
+                >
                     <div className="space-y-4">
                         <p className="text-xs text-slate-400">סמן את האזור שיישאר חד. כל השאר יטושטש.</p>
                         <div className="flex items-center gap-2">
@@ -909,7 +928,11 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         </div>
                     </div>
                 </Accordion>
-                <Accordion title="מסגרת" defaultOpen={true}>
+                <Accordion 
+                    title="מסגרת" 
+                    isOpen={openAccordion === 'מסגרת'}
+                    onToggle={() => handleAccordionToggle('מסגרת')}
+                >
                      <div className="space-y-3">
                         <div>
                             <label className="text-sm text-slate-400">עובי: {frame.thickness}px</label>
