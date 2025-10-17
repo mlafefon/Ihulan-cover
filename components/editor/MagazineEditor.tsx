@@ -32,7 +32,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const [history, setHistory] = useState<Template[]>([initialTemplate]);
     const [historyIndex, setHistoryIndex] = useState(0);
     const canvasRef = useRef<HTMLDivElement>(null);
-    const lastSelectionRangeRef = useRef<{ start: number; end: number } | null>(null);
     const elementRefMap = useRef<Record<string, {
         content?: HTMLDivElement | null;
         wrapper?: HTMLDivElement | null;
@@ -70,12 +69,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             document.body.style.webkitUserSelect = '';
         };
     }, [isInteracting]);
-    
-    useEffect(() => {
-        if (selectionRange && selectionRange.start !== selectionRange.end) {
-            lastSelectionRangeRef.current = selectionRange;
-        }
-    }, [selectionRange]);
     
     const onElementRefsChange = useCallback((id: string, refs: { content?: HTMLDivElement | null; wrapper?: HTMLDivElement | null; }) => {
         if (!elementRefMap.current[id]) {
@@ -233,7 +226,8 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     
                         const newMiddleText = newText.substring(prefixLen, newText.length - suffixLen);
                         
-                        let styleForMiddle: TextStyle = el.spans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '' };
+                        // Fix: Added missing `lineHeight` to the fallback style object to conform to the TextStyle type.
+                        let styleForMiddle: TextStyle = el.spans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '', lineHeight: 1.2 };
                         let currentIndex = 0;
                         for (const span of el.spans) {
                             const spanEnd = currentIndex + span.text.length;
@@ -348,10 +342,15 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const handleStyleUpdate = (styleUpdate: Partial<TextStyle>) => {
         if (!selectedElementId) return;
     
-        const rangeToStyle = lastSelectionRangeRef.current;
-    
         const newElements = template.elements.map(el => {
             if (el.id === selectedElementId && el.type === ElementType.Text) {
+                // If no specific text is selected (i.e., the whole element frame is selected),
+                // create a range that covers the entire text content to apply the style globally.
+                // Otherwise, use the existing selection range (which could be a cursor position).
+                const rangeToStyle = selectionRange === null
+                    ? { start: 0, end: el.spans.reduce((acc, span) => acc + span.text.length, 0) }
+                    : selectionRange;
+
                 const newSpans = applyStyleToSpans(el.spans, rangeToStyle, styleUpdate);
                 const updatedElement: TextElement = { ...el, spans: newSpans };
                 return updatedElement;
@@ -361,11 +360,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     
         handleTemplateChange({ ...template, elements: newElements });
     
+        // After updating, restore the selection if one existed to maintain user context.
         setTimeout(() => {
             const node = elementRefMap.current[selectedElementId]?.content;
-            if (node && rangeToStyle) {
+            if (node && selectionRange) {
                 node.focus({ preventScroll: true });
-                setSelectionByOffset(node, rangeToStyle.start, rangeToStyle.end);
+                setSelectionByOffset(node, selectionRange.start, selectionRange.end);
             }
         }, 0);
     };
@@ -395,11 +395,12 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                         fontWeight: 700,
                         color: '#FFFFFF',
                         textShadow: '',
+                        // Fix: Moved `lineHeight` into the style object to match the TextStyle type and fix a TypeScript error.
+                        lineHeight: 1.2,
                     }
                 }],
                 textAlign: 'right',
                 verticalAlign: 'middle',
-                lineHeight: 1.2,
                 letterSpacing: 0,
                 backgroundColor: 'transparent',
                 padding: 10,
@@ -711,7 +712,6 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
 
         // Standard selection logic
         if (id !== previouslySelectedId) {
-            lastSelectionRangeRef.current = null;
             // Deselect any text that might be selected in the window.
             window.getSelection()?.removeAllRanges();
         }

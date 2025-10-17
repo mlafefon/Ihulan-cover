@@ -468,7 +468,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 const editableStyle: React.CSSProperties = {
                     outline: 'none',
                     padding: `${textElement.padding}px`,
-                    lineHeight: textElement.lineHeight,
                     letterSpacing: `${textElement.letterSpacing}px`,
                     textAlign: textElement.textAlign,
                     userSelect: 'text',
@@ -531,6 +530,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                                     fontWeight: span.style.fontWeight,
                                     color: span.style.color,
                                     textShadow: span.style.textShadow,
+                                    lineHeight: span.style.lineHeight || 1.2,
                                 }}>
                                     {span.text}
                                 </span>
@@ -718,23 +718,53 @@ export function applyStyleToSpans(
     range: { start: number; end: number } | null,
     styleUpdate: Partial<TextStyle>
 ): TextSpan[] {
-    if (!range || range.start === range.end) {
-        return spans.map(span => ({
-            ...span,
-            style: { ...span.style, ...styleUpdate },
-        }));
+    if (!range) {
+        return spans;
     }
+    
+    const mergeSpans = (spansToMerge: TextSpan[]): TextSpan[] => {
+        if (spansToMerge.length < 2) return spansToMerge.filter(s => s.text.length > 0 || spansToMerge.length === 1);
+        const merged: TextSpan[] = [];
+        if (spansToMerge.length > 0) {
+            merged.push(spansToMerge[0]);
+            for (let i = 1; i < spansToMerge.length; i++) {
+                const prev = merged[merged.length - 1];
+                const current = spansToMerge[i];
+                if (current.text && JSON.stringify(prev.style) === JSON.stringify(current.style)) {
+                    prev.text += current.text;
+                } else if (current.text || (spansToMerge.length === 1 && current.text === '')) {
+                    merged.push(current);
+                }
+            }
+        }
+        return merged.filter(s => s.text.length > 0 || merged.length === 1);
+    };
 
     const { start, end } = range;
+
+    if (start === end) {
+        let charIndex = 0;
+        const newSpans = spans.map(span => {
+            const spanEnd = charIndex + span.text.length;
+            const isCursorInSpan = start >= charIndex && start <= spanEnd;
+            charIndex = spanEnd;
+            if (isCursorInSpan) {
+                return { ...span, style: { ...span.style, ...styleUpdate } };
+            }
+            return span;
+        });
+        return mergeSpans(newSpans);
+    }
+    
     const newSpans: TextSpan[] = [];
     let currentIndex = 0;
 
     for (const span of spans) {
         const spanEnd = currentIndex + span.text.length;
 
-        if (spanEnd <= start || currentIndex >= end) { // No overlap
+        if (spanEnd <= start || currentIndex >= end) {
             newSpans.push({ ...span });
-        } else { // Overlap
+        } else { 
             const beforeText = span.text.substring(0, Math.max(0, start - currentIndex));
             const selectedText = span.text.substring(Math.max(0, start - currentIndex), Math.min(span.text.length, end - currentIndex));
             const afterText = span.text.substring(Math.min(span.text.length, end - currentIndex));
@@ -747,20 +777,7 @@ export function applyStyleToSpans(
         currentIndex = spanEnd;
     }
     
-    // Merge adjacent spans with identical styles
-    if (newSpans.length < 2) return newSpans.filter(s => s.text);
-    const mergedSpans: TextSpan[] = [newSpans[0]];
-    for (let i = 1; i < newSpans.length; i++) {
-        const prev = mergedSpans[mergedSpans.length - 1];
-        const current = newSpans[i];
-        if (JSON.stringify(prev.style) === JSON.stringify(current.style)) {
-            prev.text += current.text;
-        } else {
-            mergedSpans.push(current);
-        }
-    }
-
-    return mergedSpans.filter(s => s.text);
+    return mergeSpans(newSpans);
 }
 
 

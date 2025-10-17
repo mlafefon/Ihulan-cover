@@ -502,10 +502,11 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                      <div className="grid grid-cols-2 gap-2">
                         <NumericStepper
                             label="מרווח שורות"
-                            value={element.lineHeight}
-                            onChange={(newValue) => handleBlockUpdate('lineHeight', newValue)}
+                            value={displayStyle.lineHeight || 1.2}
+                            onChange={(newValue) => handleStyleChange('lineHeight', newValue)}
                             step={0.1}
                             min={0}
+                            toFixed={1}
                         />
                         <NumericStepper
                             label="מרווח אותיות"

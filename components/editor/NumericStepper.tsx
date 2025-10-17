@@ -8,6 +8,7 @@ interface NumericStepperProps {
     min?: number;
     max?: number;
     step?: number;
+    toFixed?: number;
 }
 
 const NumericStepper: React.FC<NumericStepperProps> = ({ 
@@ -16,14 +17,19 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
     onChange, 
     min = -Infinity, 
     max = Infinity,
-    step = 1 
+    step = 1,
+    toFixed,
 }) => {
-    const [inputValue, setInputValue] = useState(value.toString());
+    const formatValue = (num: number) => {
+        return toFixed !== undefined ? num.toFixed(toFixed) : num.toString();
+    };
+
+    const [inputValue, setInputValue] = useState(formatValue(value));
 
     // When the value prop changes from the parent, update our local input value.
     useEffect(() => {
-        setInputValue(value.toString());
-    }, [value]);
+        setInputValue(formatValue(value));
+    }, [value, toFixed]);
 
     const handleIncrement = () => {
         onChange(Math.min(max, value + step));
@@ -44,7 +50,7 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
 
         if (isNaN(parsedValue) || inputValue.trim() === '') {
             // If input is not a valid number or is empty, revert to the last valid prop value.
-            setInputValue(value.toString());
+            setInputValue(formatValue(value));
         } else {
             const clampedValue = Math.max(min, Math.min(max, parsedValue));
             onChange(clampedValue);
@@ -63,7 +69,7 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
             e.currentTarget.blur();
         } else if (e.key === 'Escape') {
             // On Escape, revert to the original value and remove focus.
-            setInputValue(value.toString());
+            setInputValue(formatValue(value));
             e.currentTarget.blur();
         }
     };

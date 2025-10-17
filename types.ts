@@ -111,6 +111,7 @@ export interface TextStyle {
   fontWeight: number;
   color: string;
   textShadow: string;
+  lineHeight: number;
 }
 
 export interface TextSpan {
@@ -123,7 +124,6 @@ export interface TextElement extends ElementBase {
   spans: TextSpan[];
   textAlign: 'right' | 'center' | 'left';
   verticalAlign: 'top' | 'middle' | 'bottom';
-  lineHeight: number;
   letterSpacing: number;
   backgroundColor: string;
   padding: number;

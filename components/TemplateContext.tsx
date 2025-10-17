@@ -40,8 +40,26 @@ const transformRowToTemplate = (row: TemplateRow): Template => {
         width?: number;
         height?: number;
         backgroundColor?: string;
-        items?: CanvasElement[];
+        items?: any[]; // Use 'any' to handle legacy template formats during migration
     } | null;
+
+    const elements = (data?.items || []).map((el: any) => {
+        // Data migration: if an old text element has a top-level `lineHeight`,
+        // move it into the style of each of its spans.
+        if (el.type === 'text' && el.lineHeight !== undefined && el.spans) {
+            const globalLineHeight = el.lineHeight;
+            delete el.lineHeight; // Remove the old property from the element root
+            el.spans = el.spans.map((span: any) => ({
+                ...span,
+                style: {
+                    ...span.style,
+                    // Set the new lineHeight, but prioritize any that might already exist on the span
+                    lineHeight: span.style.lineHeight || globalLineHeight 
+                }
+            }));
+        }
+        return el as CanvasElement;
+    });
 
     return {
         id: row.id,
@@ -54,7 +72,7 @@ const transformRowToTemplate = (row: TemplateRow): Template => {
         width: data?.width || 800,
         height: data?.height || 1000,
         background_color: data?.backgroundColor || '#1a202c',
-        elements: data?.items || [],
+        elements: elements,
     };
 };
 
