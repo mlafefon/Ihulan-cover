@@ -221,25 +221,21 @@ const LayerPanel: React.FC<{ element: CanvasElement, onLayerOrderChange: Sidebar
     const isAtBack = element.zIndex <= 1;
     const isAtFront = element.zIndex >= totalElements;
     
-    const buttonClass = "flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 px-2 rounded-md text-xs disabled:opacity-50 disabled:cursor-not-allowed h-[30px]";
+    const buttonClass = "flex items-center justify-center bg-slate-700 hover:bg-slate-600 px-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed h-[30px]";
 
     return (
         <div className="grid grid-cols-4 gap-2">
             <button onClick={() => onLayerOrderChange(element.id, 'front')} disabled={isAtFront} className={buttonClass} title="הבא לקדמה">
                 <ChevronsUp className="w-5 h-5"/>
-                <span>קדמה</span>
             </button>
             <button onClick={() => onLayerOrderChange(element.id, 'forward')} disabled={isAtFront} className={buttonClass} title="הזז קדימה">
                 <ChevronUp className="w-5 h-5"/>
-                <span>קדימה</span>
             </button>
             <button onClick={() => onLayerOrderChange(element.id, 'backward')} disabled={isAtBack} className={buttonClass} title="שלח לאחור">
                 <ChevronDown className="w-5 h-5"/>
-                <span>אחורה</span>
             </button>
             <button onClick={() => onLayerOrderChange(element.id, 'back')} disabled={isAtBack} className={buttonClass} title="שלח לרקע">
                 <ChevronsDown className="w-5 h-5"/>
-                <span>רקע</span>
             </button>
         </div>
     );
