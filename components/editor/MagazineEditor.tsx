@@ -25,6 +25,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     templateRef.current = template;
     
     const [isSaving, setIsSaving] = useState(false);
+    const [isDirty, setIsDirty] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
     const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
@@ -37,6 +38,15 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
         wrapper?: HTMLDivElement | null;
     }>>({});
     const [nextCursorPos, setNextCursorPos] = useState<{ id: string; pos: { start: number; end: number } } | null>(null);
+
+    useEffect(() => {
+        // Deep compare is the most reliable way to detect any change.
+        // After a successful save, the component remounts with an updated `initialTemplate`,
+        // which resets the `template` state via its initializer. This effect then runs,
+        // finds no difference, and correctly sets `isDirty` to false.
+        const dirty = JSON.stringify(template) !== JSON.stringify(initialTemplate);
+        setIsDirty(dirty);
+    }, [template, initialTemplate]);
 
     useLayoutEffect(() => {
         if (nextCursorPos) {
@@ -724,7 +734,11 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                         </button>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={handleSave} disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-colors disabled:opacity-50">
+                        <button 
+                            onClick={handleSave} 
+                            disabled={isSaving || !isDirty} 
+                            className={`bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
+                        >
                             {isSaving ? 'שומר...' : 'שמור'}
                         </button>
                         <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
