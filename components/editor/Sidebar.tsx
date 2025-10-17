@@ -76,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         } else {
             setOpenAccordion('הגדרות עמוד');
         }
-    }, [selectedElement?.id, selectedElement?.type]);
+    }, [selectedElement?.id]);
 
     const handleAccordionToggle = (title: string) => {
         setOpenAccordion(prev => (prev === title ? null : title));
@@ -523,15 +523,15 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             <span>קו מתאר</span>
                         </label>
                         {outline.enabled && (
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-2 items-end">
                                 <NumericStepper 
-                                    label="עובי (px)"
+                                    label="עובי"
                                     value={outline.width}
                                     onChange={(newValue) => handleOutlineChange({ width: newValue })}
                                     min={0}
                                 />
-                                <label>
-                                    <span className="text-xs text-slate-400">צבע</span>
+                                <div>
+                                    <span className="text-sm text-slate-400">צבע</span>
                                     <div
                                         onClick={() => outlineColorInputRef.current?.click()}
                                         className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20 mt-1"
@@ -545,7 +545,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                                             className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
                                         />
                                     </div>
-                                </label>
+                                </div>
                             </div>
                         )}
                     </div>
