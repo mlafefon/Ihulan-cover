@@ -1,9 +1,10 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { PlusIcon, SearchIcon, TrashIcon, SpinnerIcon } from '../components/Icons';
-import type { Template, TemplatePreview } from '../types';
+import type { Template, TemplatePreview, CanvasElement } from '../types';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../AuthContext';
 import { useTemplates } from '../components/TemplateContext';
@@ -74,19 +75,39 @@ const TemplatesPage: React.FC = () => {
     }
   };
   
-  const handleNewDesign = () => {
-    const newTemplate: Template = {
-      id: `new_${Date.now()}`,
-      name: 'עיצוב חדש',
-      width: 800,
-      height: 1000,
-      background_color: '#1a202c',
-      elements: [],
-      user_id: user?.id,
-      is_public: false,
-      is_active: true,
-    };
-    navigate('/editor', { state: { template: newTemplate } });
+  const handleNewDesign = async () => {
+    setLocalError(null);
+    setSelectingTemplateId('new_design');
+    try {
+      const response = await fetch('./templates/default.json');
+      if (!response.ok) {
+        throw new Error(`שגיאת רשת: ${response.statusText}`);
+      }
+      const defaultTemplateData = await response.json();
+
+      // Ensure element IDs inside the new template are unique to prevent key collisions.
+      const elementsWithNewIds = (defaultTemplateData.items || []).map((el: CanvasElement) => ({
+          ...el,
+          id: `${el.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      }));
+
+      const newTemplate: Template = {
+        id: `new_${Date.now()}`,
+        name: 'עיצוב חדש',
+        width: defaultTemplateData.width || 800,
+        height: defaultTemplateData.height || 1000,
+        background_color: defaultTemplateData.backgroundColor || '#1a202c',
+        elements: elementsWithNewIds,
+        user_id: user?.id,
+        is_public: false,
+        is_active: true,
+      };
+      navigate('/editor', { state: { template: newTemplate } });
+    } catch (err: any) {
+      console.error("Error fetching default template:", err);
+      setLocalError(`שגיאה בטעינת תבנית ברירת המחדל: ${err.message}`);
+      setSelectingTemplateId(null);
+    }
   };
 
   const templatesToShow = activeTab === 'my' ? myTemplates : publicTemplates;
@@ -111,16 +132,6 @@ const TemplatesPage: React.FC = () => {
     
     return (
         <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 ${selectingTemplateId ? 'opacity-50 pointer-events-none' : ''}`}>
-          {activeTab === 'my' && (
-            <button
-              onClick={handleNewDesign}
-              className="flex flex-col items-center justify-center bg-slate-800 border-2 border-dashed border-slate-600 rounded-lg hover:bg-slate-700 hover:border-blue-500 transition-colors duration-300 aspect-[4/5] p-6"
-            >
-              <PlusIcon className="w-16 h-16 text-slate-500 mb-4" />
-              <span className="text-xl font-semibold text-white">עיצוב חדש</span>
-            </button>
-          )}
-
           {filteredTemplates.map(template => {
             const isBeingSelected = selectingTemplateId === template.id;
             return (
@@ -198,6 +209,18 @@ const TemplatesPage: React.FC = () => {
             />
             <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           </div>
+          <button
+            onClick={() => !selectingTemplateId && handleNewDesign()}
+            disabled={!!selectingTemplateId}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {selectingTemplateId === 'new_design' ? (
+                <SpinnerIcon className="w-5 h-5 animate-spin" />
+            ) : (
+                <PlusIcon className="w-5 h-5" />
+            )}
+            <span>עיצוב חדש</span>
+          </button>
           <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg">
             <button onClick={() => setActiveTab('my')} className={tabClass('my')}>
               העיצובים שלי
