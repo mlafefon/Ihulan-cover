@@ -518,32 +518,29 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             return;
         }
     
-        let imageToClipSrc: string | null = null;
-    
         setIsSaving(true);
+    
+        let imageToClipSrc: string | null = null;
+        let originalSrcForNewElement: string | null = null;
     
         if (targetElement.type === ElementType.Text) {
             const domNode = elementRefMap.current[targetElement.id]?.wrapper;
-            
-            if (domNode && fontCss) {
-                try {
-                    imageToClipSrc = await (window as any).htmlToImage.toPng(domNode, {
-                        backgroundColor: 'transparent',
-                        pixelRatio: 2,
-                        fontEmbedCSS: fontCss,
-                    });
-                } catch (e) {
-                    console.error("html-to-image failed for text element:", e);
-                    alert("שגיאה בהמרת הטקסט לתמונה.");
-                    setIsSaving(false);
-                    return;
-                }
-            } else if (!fontCss) {
-                alert("שגיאה: קובץ הפונטים לא נטען. לא ניתן לבצע חיתוך.");
+            if (!domNode || !fontCss) {
+                alert("שגיאה בעיבוד אלמנט הטקסט. ודא שהפונטים נטענו.");
                 setIsSaving(false);
                 return;
-            } else if (!domNode) {
-                alert("שגיאה: לא ניתן למצוא את רכיב הטקסט לעיבוד. נסה לבטל את הבחירה ולבחור מחדש.");
+            }
+            try {
+                const capturedImage = await (window as any).htmlToImage.toPng(domNode, {
+                    backgroundColor: 'transparent',
+                    pixelRatio: 2,
+                    fontEmbedCSS: fontCss,
+                });
+                imageToClipSrc = capturedImage;
+                originalSrcForNewElement = capturedImage;
+            } catch (e) {
+                console.error("html-to-image failed for text element:", e);
+                alert("שגיאה בהמרת הטקסט לתמונה.");
                 setIsSaving(false);
                 return;
             }
@@ -595,26 +592,21 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
             const clippedDataUrl = canvas.toDataURL('image/png');
             
             let finalElements: CanvasElement[];
-            let newSelectedId = selectedElementId;
+            let newSelectedId: string;
     
             if (targetElement.type === ElementType.Image) {
-                // Non-destructive update for images: update src, keep originalSrc and editState
+                // Non-destructive update for images
                 finalElements = template.elements
                     .map(el => {
                         if (el.id === targetElement.id) {
-                            return {
-                                ...el,
-                                src: clippedDataUrl,
-                                objectFit: 'fill',
-                            } as ImageElement;
+                            return { ...el, src: clippedDataUrl, objectFit: 'fill' } as ImageElement;
                         }
                         return el;
                     })
-                    .filter(el => el.id !== cutter.id); // Remove the cutter
+                    .filter(el => el.id !== cutter.id);
                 
-                newSelectedId = targetElement.id; // Keep the (now updated) image selected
-            } else {
-                // Destructive creation for text: a new image is created
+                newSelectedId = targetElement.id;
+            } else { // Text element was converted
                 const newImageElement: ImageElement = {
                     id: `clipped_${Date.now()}`,
                     type: ElementType.Image,
@@ -625,7 +617,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                     rotation: targetElement.rotation,
                     zIndex: targetElement.zIndex,
                     src: clippedDataUrl,
-                    originalSrc: clippedDataUrl, // For clipped text, this is the new original
+                    originalSrc: originalSrcForNewElement, // Use the captured full text image
                     objectFit: 'fill',
                     editState: null,
                 };
@@ -634,7 +626,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
                     .filter(el => el.id !== cutter.id && el.id !== targetElement.id)
                     .concat(newImageElement);
                     
-                newSelectedId = newImageElement.id; // Select the newly created image
+                newSelectedId = newImageElement.id;
             }
     
             handleTemplateChange({ ...template, elements: finalElements });
