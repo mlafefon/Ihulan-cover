@@ -3,7 +3,7 @@
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 
@@ -320,6 +320,12 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
         onUpdate(element.id, { outline: { ...outline, ...updates } });
     };
 
+    const alignMap = {
+        right: { icon: AlignRightIcon, title: 'יישור לימין' },
+        center: { icon: AlignCenterIcon, title: 'יישור למרכז' },
+        left: { icon: AlignLeftIcon, title: 'יישור לשמאל' },
+    };
+
     return (
         <div>
             <Accordion title="טיפוגרפיה וצבע" defaultOpen>
@@ -516,9 +522,19 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                     <div>
                         <span className="text-sm text-slate-400">יישור אופקי</span>
                          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
-                            {(['left', 'center', 'right'] as const).map(align => (
-                                <button key={align} onClick={() => handleBlockUpdate('textAlign', align)} className={`px-2 h-[30px] rounded capitalize ${element.textAlign === align ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}>{align}</button>
-                            ))}
+                            {(['right', 'center', 'left'] as const).map(align => {
+                                const Icon = alignMap[align].icon;
+                                return (
+                                    <button
+                                        key={align}
+                                        onClick={() => handleBlockUpdate('textAlign', align)}
+                                        title={alignMap[align].title}
+                                        className={`px-2 h-[30px] rounded flex items-center justify-center ${element.textAlign === align ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                    >
+                                        <Icon className="w-5 h-5 mx-auto" />
+                                    </button>
+                                );
+                            })}
                         </div>
                     </div>
                     <div>
