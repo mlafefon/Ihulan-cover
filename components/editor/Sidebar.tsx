@@ -540,9 +540,27 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                     <div>
                         <span className="text-sm text-slate-400">יישור אנכי</span>
                          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
-                            <button onClick={() => handleBlockUpdate('verticalAlign', 'top')} className={`px-2 h-[30px] rounded ${element.verticalAlign === 'top' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyStart className="w-5 h-5 mx-auto"/></button>
-                            <button onClick={() => handleBlockUpdate('verticalAlign', 'middle')} className={`px-2 h-[30px] rounded ${element.verticalAlign === 'middle' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyCenter className="w-5 h-5 mx-auto"/></button>
-                            <button onClick={() => handleBlockUpdate('verticalAlign', 'bottom')} className={`px-2 h-[30px] rounded ${element.verticalAlign === 'bottom' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}><AlignVerticalJustifyEnd className="w-5 h-5 mx-auto"/></button>
+                            <button 
+                                onClick={() => handleBlockUpdate('verticalAlign', 'top')} 
+                                title="יישור למעלה"
+                                className={`px-2 h-[30px] rounded ${element.verticalAlign === 'top' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <AlignVerticalJustifyEnd className="w-5 h-5 mx-auto"/>
+                            </button>
+                            <button 
+                                onClick={() => handleBlockUpdate('verticalAlign', 'middle')} 
+                                title="יישור למרכז"
+                                className={`px-2 h-[30px] rounded ${element.verticalAlign === 'middle' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <AlignVerticalJustifyCenter className="w-5 h-5 mx-auto"/>
+                            </button>
+                            <button 
+                                onClick={() => handleBlockUpdate('verticalAlign', 'bottom')} 
+                                title="יישור למטה"
+                                className={`px-2 h-[30px] rounded ${element.verticalAlign === 'bottom' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <AlignVerticalJustifyStart className="w-5 h-5 mx-auto"/>
+                            </button>
                         </div>
                     </div>
                 </div>
