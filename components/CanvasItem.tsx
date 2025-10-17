@@ -71,6 +71,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const [isHovered, setIsHovered] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
     const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; text: string; }>({ visible: false, x: 0, y: 0, text: '' });
+    const [selectionRects, setSelectionRects] = useState<DOMRect[]>([]);
 
 
     useEffect(() => {
@@ -92,20 +93,51 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             const handleSelectionChange = () => {
                 const selection = document.getSelection();
                 const itemNode = textContentRef.current;
-                if (selection && itemNode && selection.containsNode(itemNode, true)) {
-                    const range = getSelectionCharOffsetsWithin(itemNode);
-                    onTextSelect(range);
+                
+                if (selection && itemNode && selection.rangeCount > 0 && selection.containsNode(itemNode, true)) {
+                    // Update character offset range for styling logic
+                    const offsets = getSelectionCharOffsetsWithin(itemNode);
+                    onTextSelect(offsets);
+
+                    // Update visual selection overlays
+                    if (selection.isCollapsed) {
+                        setSelectionRects([]);
+                    } else {
+                        const range = selection.getRangeAt(0);
+                        const wrapperNode = textWrapperRef.current;
+                        if (!wrapperNode) return;
+
+                        const wrapperRect = wrapperNode.getBoundingClientRect();
+                        const clientRects = Array.from(range.getClientRects());
+                        
+                        const relativeRects = clientRects.map(rect => new DOMRect(
+                            rect.left - wrapperRect.left,
+                            rect.top - wrapperRect.top,
+                            rect.width,
+                            rect.height
+                        ));
+                        setSelectionRects(relativeRects);
+                    }
+                } else {
+                    // Selection is outside the element or cleared
+                    onTextSelect(null);
+                    setSelectionRects([]);
                 }
             };
 
             document.addEventListener('selectionchange', handleSelectionChange);
+            handleSelectionChange(); // Initial check
+
             return () => {
                 document.removeEventListener('selectionchange', handleSelectionChange);
             };
         } else {
-             onTextSelect(null);
+            // Cleanup when element is deselected or not a text element
+            onTextSelect(null);
+            setSelectionRects([]);
         }
     }, [isSelected, element.type, onTextSelect]);
+
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (isSelected && element.type === ElementType.Text) {
@@ -417,6 +449,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     justifyContent: verticalAlignMap[textElement.verticalAlign],
                     backgroundColor: textElement.backgroundColor,
                     overflow: 'hidden',
+                    position: 'relative',
                 };
 
                 if (backgroundShape === 'rounded') {
@@ -441,6 +474,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     userSelect: 'text',
                     cursor: 'text',
                     whiteSpace: 'pre-wrap',
+                    position: 'relative',
+                    zIndex: 1,
                     // Fallback styles to prevent unstyled text on new lines
                     ...(firstSpanStyle && {
                         fontFamily: firstSpanStyle.fontFamily,
@@ -453,9 +488,29 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 
                 return (
                     <div ref={textWrapperRef} style={wrapperStyle}>
+                         {isSelected && selectionRects.map((rect, i) => {
+                            const newHeight = rect.height * 0.7;
+                            const newTop = rect.top + (rect.height * (1 - 0.7) / 2);
+                            return (
+                                <div
+                                    key={`selection-rect-${i}`}
+                                    style={{
+                                        position: 'absolute',
+                                        top: `${newTop}px`,
+                                        left: `${rect.left}px`,
+                                        width: `${rect.width}px`,
+                                        height: `${newHeight}px`,
+                                        backgroundColor: '#64748b',
+                                        pointerEvents: 'none',
+                                        zIndex: 0,
+                                    }}
+                                />
+                            );
+                         })}
                         <div 
                             ref={textContentRef} 
                             style={editableStyle}
+                            className={isSelected ? 'has-custom-selection' : ''}
                             contentEditable={isSelected}
                             suppressContentEditableWarning={true}
                             dir="auto"

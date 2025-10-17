@@ -24,6 +24,10 @@
         color: inherit;
       }
 
+      /* Custom selection for rotated elements */
+      .has-custom-selection::selection, .has-custom-selection *::selection { background-color: transparent; }
+      .has-custom-selection::-moz-selection, .has-custom-selection *::-moz-selection { background-color: transparent; }
+
       /* Hide default number input spinners for a custom look */
       input[type='number']::-webkit-inner-spin-button,
       input[type='number']::-webkit-outer-spin-button {
