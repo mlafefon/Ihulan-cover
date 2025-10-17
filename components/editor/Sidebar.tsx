@@ -3,7 +3,7 @@
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 
 interface SidebarProps {
@@ -21,6 +21,37 @@ interface SidebarProps {
     onApplyCut: () => void;
     isApplyingCut: boolean;
 }
+
+// Helpers
+const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+    } : null;
+};
+
+const parseColor = (color: string): { hex: string; alpha: number } => {
+    if (!color || color === 'transparent') {
+        return { hex: '#ffffff', alpha: 0 };
+    }
+    if (color.startsWith('#')) {
+        return { hex: color, alpha: 1 };
+    }
+    if (color.startsWith('rgb')) { // handles rgb() and rgba()
+        const parts = color.match(/[\d.]+/g);
+        if (parts && parts.length >= 3) {
+            const [r, g, b, a = '1'] = parts;
+            const toHexPart = (c: string) => parseInt(c).toString(16).padStart(2, '0');
+            const hex = `#${toHexPart(r)}${toHexPart(g)}${toHexPart(b)}`;
+            return { hex, alpha: parseFloat(a) };
+        }
+    }
+    // Fallback for named colors or other formats. It won't be perfect but avoids crashing.
+    return { hex: '#000000', alpha: 1 };
+};
+
 
 const Sidebar: React.FC<SidebarProps> = ({ 
     selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, 
@@ -248,8 +279,35 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     }
 
     const displayStyle = activeStyle || element.spans[0]?.style;
+    const { hex: bgColorHex, alpha: bgColorAlpha } = parseColor(element.backgroundColor);
+
+    const handleBgColorChange = (newHex: string) => {
+        const rgb = hexToRgb(newHex);
+        if (rgb) {
+            // If the color was transparent, make the new color fully opaque. Otherwise, keep the alpha.
+            const newAlpha = element.backgroundColor === 'transparent' ? 1 : bgColorAlpha;
+            const newColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${newAlpha})`;
+            handleBlockUpdate('backgroundColor', newColor);
+        }
+    };
+
+    const handleBgAlphaChange = (newAlphaPercent: number) => {
+        const rgb = hexToRgb(bgColorHex);
+        if (rgb) {
+            const newColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${newAlphaPercent / 100})`;
+            handleBlockUpdate('backgroundColor', newColor);
+        }
+    };
 
     if (!displayStyle) return null; // Should not happen if element exists
+    
+    const hasShadow = displayStyle.textShadow && displayStyle.textShadow !== 'none' && displayStyle.textShadow !== '';
+    const SHADOW_VALUE = '2px 2px 4px rgba(0,0,0,0.5)';
+
+    const handleShadowToggle = () => {
+        const newShadow = hasShadow ? '' : SHADOW_VALUE;
+        handleStyleChange('textShadow', newShadow);
+    };
 
     return (
         <div>
@@ -284,7 +342,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
             </Accordion>
             
             <Accordion title="צבע ומראה">
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-2">
                         <label>
                             <span className="text-sm text-slate-400">צבע טקסט</span>
@@ -302,7 +360,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                                         className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
                                     />
                                 </div>
-                                <div className="w-9 h-9 flex-shrink-0" />
+                                <div className="w-10 h-10 flex-shrink-0" />
                             </div>
                         </label>
                         <label>
@@ -315,7 +373,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                                     <div
                                         className="w-full h-full"
                                         style={{
-                                            backgroundColor: element.backgroundColor === 'transparent' ? '#fff' : element.backgroundColor,
+                                            backgroundColor: element.backgroundColor,
                                             backgroundImage: element.backgroundColor === 'transparent'
                                                 ? `linear-gradient(45deg, #ccc 25%, transparent 25%),
                                                    linear-gradient(-45deg, #ccc 25%, transparent 25%),
@@ -329,14 +387,14 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                                     <input
                                         ref={bgColorInputRef}
                                         type="color"
-                                        value={element.backgroundColor === 'transparent' ? '#ffffff' : element.backgroundColor}
-                                        onChange={(e) => handleBlockUpdate('backgroundColor', e.target.value)}
+                                        value={bgColorHex}
+                                        onChange={(e) => handleBgColorChange(e.target.value)}
                                         className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
                                     />
                                 </div>
                                 <button
                                     onClick={() => handleBlockUpdate('backgroundColor', 'transparent')}
-                                    className="p-2 bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0"
+                                    className="h-10 w-10 bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0 flex items-center justify-center"
                                     title="הפוך רקע לשקוף"
                                     aria-label="Set background to transparent"
                                 >
@@ -345,10 +403,29 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             </div>
                         </label>
                     </div>
-                    <label>
-                        <span className="text-sm text-slate-400">צל טקסט (CSS)</span>
-                        <input type="text" value={displayStyle.textShadow} onChange={(e) => handleStyleChange('textShadow', e.target.value)} placeholder="e.g. 2px 2px 4px #000" className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm" />
-                    </label>
+                    <div>
+                        <label className="block text-sm text-slate-400 mb-1">
+                            שקיפות רקע: {Math.round(bgColorAlpha * 100)}%
+                        </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={Math.round(bgColorAlpha * 100)}
+                            onChange={(e) => handleBgAlphaChange(parseInt(e.target.value, 10))}
+                            className="w-full"
+                        />
+                    </div>
+                    <div>
+                        <span className="text-sm text-slate-400">צל טקסט</span>
+                        <button
+                            onClick={handleShadowToggle}
+                            title={hasShadow ? "הסר צל טקסט" : "הוסף צל טקסט"}
+                            className={`w-full flex items-center justify-center p-2 rounded mt-1 transition-colors ${hasShadow ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        >
+                            <ShadowIcon className="w-5 h-5"/>
+                        </button>
+                    </div>
                 </div>
             </Accordion>
 
