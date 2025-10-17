@@ -32,7 +32,7 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     const [history, setHistory] = useState<Template[]>([initialTemplate]);
     const [historyIndex, setHistoryIndex] = useState(0);
     const canvasRef = useRef<HTMLDivElement>(null);
-    const lastSelectionRangeRef = useRef<{ start: number, end: number } | null>(null);
+    const lastSelectionRangeRef = useRef<{ start: number; end: number } | null>(null);
     const elementRefMap = useRef<Record<string, {
         content?: HTMLDivElement | null;
         wrapper?: HTMLDivElement | null;
@@ -539,24 +539,27 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     
         image.onload = () => {
             const canvas = document.createElement('canvas');
-            canvas.width = targetElement!.width;
-            canvas.height = targetElement!.height;
+            canvas.width = targetElement.width;
+            canvas.height = targetElement.height;
             const ctx = canvas.getContext('2d');
-            if (!ctx) return;
+            if (!ctx) {
+                setIsSaving(false);
+                return;
+            }
     
-            ctx.drawImage(image, 0, 0, targetElement!.width, targetElement!.height);
+            ctx.drawImage(image, 0, 0, targetElement.width, targetElement.height);
             ctx.globalCompositeOperation = 'destination-out';
             
-            const targetCenter = { x: targetElement!.x + targetElement!.width / 2, y: targetElement!.y + targetElement!.height / 2 };
+            const targetCenter = { x: targetElement.x + targetElement.width / 2, y: targetElement.y + targetElement.height / 2 };
             const cutterCenter = { x: cutter.x + cutter.width / 2, y: cutter.y + cutter.height / 2 };
             const delta = { x: cutterCenter.x - targetCenter.x, y: cutterCenter.y - targetCenter.y };
-            const unrotateRad = -targetElement!.rotation * (Math.PI / 180);
+            const unrotateRad = -targetElement.rotation * (Math.PI / 180);
             const cos_un = Math.cos(unrotateRad);
             const sin_un = Math.sin(unrotateRad);
             const delta_local = { x: delta.x * cos_un - delta.y * sin_un, y: delta.x * sin_un + delta.y * cos_un };
-            const cutterCenter_local = { x: targetElement!.width / 2 + delta_local.x, y: targetElement!.height / 2 + delta_local.y };
-            const relativeRotationRad = (cutter.rotation - targetElement!.rotation) * (Math.PI / 180);
-
+            const cutterCenter_local = { x: targetElement.width / 2 + delta_local.x, y: targetElement.height / 2 + delta_local.y };
+            const relativeRotationRad = (cutter.rotation - targetElement.rotation) * (Math.PI / 180);
+    
             ctx.save();
             ctx.translate(cutterCenter_local.x, cutterCenter_local.y);
             ctx.rotate(relativeRotationRad);
@@ -568,26 +571,51 @@ const MagazineEditor: React.FC<MagazineEditorProps> = ({ initialTemplate, onEdit
     
             const clippedDataUrl = canvas.toDataURL('image/png');
             
-            const newImageElement: ImageElement = {
-                id: `clipped_${Date.now()}`,
-                type: ElementType.Image,
-                x: targetElement!.x,
-                y: targetElement!.y,
-                width: targetElement!.width,
-                height: targetElement!.height,
-                rotation: targetElement!.rotation,
-                zIndex: targetElement!.zIndex,
-                src: clippedDataUrl,
-                originalSrc: clippedDataUrl,
-                objectFit: 'fill',
-            };
+            let finalElements: CanvasElement[];
+            let newSelectedId = selectedElementId;
     
-            const newElements = template.elements
-                .filter(el => el.id !== cutter.id && el.id !== targetElement!.id)
-                .concat(newImageElement);
+            if (targetElement.type === ElementType.Image) {
+                // Non-destructive update for images: update src, keep originalSrc and editState
+                finalElements = template.elements
+                    .map(el => {
+                        if (el.id === targetElement.id) {
+                            return {
+                                ...el,
+                                src: clippedDataUrl,
+                                objectFit: 'fill',
+                            } as ImageElement;
+                        }
+                        return el;
+                    })
+                    .filter(el => el.id !== cutter.id); // Remove the cutter
+                
+                newSelectedId = targetElement.id; // Keep the (now updated) image selected
+            } else {
+                // Destructive creation for text: a new image is created
+                const newImageElement: ImageElement = {
+                    id: `clipped_${Date.now()}`,
+                    type: ElementType.Image,
+                    x: targetElement.x,
+                    y: targetElement.y,
+                    width: targetElement.width,
+                    height: targetElement.height,
+                    rotation: targetElement.rotation,
+                    zIndex: targetElement.zIndex,
+                    src: clippedDataUrl,
+                    originalSrc: clippedDataUrl, // For clipped text, this is the new original
+                    objectFit: 'fill',
+                    editState: null,
+                };
     
-            handleTemplateChange({ ...template, elements: newElements });
-            setSelectedElementId(newImageElement.id);
+                finalElements = template.elements
+                    .filter(el => el.id !== cutter.id && el.id !== targetElement.id)
+                    .concat(newImageElement);
+                    
+                newSelectedId = newImageElement.id; // Select the newly created image
+            }
+    
+            handleTemplateChange({ ...template, elements: finalElements });
+            setSelectedElementId(newSelectedId);
             setIsSaving(false);
         };
     
