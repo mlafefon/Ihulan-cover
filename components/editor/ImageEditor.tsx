@@ -384,8 +384,22 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             }
 
             if (initialEditState && !isReplacing) {
-                setZoom(Math.max(minZoomValue, Math.min(maxZoomValue, initialEditState.zoom)));
-                setOffset(initialEditState.offset);
+                // Determine the new zoom level, clamped within the new min/max bounds.
+                const newZoom = Math.max(minZoomValue, Math.min(maxZoomValue, initialEditState.zoom));
+                
+                // Calculate the maximum allowed offset based on the NEW zoom level.
+                const maxX = Math.max(0, (image.width * newZoom - cropFrameSize.width) / 2);
+                const maxY = Math.max(0, (image.height * newZoom - cropFrameSize.height) / 2);
+
+                // Clamp the initial offset from the saved state to these new bounds.
+                const clampedOffset = {
+                    x: Math.max(-maxX, Math.min(maxX, initialEditState.offset.x)),
+                    y: Math.max(-maxY, Math.min(maxY, initialEditState.offset.y)),
+                };
+
+                // Set all states based on the calculated and clamped values.
+                setZoom(newZoom);
+                setOffset(clampedOffset);
                 setFilters(initialEditState.filters);
                 setColorReplace(initialEditState.colorReplace);
                 setFrame(initialEditState.frame);
