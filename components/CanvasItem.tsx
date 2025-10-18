@@ -222,6 +222,21 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             }
         }
     };
+    
+    const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const pastedText = e.clipboardData.getData('text/plain');
+        if (!pastedText) return;
+
+        const textElement = element as TextElement;
+        const fullText = textElement.spans.map(s => s.text).join('');
+        const selection = getSelectionCharOffsetsWithin(e.currentTarget);
+        
+        const newFullText = fullText.substring(0, selection.start) + pastedText + fullText.substring(selection.end);
+        const newCursorPos = { start: selection.start + pastedText.length, end: selection.start + pastedText.length };
+        
+        onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
+    };
 
     const handleDoubleClick = () => {
         if (element.type !== ElementType.Image) return;
@@ -573,6 +588,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                             suppressContentEditableWarning={true}
                             dir="auto"
                             onKeyDown={handleKeyDown}
+                            onPaste={handlePaste}
                             onInput={(e) => {
                                 const newText = e.currentTarget.innerText;
                                 const currentText = textElement.spans.map(s => s.text).join('');
