@@ -522,10 +522,44 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         
         if (canvasRef.current && (window as any).htmlToImage) {
             try {
-                previewImage = await (window as any).htmlToImage.toPng(canvasRef.current, {
-                    pixelRatio: 2, // For better quality on high-DPI screens
+                // Step 1: Capture the full-resolution image as a data URL.
+                // This is a more robust method to avoid clipping issues from parent elements.
+                const fullResDataUrl = await (window as any).htmlToImage.toPng(canvasRef.current, {
+                    pixelRatio: 1, // Use 1 for predictable sizing
                     fontEmbedCSS: fontCss ?? undefined,
                 });
+
+                // Step 2: Manually resize the full-res image to a thumbnail.
+                const image = new Image();
+                const promise = new Promise<string>((resolve, reject) => {
+                    image.onload = () => {
+                        const THUMBNAIL_WIDTH = 400;
+                        // Use the loaded image's dimensions for aspect ratio to be precise.
+                        const aspectRatio = image.height / image.width;
+                        const thumbnailHeight = Math.round(THUMBNAIL_WIDTH * aspectRatio);
+
+                        const canvas = document.createElement('canvas');
+                        canvas.width = THUMBNAIL_WIDTH;
+                        canvas.height = thumbnailHeight;
+                        const ctx = canvas.getContext('2d');
+
+                        if (ctx) {
+                            // Draw the full image onto the smaller canvas, effectively resizing it.
+                            ctx.drawImage(image, 0, 0, THUMBNAIL_WIDTH, thumbnailHeight);
+                            resolve(canvas.toDataURL('image/png'));
+                        } else {
+                            reject(new Error('Could not get 2D context for thumbnail canvas.'));
+                        }
+                    };
+                    image.onerror = (err) => {
+                        console.error('Image loading for thumbnail failed:', err);
+                        reject(new Error('Failed to load full-resolution image for resizing.'));
+                    };
+                    image.src = fullResDataUrl;
+                });
+                
+                previewImage = await promise;
+
             } catch (e) {
                 console.error("html-to-image failed for preview:", e);
             }
