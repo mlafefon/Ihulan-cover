@@ -629,16 +629,21 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         image.crossOrigin = "Anonymous";
     
         image.onload = () => {
+            const scaleFactor = 2.5; // Increase resolution for smoother edges and better quality.
             const canvas = document.createElement('canvas');
-            canvas.width = targetElement.width;
-            canvas.height = targetElement.height;
+            canvas.width = targetElement.width * scaleFactor;
+            canvas.height = targetElement.height * scaleFactor;
             const ctx = canvas.getContext('2d');
             if (!ctx) {
                 setIsSaving(false);
                 return;
             }
     
-            ctx.drawImage(image, 0, 0, targetElement.width, targetElement.height);
+            // Enable high-quality image smoothing.
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+    
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
             ctx.globalCompositeOperation = 'destination-out';
             
             const targetCenter = { x: targetElement.x + targetElement.width / 2, y: targetElement.y + targetElement.height / 2 };
@@ -648,15 +653,22 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             const cos_un = Math.cos(unrotateRad);
             const sin_un = Math.sin(unrotateRad);
             const delta_local = { x: delta.x * cos_un - delta.y * sin_un, y: delta.x * sin_un + delta.y * cos_un };
-            const cutterCenter_local = { x: targetElement.width / 2 + delta_local.x, y: targetElement.height / 2 + delta_local.y };
+            
+            // Scale all coordinates and dimensions for the high-resolution canvas.
+            const cutterCenter_local_scaled = {
+                x: (targetElement.width / 2 + delta_local.x) * scaleFactor,
+                y: (targetElement.height / 2 + delta_local.y) * scaleFactor
+            };
+            const cutterWidth_scaled = cutter.width * scaleFactor;
+            const cutterHeight_scaled = cutter.height * scaleFactor;
             const relativeRotationRad = (cutter.rotation - targetElement.rotation) * (Math.PI / 180);
     
             ctx.save();
-            ctx.translate(cutterCenter_local.x, cutterCenter_local.y);
+            ctx.translate(cutterCenter_local_scaled.x, cutterCenter_local_scaled.y);
             ctx.rotate(relativeRotationRad);
             
             ctx.beginPath();
-            ctx.ellipse(0, 0, cutter.width / 2, cutter.height / 2, 0, 0, 2 * Math.PI);
+            ctx.ellipse(0, 0, cutterWidth_scaled / 2, cutterHeight_scaled / 2, 0, 0, 2 * Math.PI);
             ctx.fill();
             ctx.restore();
     
