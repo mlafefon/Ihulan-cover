@@ -88,7 +88,8 @@ const AuthPage: React.FC = () => {
               placeholder="אימייל"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+              dir="ltr"
               required
             />
             <input
@@ -96,7 +97,8 @@ const AuthPage: React.FC = () => {
               placeholder="סיסמה"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-left"
+              dir="ltr"
               required
             />
             {error && <p className="text-red-400 text-sm pt-2 text-center">{error}</p>}
