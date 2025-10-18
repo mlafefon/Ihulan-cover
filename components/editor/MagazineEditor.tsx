@@ -99,6 +99,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     }, [updateHistory]);
 
+    // Fix: Corrected typo from 'useImperivativeHandle' to 'useImperativeHandle'.
     useImperativeHandle(ref, () => ({
         updateTemplateFromParent: (newTemplate: Template) => {
             handleTemplateChange(newTemplate, true);
@@ -853,6 +854,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 canvasHeight={template.height}
                                 otherElements={template.elements.filter(e => e.id !== element.id)}
                                 setSnapLines={setSnapLines}
+                                activeStyle={selectedElementId === element.id ? activeStyle : null}
                             />
                         ))}
                         {snapLines.x.map((x, i) => (

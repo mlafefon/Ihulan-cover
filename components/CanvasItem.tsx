@@ -19,6 +19,7 @@ interface CanvasItemProps {
     canvasHeight: number;
     otherElements: CanvasElement[];
     setSnapLines: (lines: { x: number[], y: number[] }) => void;
+    activeStyle: TextStyle | null;
 }
 
 const handlePositionClasses: { [key: string]: string } = {
@@ -74,7 +75,7 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget, activeStyle }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
@@ -114,20 +115,65 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     if (selection.isCollapsed) {
                         setSelectionRects([]);
                     } else {
+                        const textElement = element as TextElement;
+                        
+                        // Fallback to the first span's style if activeStyle is not available, which can happen during initial selection.
+                        const styleForMetrics = activeStyle || textElement.spans[0]?.style || defaultTextStyle;
+                        
                         const range = selection.getRangeAt(0);
                         const wrapperNode = textWrapperRef.current;
                         if (!wrapperNode) return;
-
+    
                         const wrapperRect = wrapperNode.getBoundingClientRect();
                         const clientRects = Array.from(range.getClientRects());
                         
-                        const relativeRects = clientRects.map(rect => new DOMRect(
-                            rect.left - wrapperRect.left,
-                            rect.top - wrapperRect.top,
-                            rect.width,
-                            rect.height
-                        ));
-                        setSelectionRects(relativeRects);
+                        const rotationRad = (textElement.rotation * Math.PI) / 180;
+                        const cos = Math.abs(Math.cos(rotationRad));
+                        const sin = Math.abs(Math.sin(rotationRad));
+    
+                        const newSelectionRects = clientRects.map(rect => {
+                            // 1. Calculate true height (h_local)
+                            const h_local = styleForMetrics.fontSize * styleForMetrics.lineHeight;
+    
+                            // 2. Calculate true width (w_local) using the more stable formula
+                            let w_local: number;
+                            if (cos >= sin) { // More horizontal rotation
+                                w_local = cos > 1e-6 ? (rect.width - h_local * sin) / cos : 0;
+                            } else { // More vertical rotation
+                                w_local = sin > 1e-6 ? (rect.height - h_local * cos) / sin : 0;
+                            }
+                            
+                            // 3. Find center of ClientRect in viewport space
+                            const viewportCenterX = rect.left + rect.width / 2;
+                            const viewportCenterY = rect.top + rect.height / 2;
+    
+                            // 4. Transform viewport center into the wrapper's local (un-rotated) space
+                            const rotatedBoundingBoxCenterX = wrapperRect.left + wrapperRect.width / 2;
+                            const rotatedBoundingBoxCenterY = wrapperRect.top + wrapperRect.height / 2;
+                            
+                            let dx = viewportCenterX - rotatedBoundingBoxCenterX;
+                            let dy = viewportCenterY - rotatedBoundingBoxCenterY;
+    
+                            // Apply inverse rotation to get vector from un-rotated center
+                            const invRotationRad = -rotationRad;
+                            const cos_inv = Math.cos(invRotationRad);
+                            const sin_inv = Math.sin(invRotationRad);
+                            
+                            const local_dx = dx * cos_inv - dy * sin_inv;
+                            const local_dy = dx * sin_inv + dy * cos_inv;
+                            
+                            // 5. Calculate the top-left of the overlay relative to the un-rotated element's center
+                            const unrotatedCenterX = textElement.width / 2;
+                            const unrotatedCenterY = textElement.height / 2;
+                            
+                            const local_top = unrotatedCenterY + local_dy - h_local / 2;
+                            const local_left = unrotatedCenterX + local_dx - w_local / 2;
+    
+                            // Return a new DOMRect with local coordinates and dimensions
+                            return new DOMRect(local_left, local_top, w_local, h_local);
+                        });
+                        
+                        setSelectionRects(newSelectionRects);
                     }
                 } else {
                     // Selection is outside the element or cleared
@@ -147,7 +193,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             onTextSelect(null);
             setSelectionRects([]);
         }
-    }, [isSelected, element.type, onTextSelect]);
+    }, [isSelected, element, activeStyle, onTextSelect]);
 
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -499,17 +545,17 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 return (
                     <div ref={textWrapperRef} style={wrapperStyle}>
                          {isSelected && selectionRects.map((rect, i) => {
-                            const newHeight = rect.height * 0.7;
-                            const newTop = rect.top + (rect.height * (1 - 0.7) / 2);
+                            const visualHeight = rect.height * 0.7;
+                            const visualTop = rect.y + (rect.height * (1 - 0.7) / 2);
                             return (
                                 <div
                                     key={`selection-rect-${i}`}
                                     style={{
                                         position: 'absolute',
-                                        top: `${newTop}px`,
-                                        left: `${rect.left}px`,
+                                        top: `${visualTop}px`,
+                                        left: `${rect.x}px`,
                                         width: `${rect.width}px`,
-                                        height: `${newHeight}px`,
+                                        height: `${visualHeight}px`,
                                         backgroundColor: '#64748b',
                                         pointerEvents: 'none',
                                         zIndex: 0,
