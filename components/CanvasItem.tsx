@@ -267,6 +267,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         if (element.type === ElementType.Text) {
+            // If the click is inside the contentEditable area, let the browser handle it
+            // for text selection and cursor placement. Just select the element.
             if (textContentRef.current && textContentRef.current.contains(e.target as Node)) {
                 e.stopPropagation();
                 onSelect();
@@ -274,9 +276,17 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             }
         }
 
+        // For frame clicks on text elements, or clicks on any other element type:
         e.preventDefault();
         e.stopPropagation();
         onSelect();
+
+        // If it's a frame click on a text element, explicitly blur to remove the cursor.
+        if (element.type === ElementType.Text) {
+            textContentRef.current?.blur();
+            window.getSelection()?.removeAllRanges();
+        }
+        
         onInteractionStart();
         
         const startX = e.clientX;

@@ -381,14 +381,31 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     };
 
-    const handleStyleUpdate = (styleUpdate: Partial<TextStyle>) => {
+    const handleStyleUpdate = (styleUpdate: Partial<TextStyle>, isPreset: boolean = false) => {
         if (!selectedElementId) return;
     
         const newElements = template.elements.map(el => {
             if (el.id === selectedElementId && el.type === ElementType.Text) {
-                // If no specific text is selected (i.e., the whole element frame is selected),
-                // create a range that covers the entire text content to apply the style globally.
-                // Otherwise, use the existing selection range (which could be a cursor position).
+                // If changing font size with stepper/input (not preset) and no text is selected, apply proportionally.
+                if (styleUpdate.fontSize !== undefined && selectionRange === null && !isPreset) {
+                    const oldBaseSize = activeStyle?.fontSize || el.spans[0]?.style.fontSize || defaultTextStyle.fontSize;
+                    const newBaseSize = styleUpdate.fontSize;
+
+                    if (oldBaseSize > 0 && newBaseSize !== oldBaseSize) {
+                        const ratio = newBaseSize / oldBaseSize;
+                        const newSpans = el.spans.map(span => ({
+                            ...span,
+                            style: {
+                                ...span.style,
+                                fontSize: Math.round((span.style.fontSize * ratio) * 10) / 10,
+                            },
+                        }));
+                        return { ...el, spans: newSpans };
+                    }
+                    return el; // No change needed
+                }
+                
+                // For all other style changes, or for font size changes from presets or with a selection, apply absolutely.
                 const rangeToStyle = selectionRange === null
                     ? { start: 0, end: el.spans.reduce((acc, span) => acc + span.text.length, 0) }
                     : selectionRange;

@@ -4,7 +4,7 @@ import { ChevronUp, ChevronDown } from '../Icons';
 interface NumericStepperProps {
     label: string;
     value: number;
-    onChange: (newValue: number) => void;
+    onChange: (newValue: number, isPreset?: boolean) => void;
     min?: number;
     max?: number;
     step?: number;
@@ -135,7 +135,7 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
                                         className="w-full text-right px-3 py-1.5 text-sm hover:bg-blue-600"
                                         onMouseDown={(e) => {
                                             e.preventDefault();
-                                            onChange(p);
+                                            onChange(p, true);
                                             setIsDropdownOpen(false);
                                         }}
                                     >

@@ -9,7 +9,7 @@ import { defaultTextStyle } from '../CanvasItem';
 interface SidebarProps {
     selectedElement: CanvasElement | null;
     onUpdateElement: (id: string, updates: Partial<CanvasElement> & { textContent?: string }) => void;
-    onStyleUpdate: (styleUpdate: Partial<TextStyle>) => void;
+    onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
     activeStyle: TextStyle | null;
     onAddElement: (type: ElementType, payload?: { src: string }) => void;
     onDeleteElement: (id:string) => void;
@@ -326,7 +326,7 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
 interface TextPanelProps {
     element: TextElement;
     onUpdate: (id: string, updates: Partial<TextElement>) => void;
-    onStyleUpdate: (styleUpdate: Partial<TextStyle>) => void;
+    onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
     activeStyle: TextStyle | null;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
@@ -342,8 +342,8 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
         onUpdate(element.id, { [prop]: value } as Partial<TextElement>);
     };
 
-    const handleStyleChange = (prop: keyof TextStyle, value: any) => {
-        onStyleUpdate({ [prop]: value });
+    const handleStyleChange = (prop: keyof TextStyle, value: any, isPreset?: boolean) => {
+        onStyleUpdate({ [prop]: value }, isPreset);
     }
 
     const baseStyle = activeStyle || element.spans[0]?.style;
@@ -415,7 +415,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                         <NumericStepper
                             label="גודל"
                             value={displayStyle.fontSize}
-                            onChange={(newSize) => handleStyleChange('fontSize', newSize)}
+                            onChange={(newSize, isPreset) => handleStyleChange('fontSize', newSize, isPreset)}
                             min={1}
                             presets={fontSizes}
                         />
