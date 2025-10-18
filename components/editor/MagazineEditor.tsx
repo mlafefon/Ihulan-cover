@@ -230,6 +230,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     }, [updateHistory]);
 
     const updateElement = (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory: boolean = true, cursorPos?: { start: number; end: number }) => {
+        let finalCursorPos = cursorPos; // Create a mutable copy.
+    
         const newElements = template.elements.map(el => {
             if (el.id !== id) return el;
     
@@ -238,103 +240,107 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 let spans = el.spans;
     
                 if (textContent !== undefined) {
-                    const oldText = el.spans.map(s => s.text).join('');
                     const newText = textContent;
     
-                    if (oldText === newText) {
-                        spans = el.spans;
+                    if (newText === '') {
+                        // Bug Fix: When text content is empty, insert a non-breaking space to prevent
+                        // the contentEditable element from collapsing, which causes cursor and input issues in RTL.
+                        const styleForEmpty = el.spans[0]?.style || defaultTextStyle;
+                        spans = [{ text: '\u00A0', style: styleForEmpty }];
+                        // Also, force the cursor position to the start of the element for a smooth typing experience.
+                        finalCursorPos = { start: 0, end: 0 };
                     } else {
-                        let prefixLen = 0;
-                        while (prefixLen < oldText.length && prefixLen < newText.length && oldText[prefixLen] === newText[prefixLen]) {
-                            prefixLen++;
-                        }
+                        const oldText = el.spans.map(s => s.text).join('');
     
-                        let suffixLen = 0;
-                        while (
-                            suffixLen < oldText.length - prefixLen &&
-                            suffixLen < newText.length - prefixLen &&
-                            oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]
-                        ) {
-                            suffixLen++;
-                        }
-    
-                        const newMiddleText = newText.substring(prefixLen, newText.length - suffixLen);
-                        
-                        let styleForMiddle: TextStyle = el.spans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '', lineHeight: 1.2 };
-                        let currentIndex = 0;
-                        for (const span of el.spans) {
-                            const spanEnd = currentIndex + span.text.length;
-                            if (prefixLen >= currentIndex && prefixLen <= spanEnd) {
-                                styleForMiddle = span.style;
-                                break;
+                        if (oldText === newText) {
+                            spans = el.spans;
+                        } else {
+                            let prefixLen = 0;
+                            while (prefixLen < oldText.length && prefixLen < newText.length && oldText[prefixLen] === newText[prefixLen]) {
+                                prefixLen++;
                             }
-                             if (el.spans.length > 0 && prefixLen > spanEnd) { 
-                                styleForMiddle = el.spans[el.spans.length - 1].style;
+    
+                            let suffixLen = 0;
+                            while (
+                                suffixLen < oldText.length - prefixLen &&
+                                suffixLen < newText.length - prefixLen &&
+                                oldText[oldText.length - 1 - suffixLen] === newText[newText.length - 1 - suffixLen]
+                            ) {
+                                suffixLen++;
                             }
-                            currentIndex = spanEnd;
-                        }
-                        
-                        const prefixSpans: TextSpan[] = [];
-                        const suffixSpans: TextSpan[] = [];
-                        currentIndex = 0;
     
-                        for (const span of el.spans) {
-                            const spanStart = currentIndex;
-                            const spanEnd = spanStart + span.text.length;
-    
-                            if (spanEnd <= prefixLen) {
-                                prefixSpans.push({ ...span });
-                            } else if (spanStart < prefixLen) {
-                                const part = span.text.substring(0, prefixLen - spanStart);
-                                prefixSpans.push({ text: part, style: span.style });
+                            const newMiddleText = newText.substring(prefixLen, newText.length - suffixLen);
+                            
+                            let styleForMiddle: TextStyle = el.spans[0]?.style || { fontFamily: 'Heebo', fontSize: 16, fontWeight: 400, color: '#FFFFFF', textShadow: '', lineHeight: 1.2 };
+                            let currentIndex = 0;
+                            for (const span of el.spans) {
+                                const spanEnd = currentIndex + span.text.length;
+                                if (prefixLen >= currentIndex && prefixLen <= spanEnd) {
+                                    styleForMiddle = span.style;
+                                    break;
+                                }
+                                 if (el.spans.length > 0 && prefixLen > spanEnd) { 
+                                    styleForMiddle = el.spans[el.spans.length - 1].style;
+                                }
+                                currentIndex = spanEnd;
                             }
                             
-                            if (spanStart >= oldText.length - suffixLen) {
-                                suffixSpans.push({ ...span });
-                            } else if (spanEnd > oldText.length - suffixLen) {
-                                const part = span.text.substring(oldText.length - suffixLen - spanStart);
-                                suffixSpans.push({ text: part, style: span.style });
+                            const prefixSpans: TextSpan[] = [];
+                            const suffixSpans: TextSpan[] = [];
+                            currentIndex = 0;
+    
+                            for (const span of el.spans) {
+                                const spanStart = currentIndex;
+                                const spanEnd = spanStart + span.text.length;
+    
+                                if (spanEnd <= prefixLen) {
+                                    prefixSpans.push({ ...span });
+                                } else if (spanStart < prefixLen) {
+                                    const part = span.text.substring(0, prefixLen - spanStart);
+                                    prefixSpans.push({ text: part, style: span.style });
+                                }
+                                
+                                if (spanStart >= oldText.length - suffixLen) {
+                                    suffixSpans.push({ ...span });
+                                } else if (spanEnd > oldText.length - suffixLen) {
+                                    const part = span.text.substring(oldText.length - suffixLen - spanStart);
+                                    suffixSpans.push({ text: part, style: span.style });
+                                }
+                                
+                                currentIndex = spanEnd;
                             }
                             
-                            currentIndex = spanEnd;
-                        }
-                        
-                        const middleSpan: TextSpan[] = newMiddleText ? [{ text: newMiddleText, style: styleForMiddle }] : [];
+                            const middleSpan: TextSpan[] = newMiddleText ? [{ text: newMiddleText, style: styleForMiddle }] : [];
     
-                        const combinedSpans = [...prefixSpans, ...middleSpan, ...suffixSpans];
-                        
-                        const mergedSpans: TextSpan[] = [];
-                        if (combinedSpans.length > 0) {
-                            mergedSpans.push(combinedSpans[0]);
-                            for (let i = 1; i < combinedSpans.length; i++) {
-                                const prev = mergedSpans[mergedSpans.length - 1];
-                                const current = combinedSpans[i];
-                                if (current.text && JSON.stringify(prev.style) === JSON.stringify(current.style)) {
-                                    prev.text += current.text;
-                                } else if (current.text) {
-                                    mergedSpans.push(current);
+                            const combinedSpans = [...prefixSpans, ...middleSpan, ...suffixSpans];
+                            
+                            const mergedSpans: TextSpan[] = [];
+                            if (combinedSpans.length > 0) {
+                                mergedSpans.push(combinedSpans[0]);
+                                for (let i = 1; i < combinedSpans.length; i++) {
+                                    const prev = mergedSpans[mergedSpans.length - 1];
+                                    const current = combinedSpans[i];
+                                    if (current.text && JSON.stringify(prev.style) === JSON.stringify(current.style)) {
+                                        prev.text += current.text;
+                                    } else if (current.text) {
+                                        mergedSpans.push(current);
+                                    }
                                 }
                             }
+                            spans = mergedSpans.filter(s => s.text.length > 0);
+                            
+                            if (spans.length === 0) {
+                                 spans.push({ text: '', style: styleForMiddle });
+                            }
+                            
+                            spans = spans.map(s => ({ ...s, style: { ...defaultTextStyle, ...s.style } }));
                         }
-                        spans = mergedSpans.filter(s => s.text.length > 0);
-                        
-                        if (spans.length === 0) {
-                             spans.push({ text: '', style: styleForMiddle });
-                        }
-                        
-                        // Fix: Sanitize the newly constructed spans to ensure they have a complete style object.
-                        // This prevents crashes when an incomplete style (e.g., missing `fontSize`) is passed to other components.
-                        spans = spans.map(s => ({ ...s, style: { ...defaultTextStyle, ...s.style } }));
                     }
                 }
     
                 return { ...el, ...restOfUpdates, spans } as TextElement;
             }
-
-            // Fix: Cast the result to the specific element type. This is necessary because the `updates` object's type
-            // is a broad partial of all possible canvas elements. Spreading it widens the type of the resulting
-            // object in a way TypeScript cannot reconcile without a cast. This pattern is consistent with how
-            // TextElement updates are handled above.
+    
             if (el.type === ElementType.Image) {
                 const updatedElement: ImageElement = { ...el, ...updates } as ImageElement;
                 return updatedElement;
@@ -345,15 +351,14 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             }
             return el;
         });
-
+    
         const movedElement = newElements.find(el => el.id === id);
         if (movedElement) {
             if (movedElement.type === ElementType.Cutter) {
                 const cutterElement = movedElement as CutterElement;
                 const target = findElementUnder(cutterElement, newElements);
                 setCutterTargetId(target ? target.id : null);
-
-                // Save cutter state to sessionStorage for persistence within the session
+    
                 const { x, y, width, height, rotation } = cutterElement;
                 const stateToSave = { x, y, width, height, rotation };
                 const storageKey = `cutterState_${template.id}`;
@@ -364,13 +369,13 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 }
             }
         }
-
+    
         handleTemplateChange({ ...template, elements: newElements }, withHistory);
-
-        if (cursorPos) {
-            setNextCursorPos({ id, pos: cursorPos });
+    
+        if (finalCursorPos) {
+            setNextCursorPos({ id, pos: finalCursorPos });
         }
-
+    
         if (updates.id && updates.id !== id && selectedElementId === id) {
             setSelectedElementId(updates.id as string);
         }
