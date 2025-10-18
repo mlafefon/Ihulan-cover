@@ -1,10 +1,10 @@
 {
   "width": 800,
   "height": 1000,
-  "backgroundColor": "#7dd2e4",
+  "backgroundColor": "#3b3f40",
   "items": [
     {
-      "id": "main_image_1760721795776_pilulbnzm_1760722458253_e5wiwxr64_1760722673422_8gpg1ym62",
+      "id": "main_image_1760721795776_pilulbnzm_1760722458253_e5wiwxr64_1760722673422_8gpg1ym62_1760798775237_1bjdt1m8q",
       "type": "image",
       "x": 0,
       "y": 0,
@@ -45,7 +45,7 @@
       }
     },
     {
-      "id": "title_at_1760721795776_ddzc4f69n_1760722458253_uan6buh5h_1760722673422_dn5iqdtj0",
+      "id": "title_at_1760721795776_ddzc4f69n_1760722458253_uan6buh5h_1760722673422_dn5iqdtj0_1760798775237_60y7ydk9e",
       "type": "text",
       "x": 157,
       "y": 0,
@@ -73,7 +73,7 @@
       "padding": 0
     },
     {
-      "id": "headline_summer_1760721795776_chp5h5z3t_1760722458253_qr4lubp3m_1760722673422_pbnsdru65",
+      "id": "headline_summer_1760721795776_chp5h5z3t_1760722458253_qr4lubp3m_1760722673422_pbnsdru65_1760798775237_pzdveff5u",
       "type": "text",
       "x": 6.761150057388306,
       "y": 336.75843067168455,
@@ -101,7 +101,7 @@
       "padding": 10
     },
     {
-      "id": "sub_headline_1760721795776_nq15hzru8_1760722458253_w3hcwtg91_1760722673422_6ey7dp7hk",
+      "id": "sub_headline_1760721795776_nq15hzru8_1760722458253_w3hcwtg91_1760722673422_6ey7dp7hk_1760798775237_bhhsrp6co",
       "type": "text",
       "x": 464,
       "y": 727,
