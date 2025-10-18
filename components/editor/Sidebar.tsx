@@ -205,13 +205,30 @@ const Sidebar: React.FC<SidebarProps> = ({
 };
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; isOpen: boolean; onToggle: () => void; }> = ({ title, children, isOpen, onToggle }) => {
+    const [isOverflowVisible, setIsOverflowVisible] = useState(false);
+
+    useEffect(() => {
+        // After the accordion opens, make its overflow visible so dropdowns can appear above other elements.
+        // When it closes, immediately hide overflow to allow the height transition to work correctly.
+        if (isOpen) {
+            const timer = setTimeout(() => {
+                setIsOverflowVisible(true);
+            }, 500); // This duration should match the Tailwind CSS transition duration (duration-500).
+            return () => clearTimeout(timer);
+        } else {
+            setIsOverflowVisible(false);
+        }
+    }, [isOpen]);
+    
     return (
-        <div className="border-b border-slate-700">
+        // Add `position: relative` to create a stacking context.
+        // The open accordion gets a higher z-index to ensure its children (like dropdowns) render above sibling accordions.
+        <div className={`border-b border-slate-700 relative ${isOpen ? 'z-10' : 'z-0'}`}>
             <button onClick={onToggle} className="w-full flex items-center p-4 hover:bg-slate-700/50 gap-2">
                 <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                 <span className="font-semibold">{title}</span>
             </button>
-            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className={`transition-all duration-500 ease-in-out ${isOverflowVisible ? 'overflow-visible' : 'overflow-hidden'} ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
                 <div className="py-4 pl-4 pr-11 bg-slate-900/50">{children}</div>
             </div>
         </div>
@@ -319,6 +336,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     const textColorInputRef = useRef<HTMLInputElement>(null);
     const bgColorInputRef = useRef<HTMLInputElement>(null);
     const outlineColorInputRef = useRef<HTMLInputElement>(null);
+    const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96];
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
         onUpdate(element.id, { [prop]: value } as Partial<TextElement>);
@@ -398,6 +416,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             value={displayStyle.fontSize}
                             onChange={(newSize) => handleStyleChange('fontSize', newSize)}
                             min={1}
+                            presets={fontSizes}
                         />
                         <label>
                             <span className="text-sm text-slate-400">משקל</span>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronUp, ChevronDown } from '../Icons';
 
 interface NumericStepperProps {
@@ -9,6 +9,7 @@ interface NumericStepperProps {
     max?: number;
     step?: number;
     toFixed?: number;
+    presets?: number[];
 }
 
 const NumericStepper: React.FC<NumericStepperProps> = ({ 
@@ -19,12 +20,25 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
     max = Infinity,
     step = 1,
     toFixed,
+    presets,
 }) => {
     const formatValue = (num: number) => {
         return toFixed !== undefined ? num.toFixed(toFixed) : num.toString();
     };
 
     const [inputValue, setInputValue] = useState(formatValue(value));
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const wrapperRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // When the value prop changes from the parent, update our local input value.
     useEffect(() => {
@@ -57,10 +71,6 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
             // The useEffect will handle syncing the inputValue if onChange causes a prop change.
         }
     };
-    
-    const handleBlur = () => {
-        commitValue();
-    };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter') {
@@ -75,35 +85,67 @@ const NumericStepper: React.FC<NumericStepperProps> = ({
     };
 
     return (
-        <div className="w-full">
+        <div className="w-full" ref={wrapperRef}>
             <span className="text-sm text-slate-400">{label}</span>
             <div className="relative flex items-center mt-1">
                 <input
                     type="number"
                     value={inputValue}
                     onChange={handleInputChange}
-                    onBlur={handleBlur}
+                    onBlur={commitValue}
                     onKeyDown={handleKeyDown}
                     step={step}
-                    className="w-full bg-slate-700 border border-slate-600 rounded p-2 pl-8 text-sm h-[30px]"
+                    className={`w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm h-[30px] ${presets ? 'pl-12' : 'pl-8'}`}
                     aria-label={label}
                 />
-                <div className="absolute left-1 flex flex-col items-center justify-center h-full">
-                    <button 
-                        onClick={handleIncrement} 
-                        className="h-1/2 w-6 flex items-center justify-center text-slate-400 hover:text-white"
-                        aria-label={`העלה ${label}`}
-                    >
-                        <ChevronUp className="w-4 h-4"/>
-                    </button>
-                    <button 
-                        onClick={handleDecrement} 
-                        className="h-1/2 w-6 flex items-center justify-center text-slate-400 hover:text-white"
-                        aria-label={`הורד ${label}`}
-                    >
-                        <ChevronDown className="w-4 h-4"/>
-                    </button>
+                <div className="absolute left-1 flex items-stretch h-full">
+                    {presets && (
+                        <button
+                            onClick={() => setIsDropdownOpen(o => !o)}
+                            className="w-6 flex items-center justify-center text-slate-400 hover:text-white"
+                            aria-label="בחר גודל קבוע"
+                            title="בחר גודל קבוע"
+                        >
+                            <ChevronDown className="w-4 h-4" />
+                        </button>
+                    )}
+                    <div className="flex flex-col items-center justify-center h-full">
+                        <button 
+                            onClick={handleIncrement} 
+                            className="h-1/2 w-6 flex items-center justify-center text-slate-400 hover:text-white"
+                            aria-label={`העלה ${label}`}
+                        >
+                            <ChevronUp className="w-4 h-4"/>
+                        </button>
+                        <button 
+                            onClick={handleDecrement} 
+                            className="h-1/2 w-6 flex items-center justify-center text-slate-400 hover:text-white"
+                            aria-label={`הורד ${label}`}
+                        >
+                            <ChevronDown className="w-4 h-4"/>
+                        </button>
+                    </div>
                 </div>
+                {presets && isDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 bg-slate-600 border border-slate-500 rounded-md shadow-lg z-20 max-h-48 overflow-y-auto w-full">
+                        <ul className="py-1">
+                            {presets.map(p => (
+                                <li key={p}>
+                                    <button
+                                        className="w-full text-right px-3 py-1.5 text-sm hover:bg-blue-600"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            onChange(p);
+                                            setIsDropdownOpen(false);
+                                        }}
+                                    >
+                                        {p}
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
         </div>
     );
