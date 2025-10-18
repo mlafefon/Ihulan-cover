@@ -125,12 +125,19 @@ const EditorPage: React.FC = () => {
             upsertTemplate(templatePreview, sanitizedTemplate);
         }
 
-        // Update local state to continue editing
+        // This is the fix: Update the "base" templates after save.
+        // `initialTemplateData` is passed as a prop to the editor. When it changes,
+        // the editor's `isDirty` flag will be re-evaluated and turn false, removing the red ring.
+        setInitialTemplateData(sanitizedTemplate);
+        // `originalTemplate` is used to determine if a "Save As" operation is needed (e.g., on rename).
+        // It must also be updated to prevent incorrect "Save As" on subsequent saves.
+        setOriginalTemplate(sanitizedTemplate);
+        
+        // If it was a "Save As", we also need to update the template state inside the editor
+        // to reflect the new template ID, so that future saves update the new record instead of the old one.
+        // This will add a new state to the history, which is acceptable for a "Save As".
         if (isNew) {
-          // After a "Save As", we update the original template reference to prevent future saves from creating yet another copy.
-          setOriginalTemplate(sanitizedTemplate);
-          // We could also call editorRef.current?.updateTemplateFromParent(sanitizedTemplate) here to update the editor's state
-          // with the new ID, but this might reset history which could be undesirable. For now, we leave it as is.
+          editorRef.current?.updateTemplateFromParent(sanitizedTemplate);
         }
       }
     } catch (error: any) {

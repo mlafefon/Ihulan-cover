@@ -44,6 +44,15 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     }>>({});
     const [nextCursorPos, setNextCursorPos] = useState<{ id: string; pos: { start: number; end: number } } | null>(null);
 
+    // This effect syncs the editor's internal state whenever the `initialTemplate` prop changes.
+    // This is crucial for resetting the 'isDirty' flag after a save operation, as the parent
+    // component passes the newly saved template data back as the new 'initialTemplate'.
+    // By updating the internal `template` state to match, the `isDirty` check will correctly
+    // evaluate to false. The undo/redo history is preserved across saves.
+    useEffect(() => {
+        setTemplate(initialTemplate);
+    }, [initialTemplate]);
+
     useEffect(() => {
         // Deep compare is the most reliable way to detect any change.
         // After a successful save, the component remounts with an updated `initialTemplate`,
