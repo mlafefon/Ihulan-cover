@@ -122,7 +122,7 @@ export interface TextSpan {
 export interface TextElement extends ElementBase {
   type: ElementType.Text;
   spans: TextSpan[];
-  textAlign: 'right' | 'center' | 'left';
+  textAlign: 'right' | 'center' | 'left' | 'justify';
   verticalAlign: 'top' | 'middle' | 'bottom';
   letterSpacing: number;
   backgroundColor: string;

@@ -1,7 +1,7 @@
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
@@ -390,6 +390,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
         right: { icon: AlignRightIcon, title: 'יישור לימין' },
         center: { icon: AlignCenterIcon, title: 'יישור למרכז' },
         left: { icon: AlignLeftIcon, title: 'יישור לשמאל' },
+        justify: { icon: AlignJustifyIcon, title: 'יישור לשני הצדדים' },
     };
 
     return (
@@ -578,31 +579,10 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                 onToggle={() => onAccordionToggle('יישור ופריסה')}
             >
                 <div className="space-y-4">
-                     <div className="grid grid-cols-2 gap-2">
-                        <NumericStepper
-                            label="מרווח שורות"
-                            value={displayStyle.lineHeight || 1.2}
-                            onChange={(newValue) => handleStyleChange('lineHeight', newValue)}
-                            step={0.1}
-                            min={0}
-                            toFixed={1}
-                        />
-                        <NumericStepper
-                            label="מרווח אותיות"
-                            value={element.letterSpacing}
-                            onChange={(newValue) => handleBlockUpdate('letterSpacing', newValue)}
-                        />
-                    </div>
-                     <NumericStepper
-                        label="ריפוד"
-                        value={element.padding}
-                        onChange={(newValue) => handleBlockUpdate('padding', newValue)}
-                        min={0}
-                     />
                     <div>
                         <span className="text-sm text-slate-400">יישור אופקי</span>
-                         <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
-                            {(['right', 'center', 'left'] as const).map(align => {
+                         <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 rounded-md mt-1">
+                            {(['right', 'center', 'left', 'justify'] as const).map(align => {
                                 const Icon = alignMap[align].icon;
                                 return (
                                     <button
@@ -643,6 +623,27 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             </button>
                         </div>
                     </div>
+                     <div className="grid grid-cols-2 gap-2">
+                        <NumericStepper
+                            label="מרווח שורות"
+                            value={displayStyle.lineHeight || 1.2}
+                            onChange={(newValue) => handleStyleChange('lineHeight', newValue)}
+                            step={0.1}
+                            min={0}
+                            toFixed={1}
+                        />
+                        <NumericStepper
+                            label="מרווח אותיות"
+                            value={element.letterSpacing}
+                            onChange={(newValue) => handleBlockUpdate('letterSpacing', newValue)}
+                        />
+                    </div>
+                     <NumericStepper
+                        label="ריפוד"
+                        value={element.padding}
+                        onChange={(newValue) => handleBlockUpdate('padding', newValue)}
+                        min={0}
+                     />
                 </div>
             </Accordion>
         </div>
