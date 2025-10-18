@@ -539,6 +539,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                         fontWeight: firstSpanStyle.fontWeight,
                         color: firstSpanStyle.color,
                         textShadow: firstSpanStyle.textShadow,
+                        lineHeight: firstSpanStyle.lineHeight || 1.2,
                     }),
                 };
                 
