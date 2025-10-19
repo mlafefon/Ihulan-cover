@@ -546,8 +546,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     };
     
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
-    
-    const dragBorderWidth = 3;
 
     const cursorStyle = useMemo(() => {
         if (element.type === ElementType.Text) {
@@ -576,10 +574,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         cursor: cursorStyle.wrapper,
         boxSizing: 'border-box',
     };
-    
-    if (element.type === ElementType.Text) {
-        itemStyle.padding = `${dragBorderWidth}px`;
-    }
 
     const renderElement = () => {
         switch (element.type) {
