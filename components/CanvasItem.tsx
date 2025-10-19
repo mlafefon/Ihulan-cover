@@ -64,6 +64,9 @@ const getSunClipPath = () => {
     return `polygon(${points.join(', ')})`;
 };
 
+// Custom cursor that combines move and text-edit affordances.
+const moveAndTextCursor = "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0xMCA5SDE0TTEwIDE1SDE0TTEyIDlWMTUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBhdGggZD0iTTEwIDlIMTRNMTAgMTVIMTRNMTIgOVYxNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==') 12 12, move";
+
 // A default style object to ensure all required properties exist on a text style.
 export const defaultTextStyle: TextStyle = {
     fontFamily: 'Heebo',
@@ -539,6 +542,23 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
     
     const dragBorderWidth = 3;
+
+    const cursorStyle = useMemo(() => {
+        if (element.type === ElementType.Text) {
+            if (isEditing) {
+                // Editing mode: Outer wrapper has default, inner has text.
+                return { wrapper: 'default', content: 'text' };
+            }
+            if (isSelected) {
+                // Selected but not editing: Custom cursor for both.
+                return { wrapper: moveAndTextCursor, content: moveAndTextCursor };
+            }
+        }
+        // Default for all other cases (image, cutter, unselected text)
+        return { wrapper: 'move', content: 'move' };
+    }, [element.type, isSelected, isEditing]);
+
+
     const itemStyle: React.CSSProperties = {
         position: 'absolute',
         top: `${element.y}px`,
@@ -547,7 +567,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         height: `${element.height}px`,
         transform: `rotate(${element.rotation}deg)`,
         zIndex: element.zIndex,
-        cursor: isEditing ? 'default' : 'move',
+        cursor: cursorStyle.wrapper,
         boxSizing: 'border-box',
     };
     
@@ -593,7 +613,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     textAlign: textElement.textAlign,
                     textAlignLast: textElement.textAlign === 'justify' ? 'justify' : 'auto',
                     userSelect: isEditing ? 'text' : 'none',
-                    cursor: isEditing ? 'text' : 'move',
+                    cursor: cursorStyle.content,
                     whiteSpace: 'pre-wrap',
                     position: 'relative',
                     zIndex: 1,
