@@ -301,6 +301,12 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         if (e.target) e.target.value = '';
     };
 
+    const handleDoubleClick = () => {
+        if (element.type === ElementType.Image) {
+            onEditImage(element as ImageElement);
+        }
+    };
+
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
         // If in edit mode and click is on text content, let browser handle it for cursor placement.
         if (isEditing && element.type === ElementType.Text && textContentRef.current?.contains(e.target as Node)) {
@@ -747,6 +753,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 ref={itemRef}
                 style={itemStyle}
                 onMouseDown={handleMouseDown}
+                onDoubleClick={handleDoubleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 data-element-id={element.id}
