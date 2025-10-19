@@ -44,6 +44,19 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     }>>({});
     const [nextCursorPos, setNextCursorPos] = useState<{ id: string; pos: { start: number; end: number } } | null>(null);
 
+    const [showExitConfirm, setShowExitConfirm] = useState(false);
+    const [isSavingOnExit, setIsSavingOnExit] = useState(false);
+    const [nextLocation, setNextLocation] = useState<string | null>(null);
+
+    const handleAttemptNavigation = (to: string) => {
+        if (isDirty) {
+            setNextLocation(to);
+            setShowExitConfirm(true);
+        } else {
+            navigate(to);
+        }
+    };
+    
     // This effect syncs the editor's internal state whenever the `initialTemplate` prop changes.
     // This is crucial for resetting the 'isDirty' flag after a save operation, as the parent
     // component passes the newly saved template data back as the new 'initialTemplate'.
@@ -544,8 +557,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     };
 
-    const handleSave = async () => {
-        setIsSaving(true);
+    const performSave = async () => {
         handleSelectElement(null);
         await new Promise(resolve => setTimeout(resolve, 50));
     
@@ -553,19 +565,15 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         
         if (canvasRef.current && (window as any).htmlToImage) {
             try {
-                // Step 1: Capture the full-resolution image as a data URL.
-                // This is a more robust method to avoid clipping issues from parent elements.
                 const fullResDataUrl = await (window as any).htmlToImage.toPng(canvasRef.current, {
-                    pixelRatio: 1, // Use 1 for predictable sizing
+                    pixelRatio: 1,
                     fontEmbedCSS: fontCss ?? undefined,
                 });
 
-                // Step 2: Manually resize the full-res image to a thumbnail.
                 const image = new Image();
                 const promise = new Promise<string>((resolve, reject) => {
                     image.onload = () => {
                         const THUMBNAIL_WIDTH = 400;
-                        // Use the loaded image's dimensions for aspect ratio to be precise.
                         const aspectRatio = image.height / image.width;
                         const thumbnailHeight = Math.round(THUMBNAIL_WIDTH * aspectRatio);
 
@@ -575,7 +583,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         const ctx = canvas.getContext('2d');
 
                         if (ctx) {
-                            // Draw the full image onto the smaller canvas, effectively resizing it.
                             ctx.drawImage(image, 0, 0, THUMBNAIL_WIDTH, thumbnailHeight);
                             resolve(canvas.toDataURL('image/png'));
                         } else {
@@ -597,8 +604,32 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
         
         await onSaveTemplate({ ...template }, previewImage);
+    };
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        await performSave();
         setIsSaving(false);
-        // On success, page will navigate away or update state
+    };
+
+    const handleSaveAndLeave = async () => {
+        if (nextLocation) {
+            setIsSavingOnExit(true);
+            await performSave();
+            navigate(nextLocation);
+        }
+    };
+
+    const handleLeaveWithoutSaving = () => {
+        if (nextLocation) {
+            navigate(nextLocation);
+        }
+        setShowExitConfirm(false);
+    };
+
+    const handleCancelExit = () => {
+        setShowExitConfirm(false);
+        setNextLocation(null);
     };
 
     const handleApplyCut = async () => {
@@ -874,7 +905,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             <div className="flex-grow flex flex-col">
                 <header className="bg-slate-800 px-4 py-2 flex justify-between items-center text-white border-b border-slate-700">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => navigate('/templates')} className="flex items-center gap-2 font-bold text-lg">
+                        <button onClick={() => handleAttemptNavigation('/templates')} className="flex items-center gap-2 font-bold text-lg">
                             <MagazineIcon className="w-6 h-6 text-blue-400" />
                             איחולן
                         </button>
@@ -958,6 +989,37 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 onApplyCut={handleApplyCut}
                 isApplyingCut={isSaving}
             />
+            {showExitConfirm && (
+                <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">
+                    <div className="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+                        <h3 className="text-xl font-bold text-white mb-4">שינויים שלא נשמרו</h3>
+                        <p className="text-slate-300 mb-6">
+                            ערכת את התבנית, אך השינויים עדיין לא נשמרו. מה תרצה לעשות?
+                        </p>
+                        <div className="flex justify-end gap-4">
+                            <button
+                                onClick={handleCancelExit}
+                                className="px-6 py-2 rounded-md text-sm font-medium bg-slate-600 hover:bg-slate-500 transition-colors"
+                            >
+                                בטל
+                            </button>
+                            <button
+                                onClick={handleLeaveWithoutSaving}
+                                className="px-6 py-2 rounded-md text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                            >
+                                צא ללא שמירה
+                            </button>
+                            <button
+                                onClick={handleSaveAndLeave}
+                                disabled={isSavingOnExit}
+                                className="px-6 py-2 rounded-md text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-wait"
+                            >
+                                {isSavingOnExit ? 'שומר...' : 'שמור וצא'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 });
