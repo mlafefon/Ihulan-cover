@@ -375,7 +375,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     };
     
     const hasShadow = displayStyle.textShadow && displayStyle.textShadow !== 'none' && displayStyle.textShadow !== '';
-    const SHADOW_VALUE = '2px 2px 4px rgba(0,0,0,0.5)';
+    const SHADOW_VALUE = '2px 2px 6px rgba(0,0,0,0.75)';
 
     const handleShadowToggle = () => {
         const newShadow = hasShadow ? '' : SHADOW_VALUE;
