@@ -82,6 +82,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
+    const [clickToEditCoords, setClickToEditCoords] = useState<{ x: number; y: number } | null>(null);
     const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; text: string; }>({ visible: false, x: 0, y: 0, text: '' });
     const [selectionRects, setSelectionRects] = useState<DOMRect[]>([]);
 
@@ -99,6 +101,48 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
              }
         }
     }, [element.id, element.type, onElementRefsChange]);
+
+    useEffect(() => {
+        if (!isSelected) {
+            setIsEditing(false);
+        }
+    }, [isSelected]);
+
+    useEffect(() => {
+        if (isEditing && clickToEditCoords && textContentRef.current) {
+            const { x, y } = clickToEditCoords;
+            const textNode = textContentRef.current;
+            textNode.focus();
+    
+            let range: Range | null = null;
+            // document.caretRangeFromPoint is a non-standard but widely supported alternative.
+            if (document.caretRangeFromPoint) {
+                range = document.caretRangeFromPoint(x, y);
+// Fix: Cast `document` to `any` to access the non-standard `caretPositionFromPoint` property without a TypeScript error.
+            } else if ((document as any).caretPositionFromPoint) {
+                // The more standard way
+// Fix: Cast `document` to `any` to access the non-standard `caretPositionFromPoint` property without a TypeScript error.
+                const pos = (document as any).caretPositionFromPoint(x, y);
+                if (pos) {
+                    range = document.createRange();
+                    range.setStart(pos.offsetNode, pos.offset);
+                    range.collapse(true); // collapse to a caret
+                }
+            }
+    
+            if (range && textNode.contains(range.startContainer)) {
+                const selection = window.getSelection();
+                if (selection) {
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+            
+            setClickToEditCoords(null); // Reset after use
+        } else if (isEditing && textContentRef.current) {
+            textContentRef.current.focus();
+        }
+    }, [isEditing, clickToEditCoords]);
     
     useEffect(() => {
         if (isSelected && element.type === ElementType.Text) {
@@ -238,16 +282,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
     };
 
-    const handleDoubleClick = () => {
-        if (element.type !== ElementType.Image) return;
-        const imageElement = element as ImageElement;
-        if (imageElement.src) {
-            onEditImage(imageElement);
-        } else {
-            fileInputRef.current?.click();
-        }
-    };
-
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (element.type !== ElementType.Image) return;
         if (e.target.files && e.target.files[0]) {
@@ -264,84 +298,89 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         if (e.target) e.target.value = '';
     };
 
-
     const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        if (element.type === ElementType.Text) {
-            // If the click is inside the contentEditable area, let the browser handle it
-            // for text selection and cursor placement. Just select the element.
-            if (textContentRef.current && textContentRef.current.contains(e.target as Node)) {
-                e.stopPropagation();
-                onSelect();
-                return;
-            }
+        // If in edit mode and click is on text content, let browser handle it for cursor placement.
+        if (isEditing && element.type === ElementType.Text && textContentRef.current?.contains(e.target as Node)) {
+            return;
         }
-
-        // For frame clicks on text elements, or clicks on any other element type:
+    
         e.preventDefault();
         e.stopPropagation();
-        onSelect();
-
-        // If it's a frame click on a text element, explicitly blur to remove the cursor.
-        if (element.type === ElementType.Text) {
-            textContentRef.current?.blur();
-            window.getSelection()?.removeAllRanges();
+    
+        const startMouseX = e.clientX;
+        const startMouseY = e.clientY;
+        let didDrag = false;
+    
+        // Select the element immediately on mousedown if it's not already selected.
+        if (!isSelected) {
+            onSelect();
         }
-        
-        onInteractionStart();
-        
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startElX = element.x;
-        const startElY = element.y;
-
+    
         const handleMouseMove = (moveEvent: MouseEvent) => {
-            const dx = moveEvent.clientX - startX;
-            const dy = moveEvent.clientY - startY;
-            let newX = startElX + dx;
-            let newY = startElY + dy;
-            
-            if (element.type !== ElementType.Cutter) {
-                const SNAP_THRESHOLD = 5;
-                const currentElementPoints = {
-                    left: newX,
-                    right: newX + element.width,
-                    top: newY,
-                    bottom: newY + element.height,
-                    hCenter: newX + element.width / 2,
-                    vCenter: newY + element.height / 2,
-                };
-
-                const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
-                const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
-                
-                const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
-
-                for (const targetX of snapTargetsX) {
-                    if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) { newX = targetX; activeSnapLines.x.push(targetX); break; }
-                    if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width / 2; activeSnapLines.x.push(targetX); break; }
-                    if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width; activeSnapLines.x.push(targetX); break; }
-                }
-                for (const targetY of snapTargetsY) {
-                    if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) { newY = targetY; activeSnapLines.y.push(targetY); break; }
-                    if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height / 2; activeSnapLines.y.push(targetY); break; }
-                    if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height; activeSnapLines.y.push(targetY); break; }
-                }
-
-                setSnapLines(activeSnapLines);
-            } else {
-                 setSnapLines({ x: [], y: [] });
+            if (!didDrag && (Math.abs(moveEvent.clientX - startMouseX) > 5 || Math.abs(moveEvent.clientY - startMouseY) > 5)) {
+                didDrag = true;
+                onInteractionStart();
             }
-            onUpdate(element.id, { x: newX, y: newY }, false);
+    
+            if (didDrag) {
+                const dx = moveEvent.clientX - startMouseX;
+                const dy = moveEvent.clientY - startMouseY;
+                const startElX = element.x;
+                const startElY = element.y;
+                let newX = startElX + dx;
+                let newY = startElY + dy;
+                
+                if (element.type !== ElementType.Cutter) {
+                    const SNAP_THRESHOLD = 5;
+                    const currentElementPoints = {
+                        left: newX,
+                        right: newX + element.width,
+                        top: newY,
+                        bottom: newY + element.height,
+                        hCenter: newX + element.width / 2,
+                        vCenter: newY + element.height / 2,
+                    };
+    
+                    const snapTargetsX = [0, canvasWidth / 2, canvasWidth];
+                    const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
+                    
+                    const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
+    
+                    for (const targetX of snapTargetsX) {
+                        if (Math.abs(currentElementPoints.left - targetX) < SNAP_THRESHOLD) { newX = targetX; activeSnapLines.x.push(targetX); break; }
+                        if (Math.abs(currentElementPoints.hCenter - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width / 2; activeSnapLines.x.push(targetX); break; }
+                        if (Math.abs(currentElementPoints.right - targetX) < SNAP_THRESHOLD) { newX = targetX - element.width; activeSnapLines.x.push(targetX); break; }
+                    }
+                    for (const targetY of snapTargetsY) {
+                        if (Math.abs(currentElementPoints.top - targetY) < SNAP_THRESHOLD) { newY = targetY; activeSnapLines.y.push(targetY); break; }
+                        if (Math.abs(currentElementPoints.vCenter - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height / 2; activeSnapLines.y.push(targetY); break; }
+                        if (Math.abs(currentElementPoints.bottom - targetY) < SNAP_THRESHOLD) { newY = targetY - element.height; activeSnapLines.y.push(targetY); break; }
+                    }
+    
+                    setSnapLines(activeSnapLines);
+                } else {
+                     setSnapLines({ x: [], y: [] });
+                }
+                onUpdate(element.id, { x: newX, y: newY }, false);
+            }
         };
-
-        const handleMouseUp = () => {
+    
+        const handleMouseUp = (upEvent: MouseEvent) => {
             document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-            onInteractionEnd();
+            document.removeEventListener('mouseup', handleMouseUp as EventListener);
+    
+            if (didDrag) {
+                onInteractionEnd();
+            } else { // It's a click
+                if (isSelected && element.type === ElementType.Text) {
+                    setIsEditing(true);
+                    setClickToEditCoords({ x: upEvent.clientX, y: upEvent.clientY });
+                }
+            }
         };
-
+        
         document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mouseup', handleMouseUp as EventListener);
     };
 
     const handleResize = (e: React.MouseEvent, corner: string) => {
@@ -508,7 +547,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
         height: `${element.height}px`,
         transform: `rotate(${element.rotation}deg)`,
         zIndex: element.zIndex,
-        cursor: isRotating ? `url('${rotateCursorUrl}') 12 12, auto` : 'move',
+        cursor: isEditing ? 'default' : 'move',
         boxSizing: 'border-box',
     };
     
@@ -553,8 +592,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     letterSpacing: `${textElement.letterSpacing}px`,
                     textAlign: textElement.textAlign,
                     textAlignLast: textElement.textAlign === 'justify' ? 'justify' : 'auto',
-                    userSelect: 'text',
-                    cursor: 'text',
+                    userSelect: isEditing ? 'text' : 'none',
+                    cursor: isEditing ? 'text' : 'move',
                     whiteSpace: 'pre-wrap',
                     position: 'relative',
                     zIndex: 1,
@@ -594,7 +633,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                             ref={textContentRef} 
                             style={editableStyle}
                             className={isSelected ? 'has-custom-selection' : ''}
-                            contentEditable={isSelected}
+                            contentEditable={isEditing}
                             suppressContentEditableWarning={true}
                             dir="auto"
                             onKeyDown={handleKeyDown}
@@ -688,7 +727,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 ref={itemRef}
                 style={itemStyle}
                 onMouseDown={handleMouseDown}
-                onDoubleClick={handleDoubleClick}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 data-element-id={element.id}
@@ -708,16 +746,21 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 {isCutterTarget && (
                     <div className="absolute inset-0 border-2 border-dashed border-white pointer-events-none" />
                 )}
-                {isSelected && (
+                {isSelected && !isEditing && (
                     <div 
                         className="absolute inset-0 border-2 border-blue-500 pointer-events-none"
                         style={element.type === ElementType.Cutter ? { borderRadius: '50%' } : {}}
                     />
                 )}
+                {isSelected && isEditing && element.type === ElementType.Text && (
+                    <div 
+                        className="absolute inset-0 border-2 border-dashed border-blue-500 pointer-events-none"
+                    />
+                )}
                 {isHovered && !isSelected && (
                     <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
                 )}
-                {isSelected && (
+                {isSelected && !isEditing && (
                     <>
                         {handles.map(handle => (
                         <div
