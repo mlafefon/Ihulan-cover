@@ -103,6 +103,7 @@ export interface ElementBase {
   height: number;
   rotation: number;
   zIndex: number;
+  locked?: boolean;
 }
 
 export interface TextStyle {

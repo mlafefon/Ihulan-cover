@@ -66,6 +66,7 @@ const transformRowToTemplate = (row: TemplateRow): Template => {
             height: el.height ?? 100,
             rotation: el.rotation ?? 0,
             zIndex: el.zIndex ?? 1,
+            locked: el.locked ?? false,
         };
 
         if (el.type === 'text') {

@@ -1,7 +1,7 @@
 import React, { useState, Fragment, useRef, useEffect } from 'react';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
@@ -186,7 +186,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 totalElements={template.elements.length}
                             />
                         </Accordion>
-                        <div className="p-4 mt-4 border-t border-slate-700">
+                        <div className="p-4 mt-4 border-t border-slate-700 space-y-2">
+                             <button
+                                onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
+                                className={`w-full flex items-center justify-center gap-2 text-white font-bold py-2 px-4 rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                title={selectedElement.locked ? "שחרר אלמנט" : "נעל אלמנט"}
+                            >
+                                {selectedElement.locked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
+                                <span>{selectedElement.locked ? 'שחרר נעילה' : 'נעל אלמנט'}</span>
+                            </button>
                             <button onClick={() => onDeleteElement(selectedElement.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
                                 <TrashIcon className="w-4 h-4" />
                                 מחק רכיב

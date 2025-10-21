@@ -389,6 +389,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     };
 
     const handleDoubleClick = () => {
+        if (element.locked) return;
         if (element.type === ElementType.Image) {
             onEditImage(element as ImageElement);
         } else if (element.type === ElementType.Text) {
@@ -404,15 +405,27 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     
         e.preventDefault();
         e.stopPropagation();
-    
-        const startMouseX = e.clientX;
-        const startMouseY = e.clientY;
-        let didDrag = false;
-    
+
         // Select the element immediately on mousedown if it's not already selected.
         if (!isSelected) {
             onSelect();
         }
+
+        if (element.locked) {
+            const handleLockedClick = (upEvent: MouseEvent) => {
+                 document.removeEventListener('mouseup', handleLockedClick as EventListener);
+                 if (isSelected && element.type === ElementType.Text) {
+                    onSetEditing(element.id);
+                    setClickToEditCoords({ x: upEvent.clientX, y: upEvent.clientY });
+                }
+            };
+            document.addEventListener('mouseup', handleLockedClick as EventListener);
+            return; 
+        }
+    
+        const startMouseX = e.clientX;
+        const startMouseY = e.clientY;
+        let didDrag = false;
     
         const handleMouseMove = (moveEvent: MouseEvent) => {
             if (!didDrag && (Math.abs(moveEvent.clientX - startMouseX) > 5 || Math.abs(moveEvent.clientY - startMouseY) > 5)) {
@@ -484,6 +497,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     const handleResize = (e: React.MouseEvent, corner: string) => {
         e.preventDefault();
         e.stopPropagation();
+        if (element.locked) return;
         onInteractionStart();
     
         const startMouseX = e.clientX;
@@ -621,6 +635,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     const handleRotate = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        if (element.locked) return;
         onInteractionStart();
         setIsRotating(true);
     
@@ -670,6 +685,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
 
     const cursorStyle = useMemo(() => {
+        if (element.locked) {
+            // If the element is a selected text element, show the text cursor to indicate it's editable.
+            if (element.type === ElementType.Text && isSelected) {
+                return { wrapper: 'text', content: 'text' };
+            }
+            // Otherwise, for locked elements, use the default cursor.
+            return { wrapper: 'default', content: 'default' };
+        }
         if (element.type === ElementType.Text) {
             if (isEditing) {
                 // Editing mode: Outer wrapper has default, inner has text.
@@ -682,7 +705,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         }
         // Default for all other cases (image, cutter, unselected text)
         return { wrapper: 'move', content: 'move' };
-    }, [element.type, isSelected, isEditing]);
+    }, [element.type, isSelected, isEditing, element.locked]);
 
 
     const itemStyle: React.CSSProperties = {
@@ -955,7 +978,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 {isHovered && !isSelected && (
                     <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
                 )}
-                {isSelected && !isEditing && (
+                {isSelected && !isEditing && !element.locked && (
                     <>
                         {handles.map(handle => (
                         <div
