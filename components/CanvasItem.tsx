@@ -7,12 +7,14 @@ import { ImageIcon } from './Icons';
 interface CanvasItemProps {
     element: CanvasElement;
     isSelected: boolean;
+    isEditing: boolean;
     isCutterTarget?: boolean;
     onSelect: () => void;
     onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean, cursorPos?: { start: number; end: number }) => void;
     onInteractionStart: () => void;
     onInteractionEnd: () => void;
-    onTextSelect: (range: { start: number, end: number } | null) => void;
+    onSetSelectionRange: (range: { start: number, end: number } | null) => void;
+    onSetEditing: (id: string | null) => void;
     onElementRefsChange: (id: string, refs: { content?: HTMLDivElement | null; wrapper?: HTMLDivElement | null; }) => void;
     onEditImage: (element: ImageElement, newSrc?: string) => void;
     canvasWidth: number;
@@ -44,7 +46,7 @@ const handleCursorClasses: { [key: string]: string } = {
     r: 'cursor-ew-resize',
 };
 
-const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
+const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ0iM3IDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
 const getSunClipPath = () => {
     const points = [];
@@ -78,14 +80,13 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, onUpdate, onInteractionEnd, onTextSelect, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget, activeStyle }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget, activeStyle }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isHovered, setIsHovered] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
-    const [isEditing, setIsEditing] = useState(false);
     const [clickToEditCoords, setClickToEditCoords] = useState<{ x: number; y: number } | null>(null);
     const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; text: string; }>({ visible: false, x: 0, y: 0, text: '' });
     const [selectionRects, setSelectionRects] = useState<DOMRect[]>([]);
@@ -107,9 +108,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
     useEffect(() => {
         if (!isSelected) {
-            setIsEditing(false);
+            onSetEditing(null);
         }
-    }, [isSelected]);
+    }, [isSelected, onSetEditing]);
 
     useEffect(() => {
         if (isEditing && clickToEditCoords && textContentRef.current) {
@@ -156,10 +157,11 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 if (selection && itemNode && selection.rangeCount > 0 && selection.containsNode(itemNode, true)) {
                     // Update character offset range for styling logic
                     const offsets = getSelectionCharOffsetsWithin(itemNode);
-                    onTextSelect(offsets);
+                    onSetSelectionRange(offsets);
 
                     // Update visual selection overlays
-                    if (selection.isCollapsed) {
+                    const range = selection.getRangeAt(0);
+                    if (range.collapsed) {
                         setSelectionRects([]);
                     } else {
                         const textElement = element as TextElement;
@@ -167,7 +169,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                         // Fallback to the first span's style if activeStyle is not available, which can happen during initial selection.
                         const styleForMetrics = activeStyle || textElement.spans[0]?.style || defaultTextStyle;
                         
-                        const range = selection.getRangeAt(0);
                         const wrapperNode = textWrapperRef.current;
                         if (!wrapperNode) return;
     
@@ -224,7 +225,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     }
                 } else {
                     // Selection is outside the element or cleared
-                    onTextSelect(null);
+                    onSetSelectionRange(null);
                     setSelectionRects([]);
                 }
             };
@@ -237,10 +238,10 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
             };
         } else {
             // Cleanup when element is deselected or not a text element
-            onTextSelect(null);
+            onSetSelectionRange(null);
             setSelectionRects([]);
         }
-    }, [isSelected, element, activeStyle, onTextSelect]);
+    }, [isSelected, element, activeStyle, onSetSelectionRange]);
 
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -250,22 +251,83 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 const textElement = element as TextElement;
                 const fullText = textElement.spans.map(s => s.text).join('');
                 const { start, end } = getSelectionCharOffsetsWithin(e.currentTarget);
+
+                // 1. Find the current line number
+                const currentLineIndex = (fullText.substring(0, start).match(/\n/g) || []).length;
+
+                // 2. Determine the alignment of the current line
+                const currentLineAlignments = textElement.lineAlignments || [];
+                const alignmentOfCurrentLine = currentLineAlignments[currentLineIndex] || textElement.textAlign;
+
+                // 3. Prepare the new line alignments
+                const lines = fullText.split('\n');
+                const newLineAlignments = [...currentLineAlignments];
+                // Pad the array if it's shorter than the number of lines to match current state
+                while (newLineAlignments.length < lines.length) {
+                    newLineAlignments.push(textElement.textAlign);
+                }
+                // Insert the new alignment for the new line
+                newLineAlignments.splice(currentLineIndex + 1, 0, alignmentOfCurrentLine);
+
+                // 4. Create new text and cursor position
                 const newFullText = fullText.substring(0, start) + '\n' + fullText.substring(end);
                 const newCursorPos = { start: start + 1, end: start + 1 };
-                onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
-            } else if (e.key === 'Delete' || e.key === 'Backspace') {
+
+                // 5. Update the element with new text AND new line alignments
+                onUpdate(element.id, { textContent: newFullText, lineAlignments: newLineAlignments }, true, newCursorPos);
+
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                e.preventDefault();
                 const textElement = element as TextElement;
                 const fullText = textElement.spans.map(s => s.text).join('');
                 const selection = getSelectionCharOffsetsWithin(e.currentTarget);
 
-                // Fix: Intercept deletion of any selected text range to prevent a browser bug
-                // that could otherwise delete the entire application DOM.
-                if (selection.start !== selection.end) {
-                    e.preventDefault();
-                    const newFullText = fullText.substring(0, selection.start) + fullText.substring(selection.end);
-                    const newCursorPos = { start: selection.start, end: selection.start };
-                    onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
+                let newFullText: string;
+                let newCursorPos: { start: number; end: number };
+                const updatePayload: Partial<TextElement> & { textContent?: string } = {};
+
+                if (selection.start === selection.end) { // Collapsed cursor
+                    if (e.key === 'Backspace' && selection.start > 0) {
+                        newFullText = fullText.substring(0, selection.start - 1) + fullText.substring(selection.end);
+                        newCursorPos = { start: selection.start - 1, end: selection.start - 1 };
+                        if (fullText.charAt(selection.start - 1) === '\n') {
+                            const lineIndexBeingMerged = (fullText.substring(0, selection.start).match(/\n/g) || []).length;
+                            let alignments = textElement.lineAlignments ? [...textElement.lineAlignments] : [];
+                            if (lineIndexBeingMerged < alignments.length) {
+                                alignments.splice(lineIndexBeingMerged, 1);
+                                updatePayload.lineAlignments = alignments.every(a => a === textElement.textAlign) ? [] : alignments;
+                            }
+                        }
+                    } else if (e.key === 'Delete' && selection.start < fullText.length) {
+                        newFullText = fullText.substring(0, selection.start) + fullText.substring(selection.end + 1);
+                        newCursorPos = { start: selection.start, end: selection.start };
+                        if (fullText.charAt(selection.start) === '\n') {
+                           const lineIndexAfterMerged = (fullText.substring(0, selection.start).match(/\n/g) || []).length + 1;
+                            let alignments = textElement.lineAlignments ? [...textElement.lineAlignments] : [];
+                            if (lineIndexAfterMerged < alignments.length) {
+                                alignments.splice(lineIndexAfterMerged, 1);
+                                updatePayload.lineAlignments = alignments.every(a => a === textElement.textAlign) ? [] : alignments;
+                            }
+                        }
+                    } else {
+                        return; // At start/end, do nothing
+                    }
+                } else { // Range selection
+                    newFullText = fullText.substring(0, selection.start) + fullText.substring(selection.end);
+                    newCursorPos = { start: selection.start, end: selection.start };
+                    
+                    const deletedText = fullText.substring(selection.start, selection.end);
+                    const newlineCount = (deletedText.match(/\n/g) || []).length;
+                    if (newlineCount > 0 && textElement.lineAlignments) {
+                        const startLineIndex = (fullText.substring(0, selection.start).match(/\n/g) || []).length;
+                        let alignments = [...textElement.lineAlignments];
+                        alignments.splice(startLineIndex + 1, newlineCount);
+                        updatePayload.lineAlignments = alignments.every(a => a === textElement.textAlign) ? [] : alignments;
+                    }
                 }
+                
+                updatePayload.textContent = newFullText;
+                onUpdate(element.id, updatePayload, true, newCursorPos);
             }
         }
     };
@@ -304,6 +366,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
     const handleDoubleClick = () => {
         if (element.type === ElementType.Image) {
             onEditImage(element as ImageElement);
+        } else if (element.type === ElementType.Text) {
+            onSetEditing(element.id);
         }
     };
 
@@ -382,7 +446,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                 onInteractionEnd();
             } else { // It's a click
                 if (isSelected && element.type === ElementType.Text) {
-                    setIsEditing(true);
+                    onSetEditing(element.id);
                     setClickToEditCoords({ x: upEvent.clientX, y: upEvent.clientY });
                 }
             }
@@ -577,8 +641,36 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 
     const renderElement = () => {
         switch (element.type) {
-            case ElementType.Text:
+            case ElementType.Text: {
                 const textElement = element as TextElement;
+
+                const createLinesFromSpans = (spans: TextSpan[]) => {
+                    const lines: { spans: TextSpan[] }[] = [{ spans: [] }];
+                    let currentLine = lines[0];
+
+                    if (spans.length === 0 || (spans.length === 1 && spans[0].text === '')) {
+                         return [{ spans: [{ text: '\u00A0', style: spans[0]?.style || defaultTextStyle }] }];
+                    }
+
+                    for (const span of spans) {
+                        const parts = span.text.split('\n');
+                        parts.forEach((part, index) => {
+                            if (part) {
+                                currentLine.spans.push({ ...span, text: part });
+                            }
+                            if (index < parts.length - 1) {
+                                lines.push({ spans: [] });
+                                currentLine = lines[lines.length - 1];
+                            }
+                        });
+                    }
+                    return lines;
+                };
+
+                const lines = createLinesFromSpans(textElement.spans);
+                const lineAlignments = textElement.lineAlignments || [];
+                const defaultAlign = textElement.textAlign;
+
                 const backgroundShape = textElement.backgroundShape || 'rectangle';
                 const outline = textElement.outline || { enabled: false, width: 0, color: '#FFFFFF' };
                 
@@ -610,8 +702,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                     outline: 'none',
                     padding: `${textElement.padding}px`,
                     letterSpacing: `${textElement.letterSpacing}px`,
-                    textAlign: textElement.textAlign,
-                    textAlignLast: textElement.textAlign === 'justify' ? 'justify' : 'auto',
                     userSelect: isEditing ? 'text' : 'none',
                     cursor: cursorStyle.content,
                     whiteSpace: 'pre-wrap',
@@ -659,29 +749,54 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
                             onInput={(e) => {
-                                const newText = e.currentTarget.innerText;
-                                const currentText = textElement.spans.map(s => s.text).join('');
-                                if (newText !== currentText) {
+                                // Reconstruct from textContent to avoid innerText quirks.
+                                const reconstructedText = Array.from(e.currentTarget.childNodes)
+                                    .map(node => node.textContent || '')
+                                    .join('\n');
+                                
+                                // Sanitize to match data model (remove zero-width spaces).
+                                const sanitizedText = reconstructedText.replace(/\u200b/g, '');
+                            
+                                const currentText = (element as TextElement).spans.map(s => s.text).join('');
+                            
+                                if (sanitizedText !== currentText) {
+                                    // We get the cursor position from the live DOM.
+                                    // The getSelection... function itself will also sanitize.
                                     const cursorPos = getSelectionCharOffsetsWithin(e.currentTarget);
-                                    onUpdate(element.id, { textContent: newText }, true, cursorPos);
+                                    onUpdate(element.id, { textContent: sanitizedText }, true, cursorPos);
                                 }
                             }}
                         >
-                            {textElement.spans.map((span, index) => (
-                                <span key={index} style={{
-                                    fontFamily: span.style.fontFamily,
-                                    fontSize: `${span.style.fontSize}px`,
-                                    fontWeight: span.style.fontWeight,
-                                    color: span.style.color,
-                                    textShadow: span.style.textShadow,
-                                    lineHeight: span.style.lineHeight || 1.2,
-                                }}>
-                                    {span.text}
-                                </span>
+                            {lines.map((line, lineIndex) => (
+                                <div
+                                    key={lineIndex}
+                                    style={{
+                                        textAlign: lineAlignments[lineIndex] || defaultAlign,
+                                        textAlignLast: (lineAlignments[lineIndex] || defaultAlign) === 'justify' ? 'justify' : 'auto',
+
+                                    }}
+                                >
+                                    {line.spans.length > 0 ? line.spans.map((span, spanIndex) => (
+                                        <span key={spanIndex} style={{
+                                            fontFamily: span.style.fontFamily,
+                                            fontSize: `${span.style.fontSize}px`,
+                                            fontWeight: span.style.fontWeight,
+                                            color: span.style.color,
+                                            textShadow: span.style.textShadow,
+                                            lineHeight: span.style.lineHeight || 1.2,
+                                        }}>
+                                            {span.text}
+                                        </span>
+                                    )) : (
+                                        // Render a zero-width space to ensure the div has height and is clickable
+                                        <span>&#8203;</span>
+                                    )}
+                                </div>
                             ))}
                         </div>
                     </div>
                 );
+            }
             case ElementType.Image:
                 const imageElement = element as ImageElement;
                 return (
@@ -807,64 +922,154 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, onSelect, 
 // --- Rich Text Utility Functions ---
 
 export function getSelectionCharOffsetsWithin(element: HTMLElement) {
-    let start = 0;
-    let end = 0;
     const selection = window.getSelection();
+    if (!selection || !selection.rangeCount) return { start: 0, end: 0 };
+    const range = selection.getRangeAt(0);
+    const sanitize = (str: string) => str.replace(/\u200b/g, '');
 
-    if (selection && selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0);
-        
-        if (element.contains(range.commonAncestorContainer)) {
-            const preCaretRange = range.cloneRange();
-            preCaretRange.selectNodeContents(element);
-            preCaretRange.setEnd(range.startContainer, range.startOffset);
-            start = preCaretRange.toString().length;
-            
-            end = start + range.toString().length;
-        } else {
-            // Fallback: if selection is not in the element (e.g. element lost focus),
-            // place cursor at the end.
-            start = end = element.innerText.length;
+    const calculateOffset = (container: Node, offset: number): number => {
+        let charCount = 0;
+        const lineDivs = Array.from(element.childNodes);
+
+        for (let i = 0; i < lineDivs.length; i++) {
+            const lineDiv = lineDivs[i];
+            if (lineDiv === container || lineDiv.contains(container)) {
+                // We are on the correct line. Calculate offset within this line.
+                const tempRange = document.createRange();
+                tempRange.selectNodeContents(lineDiv);
+                tempRange.setEnd(container, offset);
+                charCount += sanitize(tempRange.toString()).length;
+                return charCount; // Return the final count
+            }
+            // Add full length of the preceding line.
+            charCount += sanitize((lineDiv as Node).textContent || '').length;
+            // Add 1 for the newline character between lines.
+            if (i < lineDivs.length - 1) {
+                charCount++;
+            }
         }
+        return charCount; // Fallback if container not found
+    };
+    
+    // If selection is not inside our element at all, return cursor at the end.
+    if (!element.contains(range.commonAncestorContainer)) {
+        const fullText = Array.from(element.childNodes).map(n => sanitize((n as Node).textContent || '')).join('\n');
+        return { start: fullText.length, end: fullText.length };
     }
+
+    const start = calculateOffset(range.startContainer, range.startOffset);
+    const end = range.collapsed ? start : calculateOffset(range.endContainer, range.endOffset);
+
     return { start, end };
 }
+
 
 export function setSelectionByOffset(containerEl: HTMLElement, start: number, end: number) {
     const sel = window.getSelection();
     if (!sel) return;
-  
-    let startNode: Node | null = null, startOffset = 0;
-    let endNode: Node | null = null, endOffset = 0;
-  
-    const nodeIterator = document.createNodeIterator(containerEl, NodeFilter.SHOW_TEXT);
-    let currentNode: Node | null;
-    let charCount = 0;
-  
-    while ((currentNode = nodeIterator.nextNode()) && !endNode) {
-      const nodeLength = currentNode.textContent?.length || 0;
-      const nextCharCount = charCount + nodeLength;
-  
-      if (!startNode && start >= charCount && start <= nextCharCount) {
-        startNode = currentNode;
-        startOffset = start - charCount;
-      }
-      if (!endNode && end >= charCount && end <= nextCharCount) {
-        endNode = currentNode;
-        endOffset = end - charCount;
-      }
-      
-      charCount = nextCharCount;
+
+    let startNode: Node | null = null;
+    let startOffset = 0;
+    let endNode: Node | null = null;
+    let endOffset = 0;
+
+    const lineDivs = Array.from(containerEl.childNodes);
+
+    const findPosition = (charPos: number): { node: Node; offset: number } | null => {
+        let totalCharsProcessed = 0;
+        for (let i = 0; i < lineDivs.length; i++) {
+            const lineDiv = lineDivs[i];
+            // Fix: Cast child node to Node to access textContent property and resolve TypeScript error.
+            const lineContentLength = (lineDiv as Node).textContent?.length || 0;
+
+            if (charPos >= totalCharsProcessed && charPos <= totalCharsProcessed + lineContentLength) {
+                let lineCharOffset = 0;
+                const targetOffsetInLine = charPos - totalCharsProcessed;
+                const walker = document.createTreeWalker(lineDiv, NodeFilter.SHOW_TEXT);
+                let textNode;
+                while ((textNode = walker.nextNode())) {
+                    const nodeLength = textNode.textContent?.length || 0;
+                    if (targetOffsetInLine >= lineCharOffset && targetOffsetInLine <= lineCharOffset + nodeLength) {
+                        return { node: textNode, offset: targetOffsetInLine - lineCharOffset };
+                    }
+                    lineCharOffset += nodeLength;
+                }
+                 if (lineContentLength === 0 && targetOffsetInLine === 0) {
+                    return { node: lineDiv, offset: 0 };
+                }
+            }
+
+            totalCharsProcessed += lineContentLength;
+            if (i < lineDivs.length - 1) {
+                totalCharsProcessed++;
+            }
+        }
+        return null;
+    };
+
+    const startPos = findPosition(start);
+    const endPos = findPosition(end);
+
+    let totalCharCount = 0;
+    for (let i = 0; i < lineDivs.length; i++) {
+        // Fix: Cast child node to Node to access textContent property and resolve TypeScript error.
+        totalCharCount += (lineDivs[i] as Node).textContent?.length || 0;
+        if (i < lineDivs.length - 1) {
+            totalCharCount++;
+        }
     }
-  
+    
+    const setPositionAtEnd = (): { node: Node, offset: number } => {
+        let lastTextNode: Node | null = null;
+        
+        if (containerEl.lastChild) {
+             const walker = document.createTreeWalker(containerEl.lastChild, NodeFilter.SHOW_TEXT);
+             let n;
+             while ((n = walker.nextNode())) lastTextNode = n;
+        }
+
+        if (lastTextNode) {
+            return { node: lastTextNode, offset: lastTextNode.textContent?.length || 0 };
+        } else if (containerEl.lastChild) {
+            // Handles empty last line
+            return { node: containerEl.lastChild, offset: 0 };
+        } else {
+             // Handles completely empty editor
+             return { node: containerEl, offset: 0 };
+        }
+    };
+
+    if (startPos) {
+        startNode = startPos.node;
+        startOffset = startPos.offset;
+    } else if (start >= totalCharCount) {
+        const { node, offset } = setPositionAtEnd();
+        startNode = node;
+        startOffset = offset;
+    }
+
+    if (endPos) {
+        endNode = endPos.node;
+        endOffset = endPos.offset;
+    } else {
+        // If end position was not found but start was, collapse selection to start
+        endNode = startNode;
+        endOffset = startOffset;
+    }
+
     if (startNode && endNode) {
-      const range = document.createRange();
-      range.setStart(startNode, startOffset);
-      range.setEnd(endNode, endOffset);
-      sel.removeAllRanges();
-      sel.addRange(range);
+        try {
+            const range = document.createRange();
+            range.setStart(startNode, startOffset);
+            range.setEnd(endNode, endOffset);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } catch (e) {
+            console.error("Failed to set selection range", e);
+        }
     }
-  }
+}
+
 
 export function applyStyleToSpans(
     spans: TextSpan[],

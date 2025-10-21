@@ -8,8 +8,10 @@ import { defaultTextStyle } from '../CanvasItem';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
+    isEditing: boolean;
     onUpdateElement: (id: string, updates: Partial<CanvasElement> & { textContent?: string }) => void;
     onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
+    onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
     activeStyle: TextStyle | null;
     onAddElement: (type: ElementType, payload?: { src: string }) => void;
     onDeleteElement: (id:string) => void;
@@ -54,8 +56,8 @@ const parseColor = (color: string): { hex: string; alpha: number } => {
 
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-    selectedElement, onUpdateElement, onAddElement, onDeleteElement, template, 
-    onUpdateTemplate, onEditImage, onStyleUpdate, activeStyle, onDeselect, 
+    selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
+    onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
     onLayerOrderChange, onApplyCut, isApplyingCut
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
@@ -155,6 +157,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 element={selectedElement as TextElement} 
                                 onUpdate={onUpdateElement}
                                 onStyleUpdate={onStyleUpdate}
+                                onAlignmentUpdate={onAlignmentUpdate}
                                 activeStyle={activeStyle}
                                 openAccordion={openAccordion}
                                 onAccordionToggle={handleAccordionToggle}
@@ -327,12 +330,13 @@ interface TextPanelProps {
     element: TextElement;
     onUpdate: (id: string, updates: Partial<TextElement>) => void;
     onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
+    onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
     activeStyle: TextStyle | null;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
 }
 
-const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
+const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
     const textColorInputRef = useRef<HTMLInputElement>(null);
     const bgColorInputRef = useRef<HTMLInputElement>(null);
     const outlineColorInputRef = useRef<HTMLInputElement>(null);
@@ -584,12 +588,13 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                          <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 rounded-md mt-1">
                             {(['right', 'center', 'left', 'justify'] as const).map(align => {
                                 const Icon = alignMap[align].icon;
+                                const isActive = element.textAlign === align && (!element.lineAlignments || element.lineAlignments.length === 0);
                                 return (
                                     <button
                                         key={align}
-                                        onClick={() => handleBlockUpdate('textAlign', align)}
+                                        onClick={() => onAlignmentUpdate(align)}
                                         title={alignMap[align].title}
-                                        className={`px-2 h-[30px] rounded flex items-center justify-center ${element.textAlign === align ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                        className={`px-2 h-[30px] rounded flex items-center justify-center ${isActive ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
                                     >
                                         <Icon className="w-5 h-5 mx-auto" />
                                     </button>

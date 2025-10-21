@@ -133,6 +133,7 @@ export interface TextElement extends ElementBase {
     width: number;
     enabled: boolean;
   };
+  lineAlignments?: ('right' | 'center' | 'left' | 'justify')[];
 }
 
 export interface ImageEditState {

@@ -34,6 +34,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [isDirty, setIsDirty] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+    const [editingElementId, setEditingElementId] = useState<string | null>(null);
     const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
     const [history, setHistory] = useState<Template[]>([initialTemplate]);
     const [historyIndex, setHistoryIndex] = useState(0);
@@ -442,6 +443,77 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }, 0);
     };
 
+    const handleAlignmentUpdate = (align: 'right' | 'center' | 'left' | 'justify') => {
+        if (!selectedElementId) return;
+
+        const isEditing = selectedElementId === editingElementId;
+        const element = template.elements.find(el => el.id === selectedElementId) as TextElement;
+        if (!element || element.type !== ElementType.Text) return;
+
+        if (!isEditing) {
+            // Block-level alignment: update textAlign and clear any line-specific alignments.
+            updateElement(selectedElementId, { textAlign: align, lineAlignments: [] });
+        } else {
+            // Per-line alignment
+            const fullText = element.spans.map(s => s.text).join('');
+            const lines = fullText.split('\n');
+            
+            if (!selectionRange) return;
+
+            // Find which lines are affected by the selection
+            let selectionStartLine = -1;
+            let selectionEndLine = -1;
+            let charCount = 0;
+            
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const lineStart = charCount;
+                // A line "contains" characters from its start up to its end, including the newline character conceptually
+                const lineEnd = lineStart + line.length;
+                
+                // Check if the selection start point falls within this line
+                if (selectionStartLine === -1 && selectionRange.start >= lineStart && selectionRange.start <= lineEnd) {
+                    selectionStartLine = i;
+                }
+                // Check if the selection end point falls within this line
+                if (selectionRange.end >= lineStart && selectionRange.end <= lineEnd) {
+                    selectionEndLine = i;
+                }
+                
+                charCount += line.length + 1; // +1 for the newline char
+            }
+            
+            // If the cursor is at the very end of the text, it might not be caught by the loop
+            if (selectionStartLine === -1 && selectionRange.start > 0 && selectionRange.start >= charCount -1) {
+                selectionStartLine = lines.length - 1;
+            }
+            if (selectionEndLine === -1 && selectionRange.end > 0 && selectionRange.end >= charCount -1) {
+                 selectionEndLine = lines.length - 1;
+            }
+
+            // A collapsed selection (a cursor) should only affect one line
+            if (selectionRange.start === selectionRange.end) {
+                selectionEndLine = selectionStartLine;
+            }
+
+            if (selectionStartLine === -1) return; // No line found for selection, should not happen
+
+            const newAlignments = [...(element.lineAlignments || [])];
+            // Ensure the array is long enough, padding with the element's default alignment
+            while (newAlignments.length < lines.length) {
+                newAlignments.push(element.textAlign);
+            }
+
+            for (let i = selectionStartLine; i <= selectionEndLine; i++) {
+                if (i >= 0 && i < newAlignments.length) {
+                    newAlignments[i] = align;
+                }
+            }
+            
+            updateElement(selectedElementId, { lineAlignments: newAlignments });
+        }
+    };
+
     const addElement = (type: ElementType, payload?: { src: string }) => {
         const newZIndex = template.elements.length > 0 ? Math.max(...template.elements.map(e => e.zIndex)) + 1 : 1;
         let newElement: CanvasElement;
@@ -830,6 +902,10 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const handleSelectElement = useCallback((id: string | null) => {
         const previouslySelectedId = selectedElementId;
     
+        if (id !== previouslySelectedId) {
+            setEditingElementId(null);
+        }
+
         // If the selection is changing and the previously selected element was a Cutter, delete it.
         if (previouslySelectedId && previouslySelectedId !== id) {
             const previousElement = templateRef.current.elements.find(el => el.id === previouslySelectedId);
@@ -950,12 +1026,14 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 key={element.id}
                                 element={element}
                                 isSelected={selectedElementId === element.id}
+                                isEditing={editingElementId === element.id}
                                 isCutterTarget={cutterTargetId === element.id}
                                 onSelect={() => handleSelectElement(element.id)}
                                 onUpdate={updateElement}
                                 onInteractionStart={() => setIsInteracting(true)}
                                 onInteractionEnd={handleInteractionEnd}
-                                onTextSelect={setSelectionRange}
+                                onSetSelectionRange={setSelectionRange}
+                                onSetEditing={setEditingElementId}
                                 onElementRefsChange={onElementRefsChange}
                                 onEditImage={handleImageEditRequest}
                                 canvasWidth={template.width}
@@ -976,8 +1054,10 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             </div>
             <Sidebar
                 selectedElement={selectedElement}
+                isEditing={editingElementId === selectedElementId}
                 onUpdateElement={updateElement}
                 onStyleUpdate={handleStyleUpdate}
+                onAlignmentUpdate={handleAlignmentUpdate}
                 activeStyle={activeStyle}
                 onAddElement={addElement}
                 onDeleteElement={deleteElement}
