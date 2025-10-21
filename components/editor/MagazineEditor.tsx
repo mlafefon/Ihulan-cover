@@ -34,6 +34,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [isDirty, setIsDirty] = useState(false);
     const [isInteracting, setIsInteracting] = useState(false);
     const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+    const [hoveredElementId, setHoveredElementId] = useState<string | null>(null);
     const [editingElementId, setEditingElementId] = useState<string | null>(null);
     const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
     const [history, setHistory] = useState<Template[]>([initialTemplate]);
@@ -1027,6 +1028,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 element={element}
                                 isSelected={selectedElementId === element.id}
                                 isEditing={editingElementId === element.id}
+                                isHoveredFromSidebar={hoveredElementId === element.id}
                                 isCutterTarget={cutterTargetId === element.id}
                                 onSelect={() => handleSelectElement(element.id)}
                                 onUpdate={updateElement}
@@ -1068,6 +1070,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 onLayerOrderChange={handleLayerOrderChange}
                 onApplyCut={handleApplyCut}
                 isApplyingCut={isSaving}
+                onSelectElement={handleSelectElement}
+                onHoverElement={setHoveredElementId}
             />
             {showExitConfirm && (
                 <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">

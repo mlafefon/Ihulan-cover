@@ -1,5 +1,5 @@
-import React, { useState, Fragment, useRef, useEffect } from 'react';
-import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement } from '../../types';
+import React, { useState, Fragment, useRef, useEffect, useMemo } from 'react';
+import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement, ElementBase } from '../../types';
 import { ElementType } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
@@ -22,6 +22,8 @@ interface SidebarProps {
     onLayerOrderChange: (id: string, direction: 'front' | 'back' | 'forward' | 'backward') => void;
     onApplyCut: () => void;
     isApplyingCut: boolean;
+    onSelectElement: (id: string | null) => void;
+    onHoverElement: (id: string | null) => void;
 }
 
 // Helpers
@@ -58,7 +60,7 @@ const parseColor = (color: string): { hex: string; alpha: number } => {
 const Sidebar: React.FC<SidebarProps> = ({ 
     selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
     onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
-    onLayerOrderChange, onApplyCut, isApplyingCut
+    onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
     const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -208,6 +210,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onUpdateTemplate={onUpdateTemplate}
                         openAccordion={openAccordion}
                         onAccordionToggle={handleAccordionToggle}
+                        onSelectElement={onSelectElement}
+                        onHoverElement={onHoverElement}
+                        onDeleteElement={onDeleteElement}
                     />
                 )}
             </div>
@@ -276,13 +281,45 @@ interface DefaultPanelProps {
     onUpdateTemplate: (settings: Partial<Template>) => void;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
+    onSelectElement: (id: string | null) => void;
+    onHoverElement: (id: string | null) => void;
+    onDeleteElement: (id: string) => void;
 }
 
-const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle }) => {
+const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle, onSelectElement, onHoverElement, onDeleteElement }) => {
+    const sortedElements = useMemo(() => 
+        [...template.elements].sort((a, b) => b.zIndex - a.zIndex), 
+        [template.elements]
+    );
+
+    const getElementName = (element: CanvasElement): string => {
+        switch (element.type) {
+            case ElementType.Text:
+                const text = (element as TextElement).spans.map(s => s.text).join('').replace(/\s+/g, ' ').trim();
+                if (!text || text === '\u00A0') return 'טקסט ריק';
+                return text.substring(0, 20) + (text.length > 20 ? '...' : '');
+            case ElementType.Image:
+                return "תמונה";
+            case ElementType.Cutter:
+                return "צורת חיתוך";
+            default:
+                // Fix: This case is unreachable with current types, but provides a fallback.
+                // We cast `element` to access `id` since TypeScript correctly infers it as `never`.
+                return (element as ElementBase).id;
+        }
+    };
+
     return (
-        <div className="p-4 space-y-4">
-            <div>
-                <h3 className="font-semibold mb-2">הוספת רכיבים</h3>
+        <>
+            <div className="p-4 border-b border-slate-700">
+                <label className="flex items-center gap-2">
+                    <span className="text-sm text-slate-400 whitespace-nowrap">שם התבנית</span>
+                    <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
+                </label>
+            </div>
+
+            <div className="p-4 border-b border-slate-700">
+                <h3 className="text-sm font-semibold text-slate-400 mb-3">הוספת רכיבים</h3>
                 <div className="grid grid-cols-2 gap-2">
                     <button onClick={() => onAddElement(ElementType.Text)} className="flex flex-col items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
                         <TextIcon className="w-6 h-6" />
@@ -298,12 +335,7 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                     </button>
                 </div>
             </div>
-             <div>
-                <label className="flex items-center gap-2">
-                    <span className="text-sm text-slate-400 whitespace-nowrap">שם התבנית</span>
-                    <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
-                </label>
-            </div>
+            
              <Accordion 
                 title="הגדרות עמוד"
                 isOpen={openAccordion === 'הגדרות עמוד'}
@@ -330,7 +362,48 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                     </label>
                  </div>
             </Accordion>
-        </div>
+
+            <Accordion 
+                title="רכיבים"
+                isOpen={openAccordion === 'רכיבים'}
+                onToggle={() => onAccordionToggle('רכיבים')}
+            >
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {sortedElements.length > 0 ? (
+                        sortedElements.map(element => (
+                            <div
+                                key={element.id}
+                                onClick={() => onSelectElement(element.id)}
+                                onMouseEnter={() => onHoverElement(element.id)}
+                                onMouseLeave={() => onHoverElement(null)}
+                                className="flex items-center justify-between p-2 rounded-md hover:bg-slate-700 cursor-pointer"
+                            >
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    {element.type === ElementType.Text && <TextIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+                                    {element.type === ElementType.Image && <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+                                    {element.type === ElementType.Cutter && <ScissorsIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+                                    <span className="text-sm truncate" title={getElementName(element)}>
+                                        {getElementName(element)}
+                                    </span>
+                                </div>
+                                <button 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteElement(element.id);
+                                    }}
+                                    className="p-1 rounded-full text-slate-500 hover:bg-slate-600 hover:text-red-400 flex-shrink-0"
+                                    title="מחק רכיב"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-slate-500 text-center py-2">אין רכיבים על הקנבס.</p>
+                    )}
+                </div>
+            </Accordion>
+        </>
     );
 };
 

@@ -8,6 +8,7 @@ interface CanvasItemProps {
     element: CanvasElement;
     isSelected: boolean;
     isEditing: boolean;
+    isHoveredFromSidebar?: boolean;
     isCutterTarget?: boolean;
     onSelect: () => void;
     onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean, cursorPos?: { start: number; end: number }) => void;
@@ -80,7 +81,7 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget, activeStyle }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget, activeStyle, isHoveredFromSidebar }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
@@ -979,7 +980,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         className="absolute inset-0 border-2 border-dashed border-blue-500 pointer-events-none"
                     />
                 )}
-                {isHovered && !isSelected && (
+                {(isHovered || isHoveredFromSidebar) && !isSelected && (
                     <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
                 )}
                 {isSelected && !isEditing && !element.locked && (
