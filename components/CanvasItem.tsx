@@ -178,6 +178,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         const rotationRad = (textElement.rotation * Math.PI) / 180;
                         const cos = Math.abs(Math.cos(rotationRad));
                         const sin = Math.abs(Math.sin(rotationRad));
+
+                        const outlineWidth = (textElement.outline?.enabled && textElement.outline.width) ? textElement.outline.width : 0;
     
                         const newSelectionRects = clientRects.map(rect => {
                             // 1. Calculate true height (h_local)
@@ -217,8 +219,10 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             const local_top = unrotatedCenterY + local_dy - h_local / 2;
                             const local_left = unrotatedCenterX + local_dx - w_local / 2;
     
-                            // Return a new DOMRect with local coordinates and dimensions
-                            return new DOMRect(local_left, local_top, w_local, h_local);
+                            // Return a new DOMRect with local coordinates and dimensions, corrected for the outline width.
+                            // The selection is inside the content, but positioning is relative to the wrapper's padding-box.
+                            // The calculation gives coordinates relative to the border-box, so we must subtract the border/outline width.
+                            return new DOMRect(local_left - outlineWidth, local_top - outlineWidth, w_local, h_local);
                         });
                         
                         setSelectionRects(newSelectionRects);

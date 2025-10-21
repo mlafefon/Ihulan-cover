@@ -190,10 +190,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                              <button
                                 onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
                                 className={`w-full flex items-center justify-center gap-2 text-white font-bold py-2 px-4 rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                title={selectedElement.locked ? "שחרר אלמנט" : "נעל אלמנט"}
+                                title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
                             >
                                 {selectedElement.locked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
-                                <span>{selectedElement.locked ? 'שחרר נעילה' : 'נעל אלמנט'}</span>
+                                <span>{selectedElement.locked ? 'שחרר נעילה' : 'נעל רכיב'}</span>
                             </button>
                             <button onClick={() => onDeleteElement(selectedElement.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
                                 <TrashIcon className="w-4 h-4" />
