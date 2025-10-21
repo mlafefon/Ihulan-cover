@@ -524,7 +524,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             if (isMovingBottom) newHeight = height + localDy;
             if (isMovingTop) newHeight = height - localDy;
             
-            if (newWidth > 10 && newHeight > 10) {
+            if (newWidth > 0 && newHeight > 0) {
                 const dw = newWidth - width;
                 const dh = newHeight - height;
     
@@ -542,8 +542,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 const newCenterX = centerX + shiftWorldX;
                 const newCenterY = centerY + shiftWorldY;
     
-                let newX = newCenterX - newWidth / 2;
-                let newY = newCenterY - newHeight / 2;
+                const newX = newCenterX - newWidth / 2;
+                const newY = newCenterY - newHeight / 2;
+                
+                // Use temporary variables for snapping modifications
+                let finalWidth = newWidth;
+                let finalHeight = newHeight;
+                let finalX = newX;
+                let finalY = newY;
  
                 if (element.type !== ElementType.Cutter) {
                     const SNAP_THRESHOLD = 5;
@@ -551,27 +557,54 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
                     const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
-                    const elementPoints = {
-                        left: newX, right: newX + newWidth, top: newY, bottom: newY + newHeight,
-                        hCenter: newX + newWidth / 2, vCenter: newY + newHeight / 2,
-                    };
+                    // --- X-axis Snapping ---
+                    for (const targetX of snapTargetsX) {
+                        if (isMovingRight && Math.abs((finalX + finalWidth) - targetX) < SNAP_THRESHOLD) {
+                            finalWidth = targetX - finalX;
+                            activeSnapLines.x.push(targetX);
+                            break;
+                        }
+                        if (isMovingLeft && Math.abs(finalX - targetX) < SNAP_THRESHOLD) {
+                            const oldRight = x + width;
+                            finalWidth = oldRight - targetX;
+                            finalX = targetX;
+                            activeSnapLines.x.push(targetX);
+                            break;
+                        }
+                    }
+
+                    // --- Y-axis Snapping ---
+                    for (const targetY of snapTargetsY) {
+                        if (isMovingBottom && Math.abs((finalY + finalHeight) - targetY) < SNAP_THRESHOLD) {
+                            finalHeight = targetY - finalY;
+                            activeSnapLines.y.push(targetY);
+                            break;
+                        }
+                        if (isMovingTop && Math.abs(finalY - targetY) < SNAP_THRESHOLD) {
+                            const oldBottom = y + height;
+                            finalHeight = oldBottom - targetY;
+                            finalY = targetY;
+                            activeSnapLines.y.push(targetY);
+                            break;
+                        }
+                    }
                     
-                    for (const target of snapTargetsX) {
-                        if (Math.abs(elementPoints.left - target) < SNAP_THRESHOLD) { newX = target; activeSnapLines.x.push(target); break; }
-                        if (Math.abs(elementPoints.hCenter - target) < SNAP_THRESHOLD) { newX = target - newWidth / 2; activeSnapLines.x.push(target); break; }
-                        if (Math.abs(elementPoints.right - target) < SNAP_THRESHOLD) { newX = target - newWidth; activeSnapLines.x.push(target); break; }
-                    }
-                    for (const target of snapTargetsY) {
-                        if (Math.abs(elementPoints.top - target) < SNAP_THRESHOLD) { newY = target; activeSnapLines.y.push(target); break; }
-                        if (Math.abs(elementPoints.vCenter - target) < SNAP_THRESHOLD) { newY = target - newHeight / 2; activeSnapLines.y.push(target); break; }
-                        if (Math.abs(elementPoints.bottom - target) < SNAP_THRESHOLD) { newY = target - newHeight; activeSnapLines.y.push(target); break; }
-                    }
                     setSnapLines(activeSnapLines);
                 } else {
                     setSnapLines({ x: [], y: [] });
                 }
+
+                // Clamp to minimum size AFTER snapping calculations, adjusting position to keep stationary edge fixed
+                if (finalWidth < 10) {
+                    if (isMovingLeft) finalX += finalWidth - 10;
+                    finalWidth = 10;
+                }
+                if (finalHeight < 10) {
+                    if (isMovingTop) finalY += finalHeight - 10;
+                    finalHeight = 10;
+                }
     
-                onUpdate(element.id, { width: newWidth, height: newHeight, x: newX, y: newY }, false);
+                onUpdate(element.id, { width: finalWidth, height: finalHeight, x: finalX, y: finalY }, false);
             }
         };
         
