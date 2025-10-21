@@ -347,6 +347,31 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         onUpdate(element.id, { textContent: newFullText }, true, newCursorPos);
     };
 
+    const handleCut = async (e: React.ClipboardEvent<HTMLDivElement>) => {
+        if (element.type !== ElementType.Text) return;
+    
+        const textElement = element as TextElement;
+        const fullText = textElement.spans.map(s => s.text).join('');
+        const selection = getSelectionCharOffsetsWithin(e.currentTarget);
+    
+        // Only intervene if the entire text content is selected.
+        if (selection.start === 0 && selection.end === fullText.length) {
+            e.preventDefault(); // Prevent the browser's native cut behavior.
+            try {
+                // Manually copy the full text to the clipboard.
+                await navigator.clipboard.writeText(fullText);
+                // Update the element's state to be empty, which our existing logic handles gracefully.
+                onUpdate(element.id, { textContent: '' }, true, { start: 0, end: 0 });
+            } catch (err) {
+                console.error('Failed to cut text to clipboard:', err);
+                // As a fallback if clipboard API fails, just delete the text.
+                onUpdate(element.id, { textContent: '' }, true, { start: 0, end: 0 });
+            }
+        }
+        // For partial cuts, we let the default browser behavior proceed,
+        // which will trigger the `onInput` handler.
+    };
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (element.type !== ElementType.Image) return;
         if (e.target.files && e.target.files[0]) {
@@ -748,6 +773,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             dir="auto"
                             onKeyDown={handleKeyDown}
                             onPaste={handlePaste}
+                            onCut={handleCut}
                             onInput={(e) => {
                                 // Reconstruct from textContent to avoid innerText quirks.
                                 const reconstructedText = Array.from(e.currentTarget.childNodes)
