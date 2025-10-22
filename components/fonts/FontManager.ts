@@ -24,6 +24,9 @@ export const availableFonts: GoogleFont[] = [
     {name: 'Playpen Sans Hebrew', weights: [400, 500, 700, 900]},
     {name: 'Secular One', weights: [400, 500, 700, 900]},
     {name: 'David Libree', weights: [400, 500, 700, 900]},
+    {name: 'Frank Ruhl Libre', weights: [300, 400, 500, 700, 900]},
+    {name: 'Miriam Libre', weights: [400, 700]},
+    {name: 'Noto Sans Hebrew', weights: [100, 200, 300, 400, 500, 600, 700, 800, 900]},
     // Add new fonts here, for example:
     // {
     //   name: 'Open Sans',

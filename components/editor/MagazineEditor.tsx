@@ -1031,6 +1031,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 isHoveredFromSidebar={hoveredElementId === element.id}
                                 isCutterTarget={cutterTargetId === element.id}
                                 onSelect={() => handleSelectElement(element.id)}
+                                isInteracting={isInteracting}
                                 onUpdate={updateElement}
                                 onInteractionStart={() => setIsInteracting(true)}
                                 onInteractionEnd={handleInteractionEnd}

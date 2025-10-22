@@ -12,6 +12,7 @@ interface CanvasItemProps {
     isCutterTarget?: boolean;
     onSelect: () => void;
     onUpdate: (id: string, updates: Partial<CanvasElement> & { textContent?: string }, withHistory?: boolean, cursorPos?: { start: number; end: number }) => void;
+    isInteracting: boolean;
     onInteractionStart: () => void;
     onInteractionEnd: () => void;
     onSetSelectionRange: (range: { start: number, end: number } | null) => void;
@@ -47,7 +48,7 @@ const handleCursorClasses: { [key: string]: string } = {
     r: 'cursor-ew-resize',
 };
 
-const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ0iM3IDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
+const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
 const getSunClipPath = () => {
     const points = [];
@@ -81,7 +82,7 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isCutterTarget, activeStyle, isHoveredFromSidebar }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
@@ -690,27 +691,25 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
 
     const cursorStyle = useMemo(() => {
+        if ((isInteracting && !isSelected) || isRotating) {
+            return { wrapper: 'default', content: 'default' };
+        }
         if (element.locked) {
-            // If the element is a selected text element, show the text cursor to indicate it's editable.
             if (element.type === ElementType.Text && isSelected) {
                 return { wrapper: 'text', content: 'text' };
             }
-            // Otherwise, for locked elements, use the default cursor.
             return { wrapper: 'default', content: 'default' };
         }
         if (element.type === ElementType.Text) {
             if (isEditing) {
-                // Editing mode: Outer wrapper has default, inner has text.
                 return { wrapper: 'default', content: 'text' };
             }
             if (isSelected) {
-                // Selected but not editing: Custom cursor for both.
                 return { wrapper: moveAndTextCursor, content: moveAndTextCursor };
             }
         }
-        // Default for all other cases (image, cutter, unselected text)
         return { wrapper: 'move', content: 'move' };
-    }, [element.type, isSelected, isEditing, element.locked]);
+    }, [element.type, isSelected, isEditing, element.locked, isInteracting, isRotating]);
 
 
     const itemStyle: React.CSSProperties = {
@@ -950,8 +949,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 style={itemStyle}
                 onMouseDown={handleMouseDown}
                 onDoubleClick={handleDoubleClick}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
+                onMouseEnter={() => {
+                    if (!isInteracting) {
+                        setIsHovered(true);
+                    }
+                }}
+                onMouseLeave={() => {
+                    setIsHovered(false);
+                }}
                 data-element-id={element.id}
             >
                 {element.type === ElementType.Image && (
@@ -989,8 +994,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         <div
                                 key={handle}
                                 onMouseDown={(e) => handleResize(e, handle)}
-                                style={isRotating ? { cursor: `url('${rotateCursorUrl}') 12 12, auto` } : {}}
-                                className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${handleCursorClasses[handle]}`}
+                                className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${!isRotating ? handleCursorClasses[handle] : ''}`}
                             />
                         ))}
                         <div
