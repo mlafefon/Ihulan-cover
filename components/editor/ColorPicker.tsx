@@ -115,9 +115,17 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, renderTrigge
                         />
                     </div>
                     <div className="flex-grow border-t border-slate-600 mx-2"></div>
-                    <button onClick={() => handleSelectColor('transparent')} className="p-2 rounded-full hover:bg-slate-700" title="שקוף">
-                        <BanIcon className="w-5 h-5 text-slate-400" />
-                    </button>
+                    <button
+                        onClick={() => handleSelectColor('transparent')}
+                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${color === 'transparent' ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-white' : ''}`}
+                        style={{
+                            backgroundImage: `linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%)`,
+                            backgroundSize: '8px 8px',
+                            backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                        }}
+                        title="שקוף"
+                        aria-label="בחר צבע שקוף"
+                    />
                 </div>
     
                 <div className="space-y-1">
