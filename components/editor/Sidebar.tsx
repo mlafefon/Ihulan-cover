@@ -207,15 +207,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 totalElements={template.elements.length}
                             />
                         </Accordion>
-                        <div className="p-4 mt-4 border-t border-slate-700 space-y-2">
+                        <div className="p-4 mt-4 border-t border-slate-700">
                              <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
-                                    className={`flex-grow flex items-center justify-center gap-2 text-white font-bold py-2 px-4 rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                    title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
+                                    onClick={() => onDeleteElement(selectedElement.id)}
+                                    className="flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
                                 >
-                                    {selectedElement.locked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
-                                    <span>{selectedElement.locked ? 'שחרר נעילה' : 'נעל רכיב'}</span>
+                                    <TrashIcon className="w-4 h-4" />
+                                    מחק רכיב
                                 </button>
                                 {selectedElement.type === ElementType.Text && (
                                     <button
@@ -226,11 +225,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         <BrushIcon className="w-5 h-5" />
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
+                                    className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                    title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
+                                >
+                                    {selectedElement.locked ? <UnlockIcon className="w-5 h-5" /> : <LockIcon className="w-5 h-5" />}
+                                </button>
                              </div>
-                            <button onClick={() => onDeleteElement(selectedElement.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
-                                <TrashIcon className="w-4 h-4" />
-                                מחק רכיב
-                            </button>
                         </div>
                     </>
                 ) : (
