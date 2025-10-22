@@ -1,4 +1,5 @@
 import React, { useState, Fragment, useRef, useEffect, useMemo } from 'react';
+import ReactDOM from 'react-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement, ElementBase } from '../../types';
 import { ElementType } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon } from '../Icons';
@@ -287,6 +288,8 @@ interface DefaultPanelProps {
 }
 
 const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle, onSelectElement, onHoverElement, onDeleteElement }) => {
+    const [imageTooltip, setImageTooltip] = useState<{ visible: boolean; src: string | null; x: number; y: number }>({ visible: false, src: null, x: 0, y: 0 });
+    
     const sortedElements = useMemo(() => 
         [...template.elements].sort((a, b) => b.zIndex - a.zIndex), 
         [template.elements]
@@ -307,6 +310,23 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                 // We cast `element` to access `id` since TypeScript correctly infers it as `never`.
                 return (element as ElementBase).id;
         }
+    };
+    
+    const handleMouseEnter = (event: React.MouseEvent, element: CanvasElement) => {
+        onHoverElement(element.id);
+        if (element.type === ElementType.Image && (element as ImageElement).src) {
+            setImageTooltip({
+                visible: true,
+                src: (element as ImageElement).src,
+                x: event.clientX,
+                y: event.clientY,
+            });
+        }
+    };
+
+    const handleMouseLeave = () => {
+        onHoverElement(null);
+        setImageTooltip({ visible: false, src: null, x: 0, y: 0 });
     };
 
     return (
@@ -374,8 +394,8 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                             <div
                                 key={element.id}
                                 onClick={() => onSelectElement(element.id)}
-                                onMouseEnter={() => onHoverElement(element.id)}
-                                onMouseLeave={() => onHoverElement(null)}
+                                onMouseEnter={(e) => handleMouseEnter(e, element)}
+                                onMouseLeave={handleMouseLeave}
                                 className="flex items-center justify-between p-2 rounded-md hover:bg-slate-700 cursor-pointer"
                             >
                                 <div className="flex items-center gap-2 overflow-hidden">
@@ -403,6 +423,26 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                     )}
                 </div>
             </Accordion>
+             {imageTooltip.visible && imageTooltip.src && ReactDOM.createPortal(
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: `${imageTooltip.y}px`,
+                        left: `${imageTooltip.x}px`,
+                        transform: 'translate(15px, -80px)',
+                        pointerEvents: 'none',
+                        zIndex: 10000,
+                        backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                        border: '1px solid #4a5568',
+                        borderRadius: '4px',
+                        padding: '4px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    }}
+                >
+                    <img src={imageTooltip.src} alt="תצוגה מקדימה" style={{ maxWidth: '90px', maxHeight: '90px', height: 'auto', display: 'block', borderRadius: '2px' }} />
+                </div>,
+                document.body
+            )}
         </>
     );
 };

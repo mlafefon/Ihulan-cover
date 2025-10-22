@@ -1060,13 +1060,14 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
     let endNode: Node | null = null;
     let endOffset = 0;
 
-    const lineDivs = Array.from(containerEl.childNodes);
+    // Fix: Explicitly type `lineDivs` to `Node[]` to avoid type inference issues with `childNodes`.
+    const lineDivs: Node[] = Array.from(containerEl.childNodes);
 
     const findPosition = (charPos: number): { node: Node; offset: number } | null => {
         let totalCharsProcessed = 0;
         for (let i = 0; i < lineDivs.length; i++) {
             const lineDiv = lineDivs[i];
-            // Fix: Cast child node to Node to access textContent property and resolve TypeScript error.
+            // Fix: Cast `lineDiv` to `Node` to explicitly resolve its type, which was being inferred as `unknown`.
             const lineContentLength = (lineDiv as Node).textContent?.length || 0;
 
             if (charPos >= totalCharsProcessed && charPos <= totalCharsProcessed + lineContentLength) {
@@ -1099,7 +1100,7 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
 
     let totalCharCount = 0;
     for (let i = 0; i < lineDivs.length; i++) {
-        // Fix: Cast child node to Node to access textContent property and resolve TypeScript error.
+        // Fix: Cast `lineDivs[i]` to `Node` to explicitly resolve its type, consistent with the fix in `findPosition`.
         totalCharCount += (lineDivs[i] as Node).textContent?.length || 0;
         if (i < lineDivs.length - 1) {
             totalCharCount++;
