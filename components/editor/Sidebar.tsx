@@ -6,6 +6,7 @@ import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart,
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
+import ColorPicker from './ColorPicker';
 
 interface SidebarProps {
     selectedElement: CanvasElement | null;
@@ -500,9 +501,6 @@ interface TextPanelProps {
 }
 
 const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
-    const textColorInputRef = useRef<HTMLInputElement>(null);
-    const bgColorInputRef = useRef<HTMLInputElement>(null);
-    const outlineColorInputRef = useRef<HTMLInputElement>(null);
     const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96];
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
@@ -523,13 +521,17 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
     const { hex: bgColorHex, alpha: bgColorAlpha } = parseColor(element.backgroundColor);
     const outline = element.outline || { enabled: false, color: '#FFFFFF', width: 1 };
 
-    const handleBgColorChange = (newHex: string) => {
-        const rgb = hexToRgb(newHex);
+    const handleBgColorChange = (newColor: string) => {
+        if (newColor === 'transparent') {
+            handleBlockUpdate('backgroundColor', 'transparent');
+            return;
+        }
+        const rgb = hexToRgb(newColor);
         if (rgb) {
-            // If the color was transparent, make the new color fully opaque. Otherwise, keep the alpha.
-            const newAlpha = element.backgroundColor === 'transparent' ? 1 : bgColorAlpha;
-            const newColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${newAlpha})`;
-            handleBlockUpdate('backgroundColor', newColor);
+            // If the color was transparent, make the new color fully opaque. Otherwise, keep the current alpha.
+            const currentAlpha = element.backgroundColor === 'transparent' ? 1 : bgColorAlpha;
+            const finalColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha})`;
+            handleBlockUpdate('backgroundColor', finalColor);
         }
     };
 
@@ -597,24 +599,15 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                         </label>
                     </div>
                      <div className="grid grid-cols-2 gap-2">
-                         <label>
+                        <div>
                             <span className="text-sm text-slate-400">צבע טקסט</span>
-                            <div className="flex items-center gap-2 mt-1">
-                                <div
-                                    onClick={() => textColorInputRef.current?.click()}
-                                    className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20"
-                                >
-                                    <div className="w-full h-full rounded-sm" style={{ backgroundColor: displayStyle.color }} />
-                                    <input
-                                        ref={textColorInputRef}
-                                        type="color"
-                                        value={displayStyle.color}
-                                        onChange={(e) => handleStyleChange('color', e.target.value)}
-                                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                </div>
-                            </div>
-                        </label>
+                             <div className="mt-1">
+                                <ColorPicker 
+                                    color={displayStyle.color}
+                                    onChange={(newColor) => handleStyleChange('color', newColor)}
+                                />
+                             </div>
+                        </div>
                         <div>
                             <span className="text-sm text-slate-400">צל טקסט</span>
                             <button
@@ -635,45 +628,15 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                 onToggle={() => onAccordionToggle('רקע וצורה')}
             >
                 <div className="space-y-4">
-                     <label>
+                    <div>
                         <span className="text-sm text-slate-400">צבע רקע</span>
-                        <div className="flex items-center gap-2 mt-1">
-                            <div
-                                onClick={() => bgColorInputRef.current?.click()}
-                                className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20"
-                            >
-                                <div
-                                    className="w-full h-full rounded-sm"
-                                    style={{
-                                        backgroundColor: element.backgroundColor,
-                                        backgroundImage: element.backgroundColor === 'transparent'
-                                            ? `linear-gradient(45deg, #ccc 25%, transparent 25%),
-                                               linear-gradient(-45deg, #ccc 25%, transparent 25%),
-                                               linear-gradient(45deg, transparent 75%, #ccc 75%),
-                                               linear-gradient(-45deg, transparent 75%, #ccc 75%)`
-                                            : 'none',
-                                        backgroundSize: '10px 10px',
-                                        backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px',
-                                    }}
-                                />
-                                <input
-                                    ref={bgColorInputRef}
-                                    type="color"
-                                    value={bgColorHex}
-                                    onChange={(e) => handleBgColorChange(e.target.value)}
-                                    className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                />
-                            </div>
-                            <button
-                                onClick={() => handleBlockUpdate('backgroundColor', 'transparent')}
-                                className="h-[30px] w-[30px] bg-slate-700 hover:bg-slate-600 rounded flex-shrink-0 flex items-center justify-center"
-                                title="הפוך רקע לשקוף"
-                                aria-label="Set background to transparent"
-                            >
-                                <BanIcon className="w-5 h-5 text-slate-400" />
-                            </button>
+                         <div className="mt-1">
+                            <ColorPicker
+                                color={element.backgroundColor}
+                                onChange={handleBgColorChange}
+                            />
                         </div>
-                    </label>
+                    </div>
                     <div>
                         <label className="block text-sm text-slate-400 mb-1">
                             שקיפות רקע: {Math.round(bgColorAlpha * 100)}%
@@ -718,21 +681,14 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                                     onChange={(newValue) => handleOutlineChange({ width: newValue })}
                                     min={0}
                                 />
-                                <div>
+                                 <div className="flex flex-col">
                                     <span className="text-sm text-slate-400">צבע</span>
-                                    <div
-                                        onClick={() => outlineColorInputRef.current?.click()}
-                                        className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20 mt-1"
-                                    >
-                                        <div className="w-full h-full rounded-sm" style={{ backgroundColor: outline.color }} />
-                                        <input
-                                            ref={outlineColorInputRef}
-                                            type="color"
-                                            value={outline.color}
-                                            onChange={(e) => handleOutlineChange({ color: e.target.value })}
-                                            className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                     <div className="mt-1">
+                                        <ColorPicker 
+                                            color={outline.color}
+                                            onChange={(newColor) => handleOutlineChange({ color: newColor })}
                                         />
-                                    </div>
+                                     </div>
                                 </div>
                             </div>
                         )}

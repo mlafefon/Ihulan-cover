@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon, TrashIcon } from '../Icons';
 import type { ImageEditState } from '../../types';
+import ColorPicker from './ColorPicker';
 
 interface ImageEditorProps {
     imageSrc: string;
@@ -868,16 +869,10 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                             <div className="text-slate-400 pb-2 text-xl">&larr;</div>
                             <div>
                                 <label className="text-xs text-slate-400 block mb-1 text-center">יעד</label>
-                                <div className="relative">
-                                    <div 
-                                        className="w-10 h-10 rounded-md border-2 border-slate-600"
-                                        style={{ backgroundColor: colorReplace.to }}
-                                    ></div>
-                                    <input 
-                                        type="color" 
-                                        value={colorReplace.to} 
-                                        onChange={e => setColorReplace(prev => ({...prev, to: e.target.value, enabled: prev.from.length > 0}))} 
-                                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                <div className="w-10">
+                                    <ColorPicker
+                                        color={colorReplace.to}
+                                        onChange={newColor => setColorReplace(prev => ({...prev, to: newColor, enabled: prev.from.length > 0}))}
                                     />
                                 </div>
                             </div>
@@ -957,12 +952,12 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                         </div>
                         <div>
                             <label className="text-sm text-slate-400">צבע</label>
-                            <input
-                                type="color"
-                                value={frame.color}
-                                onChange={e => setFrame(f => ({ ...f, color: e.target.value }))}
-                                className="w-full h-10 bg-slate-700 border border-slate-600 rounded p-1 mt-1"
-                            />
+                            <div className="mt-1">
+                                <ColorPicker
+                                    color={frame.color}
+                                    onChange={newColor => setFrame(f => ({ ...f, color: newColor }))}
+                                />
+                            </div>
                         </div>
                     </div>
                 </Accordion>
