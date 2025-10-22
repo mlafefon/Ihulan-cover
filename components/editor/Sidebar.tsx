@@ -870,10 +870,14 @@ const TransformPanel: React.FC<{ element: CanvasElement; onUpdate: (id: string, 
     return (
         <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
             <NumericStepper
-                label="רוחב (W)"
-                value={Math.round(element.width)}
-                onChange={(newValue) => handleUpdate('width', newValue)}
-                min={10}
+                label="מיקום Y"
+                value={Math.round(element.y)}
+                onChange={(newValue) => handleUpdate('y', newValue)}
+            />
+            <NumericStepper
+                label="מיקום X"
+                value={Math.round(element.x)}
+                onChange={(newValue) => handleUpdate('x', newValue)}
             />
             <NumericStepper
                 label="גובה (H)"
@@ -882,14 +886,10 @@ const TransformPanel: React.FC<{ element: CanvasElement; onUpdate: (id: string, 
                 min={10}
             />
             <NumericStepper
-                label="מיקום X"
-                value={Math.round(element.x)}
-                onChange={(newValue) => handleUpdate('x', newValue)}
-            />
-            <NumericStepper
-                label="מיקום Y"
-                value={Math.round(element.y)}
-                onChange={(newValue) => handleUpdate('y', newValue)}
+                label="רוחב (W)"
+                value={Math.round(element.width)}
+                onChange={(newValue) => handleUpdate('width', newValue)}
+                min={10}
             />
             <div className="col-span-2">
                 <NumericStepper
