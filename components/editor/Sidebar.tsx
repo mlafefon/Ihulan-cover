@@ -2,7 +2,7 @@ import React, { useState, Fragment, useRef, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement, ElementBase } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon, BrushIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon, BrushIcon, TextToImageIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
@@ -27,6 +27,7 @@ interface SidebarProps {
     onHoverElement: (id: string | null) => void;
     formatBrushState: { active: boolean; sourceElement: TextElement | null };
     onToggleFormatBrush: () => void;
+    onConvertTextToImage: (id: string) => void;
 }
 
 // Helpers
@@ -64,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
     onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
     onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement,
-    formatBrushState, onToggleFormatBrush
+    formatBrushState, onToggleFormatBrush, onConvertTextToImage
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
     const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -217,13 +218,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     מחק רכיב
                                 </button>
                                 {selectedElement.type === ElementType.Text && (
-                                    <button
-                                        onClick={onToggleFormatBrush}
-                                        className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${formatBrushState.active ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                        title="העתק עיצוב"
-                                    >
-                                        <BrushIcon className="w-5 h-5" />
-                                    </button>
+                                    <>
+                                        <button
+                                            onClick={() => onConvertTextToImage(selectedElement.id)}
+                                            disabled={isApplyingCut}
+                                            className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-wait"
+                                            title="המר לתמונה"
+                                        >
+                                            <TextToImageIcon className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={onToggleFormatBrush}
+                                            className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${formatBrushState.active ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                            title="העתק עיצוב"
+                                        >
+                                            <BrushIcon className="w-5 h-5" />
+                                        </button>
+                                    </>
                                 )}
                                 <button
                                     onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}

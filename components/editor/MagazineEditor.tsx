@@ -883,6 +883,59 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         handleTemplateChange({ ...template, elements: finalElements });
     };
 
+    const handleConvertTextToImage = async (elementId: string) => {
+        const element = template.elements.find(el => el.id === elementId && el.type === ElementType.Text) as TextElement | undefined;
+        if (!element) return;
+
+        setIsSaving(true);
+        // Deselect to hide controls before capturing
+        const previouslySelected = selectedElementId;
+        setSelectedElementId(null);
+        await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render
+
+        const domNode = elementRefMap.current[elementId]?.wrapper;
+        if (!domNode || !fontCss || !(window as any).htmlToImage) {
+            alert("שגיאה בהכנה לצילום האלמנט.");
+            setIsSaving(false);
+            setSelectedElementId(previouslySelected); // Reselect
+            return;
+        }
+
+        try {
+            const dataUrl = await (window as any).htmlToImage.toPng(domNode, {
+                pixelRatio: 3, // High quality
+                fontEmbedCSS: fontCss,
+            });
+
+            const newImageElement: ImageElement = {
+                id: element.id, // Keep same ID
+                type: ElementType.Image,
+                x: element.x,
+                y: element.y,
+                width: element.width,
+                height: element.height,
+                rotation: element.rotation,
+                zIndex: element.zIndex,
+                src: dataUrl,
+                originalSrc: dataUrl, // The generated image is the new original
+                objectFit: 'fill', // To fit the exact dimensions
+                editState: null, // Reset edit state
+                locked: element.locked,
+            };
+
+            const newElements = template.elements.map(el => (el.id === elementId ? newImageElement : el));
+            handleTemplateChange({ ...template, elements: newElements });
+            setSelectedElementId(elementId); // Select the new image element
+            
+        } catch (e) {
+            console.error("html-to-image failed for text-to-image conversion:", e);
+            alert("שגיאה בהמרת הטקסט לתמונה.");
+            setSelectedElementId(previouslySelected); // Reselect original on error
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
 
     const toggleFormatBrush = () => {
@@ -1132,6 +1185,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 onHoverElement={setHoveredElementId}
                 formatBrushState={formatBrushState}
                 onToggleFormatBrush={toggleFormatBrush}
+                onConvertTextToImage={handleConvertTextToImage}
             />
             {showExitConfirm && (
                 <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">

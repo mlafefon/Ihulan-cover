@@ -843,7 +843,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             onInput={(e) => {
                                 // Reconstruct from textContent to avoid innerText quirks.
                                 const reconstructedText = Array.from(e.currentTarget.childNodes)
-                                    .map(node => node.textContent || '')
+                                    .map(node => (node as Node).textContent || '')
                                     .join('\n');
                                 
                                 // Sanitize to match data model (remove zero-width spaces).
@@ -1070,8 +1070,9 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
     let endNode: Node | null = null;
     let endOffset = 0;
 
-    // Fix: Explicitly type `lineDivs` to `Node[]` to avoid type inference issues with `childNodes`.
-    const lineDivs: ChildNode[] = Array.from(containerEl.childNodes);
+    // Fix: Cast the result of `childNodes` to `Node[]`. The default `ChildNode` type lacks properties
+    // like `textContent` and is not compatible with APIs like `createTreeWalker`, causing type errors.
+    const lineDivs: Node[] = Array.from(containerEl.childNodes) as Node[];
 
     const findPosition = (charPos: number): { node: Node; offset: number } | null => {
         let totalCharsProcessed = 0;
@@ -1084,7 +1085,8 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
                 const targetOffsetInLine = charPos - totalCharsProcessed;
                 const walker = document.createTreeWalker(lineDiv, NodeFilter.SHOW_TEXT);
                 let textNode;
-                while ((textNode = walker.nextNode())) {
+                // Fix: Cast the result of nextNode() to Node | null to resolve an 'unknown' type error.
+                while ((textNode = walker.nextNode() as Node | null)) {
                     const nodeLength = textNode.textContent?.length || 0;
                     if (targetOffsetInLine >= lineCharOffset && targetOffsetInLine <= lineCharOffset + nodeLength) {
                         return { node: textNode, offset: targetOffsetInLine - lineCharOffset };
@@ -1109,8 +1111,6 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
 
     let totalCharCount = 0;
     for (let i = 0; i < lineDivs.length; i++) {
-        // Fix: Cast `lineDivs[i]` to `Node` to explicitly resolve its type, consistent with the fix in `findPosition`.
-        // Fix: Change type to ChildNode[] which is more specific and solves the issue. No cast needed.
         totalCharCount += lineDivs[i].textContent?.length || 0;
         if (i < lineDivs.length - 1) {
             totalCharCount++;
@@ -1123,7 +1123,8 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
         if (containerEl.lastChild) {
              const walker = document.createTreeWalker(containerEl.lastChild, NodeFilter.SHOW_TEXT);
              let n;
-             while ((n = walker.nextNode())) lastTextNode = n;
+             // Fix: Cast the result of nextNode() to Node | null to resolve a potential 'unknown' type error, consistent with other fixes.
+             while ((n = walker.nextNode() as Node | null)) lastTextNode = n;
         }
 
         if (lastTextNode) {

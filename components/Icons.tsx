@@ -190,3 +190,12 @@ export const UnlockIcon = (props: React.SVGProps<SVGSVGElement>) => (
         <path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
     </svg>
 );
+
+export const TextToImageIcon = (props: React.SVGProps<SVGSVGElement>) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <path d="M8 16h8"/>
+        <path d="m12 8 2.5 5"/>
+        <path d="m12 8-2.5 5"/>
+    </svg>
+);
