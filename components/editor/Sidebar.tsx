@@ -66,6 +66,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     const [elementId, setElementId] = useState(selectedElement?.id || '');
     const [openAccordion, setOpenAccordion] = useState<string | null>(null);
 
+    // Track previous state to implement the specific accordion logic
+    const prevSelectedId = useRef<string | null>(null);
+    const prevIsEditing = useRef<boolean>(false);
+
     useEffect(() => {
         if (selectedElement) {
             setElementId(selectedElement.id);
@@ -73,16 +77,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     }, [selectedElement]);
 
     useEffect(() => {
-        if (selectedElement) {
-            if (selectedElement.type === ElementType.Text) {
+        const currentSelectedId = selectedElement?.id || null;
+
+        if (!selectedElement) {
+            setOpenAccordion('הגדרות עמוד');
+        } else {
+            // Case 1: Just entered edit mode for a text element.
+            if (isEditing && !prevIsEditing.current && selectedElement.type === ElementType.Text) {
                 setOpenAccordion('טיפוגרפיה וצבע');
-            } else {
+            }
+            // Case 2: Just selected a new element (and not immediately editing it).
+            else if (currentSelectedId !== prevSelectedId.current && !isEditing) {
+                // For any newly selected element, open "Position and Size".
                 setOpenAccordion('מיקום וגודל');
             }
-        } else {
-            setOpenAccordion('הגדרות עמוד');
         }
-    }, [selectedElement?.id]);
+
+        // Update refs for the next render cycle.
+        prevSelectedId.current = selectedElement?.id || null;
+        prevIsEditing.current = isEditing;
+    }, [selectedElement, isEditing]);
+
 
     const handleAccordionToggle = (title: string) => {
         setOpenAccordion(prev => (prev === title ? null : title));
