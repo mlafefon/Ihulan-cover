@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { EyeDropperIcon, BanIcon } from '../Icons';
+import { EyeDropperIcon, BanIcon, PlusIcon } from '../Icons';
 
 const PRESET_COLORS = [
     ['#ffffff', '#f5f5f5', '#e0e0e0', '#b8b8b8', '#8f8f8f', '#4c4c4c', '#000000'],
@@ -99,10 +99,12 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
                     <button onClick={handleEyeDropper} className="p-2 rounded-full hover:bg-slate-700" title="טפטפת"><EyeDropperIcon className="w-5 h-5" /></button>
                     <div className="relative w-6 h-6">
                         <div 
-                            className="w-full h-full rounded-full border border-slate-600 cursor-pointer"
+                            className="w-full h-full rounded-full border border-slate-600 cursor-pointer flex items-center justify-center"
                             style={{ backgroundColor: color === 'transparent' ? '#ffffff' : color }}
                             onClick={() => customColorInputRef.current?.click()}
-                        />
+                        >
+                            <PlusIcon className="w-4 h-4 text-white" style={{ mixBlendMode: 'difference' }} />
+                        </div>
                         <input
                             ref={customColorInputRef}
                             type="color"

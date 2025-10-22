@@ -419,10 +419,15 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                             step={10}
                         />
                     </div>
-                     <label className="flex items-center justify-between gap-2">
+                    <div className="flex items-center justify-between gap-2">
                         <span className="text-sm text-slate-400">צבע רקע</span>
-                        <input type="color" value={template.background_color} onChange={(e) => onUpdateTemplate({background_color: e.target.value})} className="w-24 h-10 bg-slate-700 border border-slate-600 rounded p-1"/>
-                    </label>
+                        <div className="w-24">
+                            <ColorPicker
+                                color={template.background_color}
+                                onChange={(newColor) => onUpdateTemplate({ background_color: newColor })}
+                            />
+                        </div>
+                    </div>
                  </div>
             </Accordion>
 
