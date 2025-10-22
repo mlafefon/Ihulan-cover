@@ -14,9 +14,10 @@ const PRESET_COLORS = [
 interface ColorPickerProps {
     color: string;
     onChange: (newColor: string) => void;
+    renderTrigger?: (triggerProps: { ref: React.RefObject<HTMLButtonElement>; onClick: () => void; 'aria-haspopup': 'true'; 'aria-expanded': boolean }, color: string) => React.ReactNode;
 }
 
-const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
+const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange, renderTrigger }) => {
     const [isOpen, setIsOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const popoverRef = useRef<HTMLDivElement>(null);
@@ -138,27 +139,35 @@ const ColorPicker: React.FC<ColorPickerProps> = ({ color, onChange }) => {
         </div>
     );
 
+    const triggerProps = {
+        ref: triggerRef,
+        onClick: () => setIsOpen(o => !o),
+        'aria-haspopup': 'true' as 'true',
+        'aria-expanded': isOpen,
+    };
+
     return (
         <div>
-            <button
-                ref={triggerRef}
-                onClick={() => setIsOpen(o => !o)}
-                className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20"
-                aria-haspopup="true"
-                aria-expanded={isOpen}
-            >
-                <div
-                    className="w-full h-full rounded-sm"
-                    style={{
-                        backgroundColor: color,
-                        backgroundImage: color === 'transparent'
-                            ? `linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%)`
-                            : 'none',
-                        backgroundSize: '8px 8px',
-                        backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
-                    }}
-                />
-            </button>
+            {renderTrigger ? (
+                renderTrigger(triggerProps, color)
+            ) : (
+                <button
+                    {...triggerProps}
+                    className="relative w-full h-[30px] rounded-md cursor-pointer bg-slate-900/50 p-0.5 ring-1 ring-slate-600 hover:ring-blue-500 transition-all shadow-inner shadow-black/20"
+                >
+                    <div
+                        className="w-full h-full rounded-sm"
+                        style={{
+                            backgroundColor: color,
+                            backgroundImage: color === 'transparent'
+                                ? `linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%)`
+                                : 'none',
+                            backgroundSize: '8px 8px',
+                            backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px',
+                        }}
+                    />
+                </button>
+            )}
             {isOpen && ReactDOM.createPortal(popoverContent, document.body)}
         </div>
     );

@@ -2,7 +2,7 @@ import React, { useState, Fragment, useRef, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement, ElementBase } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon, BrushIcon, TextToImageIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon, BrushIcon, TextToImageIcon, PaletteIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
@@ -567,6 +567,29 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
         justify: { icon: AlignJustifyIcon, title: 'יישור לשני הצדדים' },
     };
 
+    const renderBackgroundColorTrigger = (triggerProps: { ref: React.RefObject<HTMLButtonElement>; onClick: () => void; 'aria-haspopup': 'true'; 'aria-expanded': boolean }, color: string) => (
+        <div className="relative group">
+            <button
+                {...triggerProps}
+                type="button"
+                className="w-10 h-10 flex flex-col items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600"
+            >
+                <PaletteIcon className="w-5 h-5 mb-1" />
+                <div
+                    className="w-4 h-1 rounded-full"
+                    style={{
+                        backgroundColor: color === 'transparent' ? '#808080' : color,
+                        backgroundImage: color === 'transparent' ? `linear-gradient(45deg, #4c4c4c 25%, transparent 25%), linear-gradient(-45deg, #4c4c4c 25%, transparent 25%)` : 'none',
+                        backgroundSize: '4px 4px',
+                    }}
+                />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                צבע רקע
+            </div>
+        </div>
+    );
+
     return (
         <div>
             <Accordion 
@@ -633,27 +656,28 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                 onToggle={() => onAccordionToggle('רקע וצורה')}
             >
                 <div className="space-y-4">
-                    <div>
-                        <span className="text-sm text-slate-400">צבע רקע</span>
-                         <div className="mt-1">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-slate-400">רקע</span>
+                        <div className="flex items-center gap-3">
                             <ColorPicker
                                 color={element.backgroundColor}
                                 onChange={handleBgColorChange}
+                                renderTrigger={renderBackgroundColorTrigger}
                             />
+                            <div className="flex-grow flex items-center gap-2">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={Math.round(bgColorAlpha * 100)}
+                                    onChange={(e) => handleBgAlphaChange(parseInt(e.target.value, 10))}
+                                    className="w-full"
+                                    disabled={element.backgroundColor === 'transparent'}
+                                    title="שקיפות רקע"
+                                />
+                                <span className="text-xs text-slate-400 w-8 text-right">{Math.round(bgColorAlpha * 100)}%</span>
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm text-slate-400 mb-1">
-                            שקיפות רקע: {Math.round(bgColorAlpha * 100)}%
-                        </label>
-                        <input
-                            type="range"
-                            min="0"
-                            max="100"
-                            value={Math.round(bgColorAlpha * 100)}
-                            onChange={(e) => handleBgAlphaChange(parseInt(e.target.value, 10))}
-                            className="w-full"
-                        />
                     </div>
                     <label className="block">
                         <span className="text-sm text-slate-400">צורת רקע</span>
