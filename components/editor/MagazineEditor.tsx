@@ -49,6 +49,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [showExitConfirm, setShowExitConfirm] = useState(false);
     const [isSavingOnExit, setIsSavingOnExit] = useState(false);
     const [nextLocation, setNextLocation] = useState<string | null>(null);
+    const [formatBrushState, setFormatBrushState] = useState<{ active: boolean; sourceElement: TextElement | null }>({ active: false, sourceElement: null });
 
     const handleAttemptNavigation = (to: string) => {
         if (isDirty) {
@@ -884,6 +885,21 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
 
     const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
 
+    const toggleFormatBrush = () => {
+        if (!selectedElement || selectedElement.type !== ElementType.Text) {
+            setFormatBrushState({ active: false, sourceElement: null });
+            return;
+        }
+    
+        setFormatBrushState(prevState => {
+            if (prevState.active) {
+                return { active: false, sourceElement: null };
+            } else {
+                return { active: true, sourceElement: selectedElement as TextElement };
+            }
+        });
+    };
+
     const activeStyle = useMemo(() => {
         if (selectedElement?.type !== ElementType.Text || !selectionRange) {
             return selectedElement?.type === ElementType.Text ? selectedElement.spans[0]?.style || null : null;
@@ -902,9 +918,46 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     
     const handleSelectElement = useCallback((id: string | null) => {
         const previouslySelectedId = selectedElementId;
+        const newSelectedElement = id ? templateRef.current.elements.find(el => el.id === id) : null;
     
-        if (id !== previouslySelectedId) {
-            setEditingElementId(null);
+        // 1. Handle format brush logic first
+        if (
+            formatBrushState.active &&
+            formatBrushState.sourceElement &&
+            newSelectedElement?.type === 'text' &&
+            newSelectedElement.id !== formatBrushState.sourceElement.id
+        ) {
+            const source = formatBrushState.sourceElement;
+            const target = newSelectedElement as TextElement;
+
+            const blockUpdates: Partial<TextElement> = {
+                backgroundColor: source.backgroundColor,
+                padding: source.padding,
+                backgroundShape: source.backgroundShape,
+                outline: source.outline,
+                letterSpacing: source.letterSpacing,
+            };
+
+            const sourceStyle = source.spans[0]?.style || defaultTextStyle;
+            const styleUpdates: Partial<TextStyle> = {
+                fontFamily: sourceStyle.fontFamily,
+                fontSize: sourceStyle.fontSize,
+                fontWeight: sourceStyle.fontWeight,
+                color: sourceStyle.color,
+                textShadow: sourceStyle.textShadow,
+                lineHeight: sourceStyle.lineHeight,
+            };
+
+            const newTargetSpans = target.spans.map(span => ({
+                ...span,
+                style: { ...span.style, ...styleUpdates }
+            }));
+
+            const finalTargetElement = { ...target, ...blockUpdates, spans: newTargetSpans };
+            const newElements = templateRef.current.elements.map(el => (el.id === target.id ? finalTargetElement : el));
+
+            handleTemplateChange({ ...templateRef.current, elements: newElements });
+            setFormatBrushState({ active: false, sourceElement: null });
         }
 
         // If the selection is changing and the previously selected element was a Cutter, delete it.
@@ -917,8 +970,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             }
         }
         
-        const newSelectedElement = id ? templateRef.current.elements.find(el => el.id === id) : null;
-        if (!newSelectedElement || newSelectedElement.type !== ElementType.Cutter) {
+        const currentSelectedElement = id ? templateRef.current.elements.find(el => el.id === id) : null;
+        if (!currentSelectedElement || currentSelectedElement.type !== ElementType.Cutter) {
             setCutterTargetId(null);
         }
 
@@ -929,7 +982,10 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
         setSelectedElementId(id);
         setSelectionRange(null);
-    }, [selectedElementId, handleTemplateChange]);
+        if (id !== previouslySelectedId) {
+            setEditingElementId(null);
+        }
+    }, [selectedElementId, handleTemplateChange, formatBrushState]);
     
     const handleCanvasMouseDown = (e: React.MouseEvent) => {
         if (e.target === e.currentTarget) {
@@ -1044,6 +1100,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 otherElements={template.elements.filter(e => e.id !== element.id)}
                                 setSnapLines={setSnapLines}
                                 activeStyle={selectedElementId === element.id ? activeStyle : null}
+                                formatBrushState={formatBrushState}
                             />
                         ))}
                         {snapLines.x.map((x, i) => (
@@ -1073,6 +1130,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 isApplyingCut={isSaving}
                 onSelectElement={handleSelectElement}
                 onHoverElement={setHoveredElementId}
+                formatBrushState={formatBrushState}
+                onToggleFormatBrush={toggleFormatBrush}
             />
             {showExitConfirm && (
                 <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">

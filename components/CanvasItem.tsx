@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import type { CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement } from '../types';
-import { ElementType } from '../types';
+import { ElementType } from '../../types';
 import { ImageIcon } from './Icons';
 
 interface CanvasItemProps {
@@ -24,6 +24,7 @@ interface CanvasItemProps {
     otherElements: CanvasElement[];
     setSnapLines: (lines: { x: number[], y: number[] }) => void;
     activeStyle: TextStyle | null;
+    formatBrushState: { active: boolean; sourceElement: TextElement | null };
 }
 
 const handlePositionClasses: { [key: string]: string } = {
@@ -71,6 +72,8 @@ const getSunClipPath = () => {
 // Custom cursor that combines move and text-edit affordances.
 const moveAndTextCursor = "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0xMCA5SDE0TTEwIDE1SDE0TTEyIDlWMTUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBhdGggZD0iTTEwIDlIMTRNMTAgMTVIMTRNMTIgOVYxNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==') 12 12, move";
 
+const brushCursor = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white' stroke='black' stroke-width='1'><path d='m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08'/><path d='M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z'/></svg>\") 2 22, pointer";
+
 // A default style object to ensure all required properties exist on a text style.
 export const defaultTextStyle: TextStyle = {
     fontFamily: 'Heebo',
@@ -82,7 +85,7 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar, formatBrushState }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
@@ -691,6 +694,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
 
     const cursorStyle = useMemo(() => {
+        if (formatBrushState.active && element.type === ElementType.Text && element.id !== formatBrushState.sourceElement?.id) {
+            return { wrapper: brushCursor, content: brushCursor };
+        }
         if ((isInteracting && !isSelected) || isRotating) {
             return { wrapper: 'default', content: 'default' };
         }
@@ -709,7 +715,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             }
         }
         return { wrapper: 'move', content: 'move' };
-    }, [element.type, isSelected, isEditing, element.locked, isInteracting, isRotating]);
+    }, [element, isSelected, isEditing, isInteracting, isRotating, formatBrushState]);
 
 
     const itemStyle: React.CSSProperties = {
@@ -1065,14 +1071,13 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
     let endOffset = 0;
 
     // Fix: Explicitly type `lineDivs` to `Node[]` to avoid type inference issues with `childNodes`.
-    const lineDivs: Node[] = Array.from(containerEl.childNodes);
+    const lineDivs: ChildNode[] = Array.from(containerEl.childNodes);
 
     const findPosition = (charPos: number): { node: Node; offset: number } | null => {
         let totalCharsProcessed = 0;
         for (let i = 0; i < lineDivs.length; i++) {
             const lineDiv = lineDivs[i];
-            // Fix: Cast `lineDiv` to `Node` to explicitly resolve its type, which was being inferred as `unknown`.
-            const lineContentLength = (lineDiv as Node).textContent?.length || 0;
+            const lineContentLength = lineDiv.textContent?.length || 0;
 
             if (charPos >= totalCharsProcessed && charPos <= totalCharsProcessed + lineContentLength) {
                 let lineCharOffset = 0;
@@ -1105,7 +1110,8 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
     let totalCharCount = 0;
     for (let i = 0; i < lineDivs.length; i++) {
         // Fix: Cast `lineDivs[i]` to `Node` to explicitly resolve its type, consistent with the fix in `findPosition`.
-        totalCharCount += (lineDivs[i] as Node).textContent?.length || 0;
+        // Fix: Change type to ChildNode[] which is more specific and solves the issue. No cast needed.
+        totalCharCount += lineDivs[i].textContent?.length || 0;
         if (i < lineDivs.length - 1) {
             totalCharCount++;
         }

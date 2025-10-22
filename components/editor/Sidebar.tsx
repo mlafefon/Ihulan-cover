@@ -2,7 +2,7 @@ import React, { useState, Fragment, useRef, useEffect, useMemo } from 'react';
 import ReactDOM from 'react-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement, ElementBase } from '../../types';
 import { ElementType } from '../../types';
-import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon } from '../Icons';
+import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon, BrushIcon } from '../Icons';
 import { availableFonts } from '../fonts/FontManager';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
@@ -25,6 +25,8 @@ interface SidebarProps {
     isApplyingCut: boolean;
     onSelectElement: (id: string | null) => void;
     onHoverElement: (id: string | null) => void;
+    formatBrushState: { active: boolean; sourceElement: TextElement | null };
+    onToggleFormatBrush: () => void;
 }
 
 // Helpers
@@ -61,7 +63,8 @@ const parseColor = (color: string): { hex: string; alpha: number } => {
 const Sidebar: React.FC<SidebarProps> = ({ 
     selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
     onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
-    onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement
+    onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement,
+    formatBrushState, onToggleFormatBrush
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
     const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -205,14 +208,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                             />
                         </Accordion>
                         <div className="p-4 mt-4 border-t border-slate-700 space-y-2">
-                             <button
-                                onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
-                                className={`w-full flex items-center justify-center gap-2 text-white font-bold py-2 px-4 rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
-                            >
-                                {selectedElement.locked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
-                                <span>{selectedElement.locked ? 'שחרר נעילה' : 'נעל רכיב'}</span>
-                            </button>
+                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
+                                    className={`flex-grow flex items-center justify-center gap-2 text-white font-bold py-2 px-4 rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                    title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
+                                >
+                                    {selectedElement.locked ? <UnlockIcon className="w-4 h-4" /> : <LockIcon className="w-4 h-4" />}
+                                    <span>{selectedElement.locked ? 'שחרר נעילה' : 'נעל רכיב'}</span>
+                                </button>
+                                {selectedElement.type === ElementType.Text && (
+                                    <button
+                                        onClick={onToggleFormatBrush}
+                                        className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${formatBrushState.active ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                        title="העתק עיצוב"
+                                    >
+                                        <BrushIcon className="w-5 h-5" />
+                                    </button>
+                                )}
+                             </div>
                             <button onClick={() => onDeleteElement(selectedElement.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2">
                                 <TrashIcon className="w-4 h-4" />
                                 מחק רכיב
