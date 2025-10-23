@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon, TrashIcon } from '../Icons';
 import type { ImageEditState } from '../../types';
+import { hexToRgb } from '../../types';
 import ColorPicker from './ColorPicker';
 
 interface ImageEditorProps {
@@ -11,16 +12,6 @@ interface ImageEditorProps {
     onCancel: () => void;
     initialEditState?: ImageEditState;
 }
-
-// Helper to convert hex color to RGB object
-const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-    } : null;
-};
 
 // Helper to calculate color distance
 const colorDistance = (rgb1: { r: number; g: number; b: number }, rgb2: { r: number; g: number; b: number }): number => {

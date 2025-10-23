@@ -167,3 +167,19 @@ export interface CutterElement extends ElementBase {
 }
 
 export type CanvasElement = TextElement | ImageElement | CutterElement;
+
+// --- UTILITY FUNCTIONS ---
+
+/**
+ * Converts a hex color string to an RGB object.
+ * @param hex - The hex color string (e.g., "#ff0000" or "ff0000").
+ * @returns An object with r, g, b properties, or null if the hex is invalid.
+ */
+export const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+    } : null;
+};
