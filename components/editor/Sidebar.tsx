@@ -420,15 +420,15 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                  <div className="space-y-3">
                     <div className="flex gap-2">
                          <NumericStepper 
-                            label="רוחב"
-                            value={template.width}
-                            onChange={(newValue) => onUpdateTemplate({width: newValue})}
-                            step={10}
-                        />
-                         <NumericStepper 
                             label="גובה"
                             value={template.height}
                             onChange={(newValue) => onUpdateTemplate({height: newValue})}
+                            step={10}
+                        />
+                         <NumericStepper 
+                            label="רוחב"
+                            value={template.width}
+                            onChange={(newValue) => onUpdateTemplate({width: newValue})}
                             step={10}
                         />
                     </div>
