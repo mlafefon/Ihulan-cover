@@ -145,7 +145,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     
     const findElementUnder = useCallback((cutterEl: CutterElement, allElements: CanvasElement[]): CanvasElement | null => {
         const sortedElements = allElements
-            .filter(el => el.id !== cutterEl.id && (el.type === 'image' || el.type === 'text'))
+            .filter(el => el.id !== cutterEl.id && el.type === 'image')
             .sort((a, b) => b.zIndex - a.zIndex);
     
         for (const el of sortedElements) {
@@ -710,47 +710,20 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         const cutter = template.elements.find(el => el.id === selectedElementId && el.type === ElementType.Cutter) as CutterElement | undefined;
         if (!cutter) return;
     
-        const targetElement = findElementUnder(cutter, template.elements);
+        const targetElement = findElementUnder(cutter, template.elements) as ImageElement | null;
         if (!targetElement) {
-            alert("לא נמצא אלמנט לחיתוך מתחת לצורה.");
+            alert("לא נמצאה תמונה לחיתוך מתחת לצורה.");
+            return;
+        }
+
+        const imageToClipSrc = targetElement.src;
+
+        if (!imageToClipSrc) {
+            alert("לא ניתן לחתוך תמונה ללא מקור.");
             return;
         }
     
         setIsSaving(true);
-    
-        let imageToClipSrc: string | null = null;
-        let originalSrcForNewElement: string | null = null;
-    
-        if (targetElement.type === ElementType.Text) {
-            const domNode = elementRefMap.current[targetElement.id]?.wrapper;
-            if (!domNode || !fontCss) {
-                alert("שגיאה בעיבוד אלמנט הטקסט. ודא שהפונטים נטענו.");
-                setIsSaving(false);
-                return;
-            }
-            try {
-                const capturedImage = await (window as any).htmlToImage.toPng(domNode, {
-                    backgroundColor: 'transparent',
-                    pixelRatio: 2,
-                    fontEmbedCSS: fontCss,
-                });
-                imageToClipSrc = capturedImage;
-                originalSrcForNewElement = capturedImage;
-            } catch (e) {
-                console.error("html-to-image failed for text element:", e);
-                alert("שגיאה בהמרת הטקסט לתמונה.");
-                setIsSaving(false);
-                return;
-            }
-        } else if (targetElement.type === ElementType.Image) {
-            imageToClipSrc = (targetElement as ImageElement).src;
-        }
-    
-        if (!imageToClipSrc) {
-            alert("לא ניתן היה למצוא מקור תמונה לחיתוך.");
-            setIsSaving(false);
-            return;
-        }
     
         const image = new Image();
         image.crossOrigin = "Anonymous";
@@ -801,43 +774,17 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     
             const clippedDataUrl = canvas.toDataURL('image/png');
             
-            let finalElements: CanvasElement[];
-            let newSelectedId: string;
-    
-            if (targetElement.type === ElementType.Image) {
-                // Non-destructive update for images
-                finalElements = template.elements
-                    .map(el => {
-                        if (el.id === targetElement.id) {
-                            return { ...el, src: clippedDataUrl, objectFit: 'fill' } as ImageElement;
-                        }
-                        return el;
-                    })
-                    .filter(el => el.id !== cutter.id);
-                
-                newSelectedId = targetElement.id;
-            } else { // Text element was converted
-                const newImageElement: ImageElement = {
-                    id: `clipped_${Date.now()}`,
-                    type: ElementType.Image,
-                    x: targetElement.x,
-                    y: targetElement.y,
-                    width: targetElement.width,
-                    height: targetElement.height,
-                    rotation: targetElement.rotation,
-                    zIndex: targetElement.zIndex,
-                    src: clippedDataUrl,
-                    originalSrc: originalSrcForNewElement, // Use the captured full text image
-                    objectFit: 'fill',
-                    editState: null,
-                };
-    
-                finalElements = template.elements
-                    .filter(el => el.id !== cutter.id && el.id !== targetElement.id)
-                    .concat(newImageElement);
-                    
-                newSelectedId = newImageElement.id;
-            }
+            // Non-destructive update for images
+            const finalElements = template.elements
+                .map(el => {
+                    if (el.id === targetElement.id) {
+                        return { ...el, src: clippedDataUrl, objectFit: 'fill' } as ImageElement;
+                    }
+                    return el;
+                })
+                .filter(el => el.id !== cutter.id);
+            
+            const newSelectedId = targetElement.id;
     
             handleTemplateChange({ ...template, elements: finalElements });
             setSelectedElementId(newSelectedId);
