@@ -722,6 +722,31 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         cursor: cursorStyle.wrapper,
         boxSizing: 'border-box',
     };
+    
+    // SVG Shape Generation Helpers
+    const createStarPath = (points: number, outerRadius: number, innerRadius: number, centerX = 50, centerY = 50): string => {
+        let path = '';
+        const angle = Math.PI / points;
+        for (let i = 0; i < 2 * points; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = centerX + radius * Math.sin(i * angle);
+            const y = centerY - radius * Math.cos(i * angle);
+            path += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)} `;
+        }
+        return path + 'Z';
+    };
+
+    const createPolygonPath = (sides: number, radius: number, centerX = 50, centerY = 50): string => {
+        let path = '';
+        const angle = (2 * Math.PI) / sides;
+        for (let i = 0; i < sides; i++) {
+            const x = centerX + radius * Math.sin(i * angle);
+            const y = centerY - radius * Math.cos(i * angle);
+            path += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)} `;
+        }
+        return path + 'Z';
+    };
+
 
     const renderElement = () => {
         switch (element.type) {
@@ -769,15 +794,26 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     position: 'relative',
                 };
 
+                let shapePath = '';
+                const isSvgShape = ['star', 'starburst-8', 'starburst-10', 'starburst-12', 'hexagon', 'octagon', 'rhombus', 'speech-bubble'].includes(backgroundShape);
+
                 if (backgroundShape === 'rounded') {
                     wrapperStyle.borderRadius = '25px';
                 } else if (backgroundShape === 'ellipse') {
                     wrapperStyle.borderRadius = '50%';
-                } else if (backgroundShape === 'sun' || backgroundShape === 'star') {
+                } else if (isSvgShape) {
                     wrapperStyle.backgroundColor = 'transparent';
+                    if (backgroundShape === 'star') shapePath = createStarPath(5, 50, 20);
+                    else if (backgroundShape === 'starburst-8') shapePath = createStarPath(8, 50, 30);
+                    else if (backgroundShape === 'starburst-10') shapePath = createStarPath(10, 50, 35);
+                    else if (backgroundShape === 'starburst-12') shapePath = createStarPath(12, 50, 38);
+                    else if (backgroundShape === 'hexagon') shapePath = createPolygonPath(6, 50);
+                    else if (backgroundShape === 'octagon') shapePath = createPolygonPath(8, 50);
+                    else if (backgroundShape === 'rhombus') shapePath = 'M50,0 L100,50 L50,100 L0,50Z';
+                    else if (backgroundShape === 'speech-bubble') shapePath = 'M0,0 H100 V75 Q100,80,95,80 H25 L15,95 V80 H5 Q0,80,0,75 V0Z';
                 }
 
-                if (outline.enabled && outline.width > 0 && backgroundShape !== 'star' && backgroundShape !== 'sun') {
+                if (outline.enabled && outline.width > 0 && !isSvgShape) {
                     wrapperStyle.border = `${outline.width}px solid ${outline.color}`;
                 }
 
@@ -804,44 +840,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 
                 return (
                     <div ref={textWrapperRef} style={wrapperStyle}>
-                        {backgroundShape === 'sun' && (
+                        {isSvgShape && (
                             <svg
                                 viewBox="0 0 100 100"
                                 preserveAspectRatio="none"
-                                style={{
-                                    position: 'absolute',
-                                    top: '0',
-                                    left: '0',
-                                    width: '100%',
-                                    height: '100%',
-                                    zIndex: 0,
-                                }}
+                                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}
                             >
                                 <path
-                                    d="M 50,0 L 58,26 L 79,10 L 69,35 L 98,31 L 75,50 L 98,69 L 69,65 L 79,90 L 58,74 L 50,100 L 42,74 L 21,90 L 31,65 L 2,69 L 25,50 L 2,31 L 31,35 L 21,10 L 42,26 Z"
-                                    fill={textElement.backgroundColor === 'transparent' ? 'none' : textElement.backgroundColor}
-                                    stroke={outline.enabled ? outline.color : 'none'}
-                                    strokeWidth={outline.enabled ? outline.width : 0}
-                                    vectorEffect="non-scaling-stroke"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
-                        )}
-                        {backgroundShape === 'star' && (
-                            <svg
-                                viewBox="0 0 51 48"
-                                preserveAspectRatio="none"
-                                style={{
-                                    position: 'absolute',
-                                    top: '0',
-                                    left: '0',
-                                    width: '100%',
-                                    height: '100%',
-                                    zIndex: 0,
-                                }}
-                            >
-                                <path
-                                    d="m25,1 6,17h18l-14,11 5,17-15-10-15,10 5-17-14-11h18z"
+                                    d={shapePath}
                                     fill={textElement.backgroundColor === 'transparent' ? 'none' : textElement.backgroundColor}
                                     stroke={outline.enabled ? outline.color : 'none'}
                                     strokeWidth={outline.enabled ? outline.width : 0}

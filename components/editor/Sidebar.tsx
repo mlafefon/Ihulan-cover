@@ -651,6 +651,43 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
         </div>
     );
 
+    const createStarPath = (points: number, outerRadius: number, innerRadius: number, centerX = 50, centerY = 50): string => {
+        let path = '';
+        const angle = Math.PI / points;
+        for (let i = 0; i < 2 * points; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = centerX + radius * Math.sin(i * angle);
+            const y = centerY - radius * Math.cos(i * angle);
+            path += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)} `;
+        }
+        return path + 'Z';
+    };
+
+    const createPolygonPath = (sides: number, radius: number, centerX = 50, centerY = 50): string => {
+        let path = '';
+        const angle = (2 * Math.PI) / sides;
+        for (let i = 0; i < sides; i++) {
+            const x = centerX + radius * Math.sin(i * angle);
+            const y = centerY - radius * Math.cos(i * angle);
+            path += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)} `;
+        }
+        return path + 'Z';
+    };
+
+    const shapes: { name: TextElement['backgroundShape'], title: string, path: string }[] = [
+        { name: 'rectangle', title: 'מלבן', path: 'M5,5 H95 V95 H5Z' },
+        { name: 'rounded', title: 'מעוגל', path: 'M20,5 H80 C91.04,5 100,13.95 100,25 V75 C100,86.04 91.04,95 80,95 H20 C8.95,95 0,86.04 0,75 V25 C0,13.95 8.95,5 20,5Z' },
+        { name: 'ellipse', title: 'אליפסה', path: 'M50,5 C25.14,5 5,25.14 5,50 S25.14,95 50,95 95,74.85 95,50 74.85,5 50,5Z' },
+        { name: 'speech-bubble', title: 'בועת דיבור', path: 'M5,5 H95 V75 H30 L15,90 V75 H5Z' },
+        { name: 'rhombus', title: 'מעוין', path: 'M50,5 L95,50 L50,95 L5,50Z' },
+        { name: 'star', title: 'כוכב 5', path: createStarPath(5, 48, 18) },
+        { name: 'starburst-8', title: 'כוכב 8', path: createStarPath(8, 48, 28) },
+        { name: 'starburst-10', title: 'כוכב 10', path: createStarPath(10, 48, 33) },
+        { name: 'starburst-12', title: 'כוכב 12', path: createStarPath(12, 48, 36) },
+        { name: 'hexagon', title: 'משושה', path: createPolygonPath(6, 48) },
+        { name: 'octagon', title: 'מתומן', path: createPolygonPath(8, 48) },
+    ];
+    
     return (
         <div>
             <Accordion 
@@ -740,20 +777,23 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             </div>
                         </div>
                     </div>
-                    <label className="block">
+                    <div>
                         <span className="text-sm text-slate-400">צורת רקע</span>
-                         <select 
-                            value={element.backgroundShape || 'rectangle'} 
-                            onChange={(e) => handleBlockUpdate('backgroundShape', e.target.value as TextElement['backgroundShape'])} 
-                            className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm"
-                        >
-                           <option value="rectangle">מלבן</option>
-                           <option value="rounded">מלבן מעוגל</option>
-                           <option value="ellipse">אליפסה</option>
-                           <option value="sun">שמש</option>
-                           <option value="star">כוכב</option>
-                        </select>
-                    </label>
+                        <div className="mt-1 grid grid-cols-6 gap-2 p-1 bg-slate-900 rounded-md">
+                            {shapes.map(shape => (
+                                <button
+                                    key={shape.name}
+                                    title={shape.title}
+                                    onClick={() => handleBlockUpdate('backgroundShape', shape.name)}
+                                    className={`flex items-center justify-center h-10 rounded-md transition-colors ${element.backgroundShape === shape.name || (!element.backgroundShape && shape.name === 'rectangle') ? 'bg-blue-600 ring-2 ring-blue-400' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                >
+                                    <svg viewBox="0 0 100 100" className="w-6 h-6 text-white" style={{ stroke: 'currentColor', strokeWidth: 5, fill: 'none', strokeLinejoin: 'round' }}>
+                                        <path d={shape.path} />
+                                    </svg>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className="space-y-2 pt-2 border-t border-slate-700">
                         <label className="flex items-center gap-2 text-sm text-slate-300">
                             <input 
