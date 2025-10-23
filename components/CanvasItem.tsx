@@ -51,28 +51,8 @@ const handleCursorClasses: { [key: string]: string } = {
 
 const rotateCursorUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDJ2NmgtNiIvPjxwYXRoIGQ9Ik0zIDEyYTkgOSAwIDAgMSAxNS02LjdMMjEgOCIvPjwvc3ZnPg==";
 
-// This function is pure and produces a static value, so it can be
-// defined once outside the component to avoid re-declaration on every render.
-const getSunClipPath = () => {
-    const points = [];
-    const numRays = 10;
-    const outerRadius = 50; 
-    const innerRadius = 40; 
-    const centerX = 50;
-    const centerY = 50;
-
-    for (let i = 0; i < numRays * 2; i++) {
-        const radius = i % 2 === 0 ? outerRadius : innerRadius;
-        const angle = (i * Math.PI) / numRays - (Math.PI / 2); 
-        const x = centerX + radius * Math.cos(angle);
-        const y = centerY + radius * Math.sin(angle);
-        points.push(`${x.toFixed(2)}% ${y.toFixed(2)}%`);
-    }
-    return `polygon(${points.join(', ')})`;
-};
-
 // Custom cursor that combines move and text-edit affordances.
-const moveAndTextCursor = "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0xMCA5SDE0TTEwIDE1SDE0TTEyIDlWMTUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBhdGggZD0iTTEwIDlIMTRNMTAgMTVIMTRNMTIgOVYxNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==') 12 12, move";
+const moveAndTextCursor = "url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJibGFjayIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48cGF0aCBkPSJNMTIgMlYyMk0yIDEySDIyTTEyIDJMMTAgNk0xMiAyTDE0IDZNMTIgMjJMMTAgMThNMTIgMjJMMTQgMThNMiAxMkw2IDEwTTIgMTJMNiAxNE0yMiAxMkwxOCAxME0yMiAxMkwxOCAxNCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0xMCA5SDE0TTEwIDE1SDE0TTEyIDlWMTUiIHN0cm9rZT0iYmxhY2siIHN0cm9rZS13aWR0aD0iMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+PHBhdGggZD0iTTEwIDlIMTRNMTAgMTVIMTRNMTIgOVYxNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjwvc3ZnPg==') 12 12, move";
 
 const brushCursor = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='white' stroke='black' stroke-width='1'><path d='m9.06 11.9 8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08'/><path d='M7.07 14.94c-1.66 0-3 1.35-3 3.02 0 1.33-2.5 1.52-2 2.02 1.08 1.1 2.49 2.02 4 2.02 2.2 0 4-1.8 4-4.04a3.01 3.01 0 0 0-3-3.02z'/></svg>\") 2 22, pointer";
 
@@ -793,11 +773,11 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     wrapperStyle.borderRadius = '25px';
                 } else if (backgroundShape === 'ellipse') {
                     wrapperStyle.borderRadius = '50%';
-                } else if (backgroundShape === 'sun') {
-                    wrapperStyle.clipPath = getSunClipPath();
+                } else if (backgroundShape === 'sun' || backgroundShape === 'star') {
+                    wrapperStyle.backgroundColor = 'transparent';
                 }
 
-                if (outline.enabled && outline.width > 0) {
+                if (outline.enabled && outline.width > 0 && backgroundShape !== 'star' && backgroundShape !== 'sun') {
                     wrapperStyle.border = `${outline.width}px solid ${outline.color}`;
                 }
 
@@ -824,6 +804,52 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 
                 return (
                     <div ref={textWrapperRef} style={wrapperStyle}>
+                        {backgroundShape === 'sun' && (
+                            <svg
+                                viewBox="0 0 100 100"
+                                preserveAspectRatio="none"
+                                style={{
+                                    position: 'absolute',
+                                    top: '0',
+                                    left: '0',
+                                    width: '100%',
+                                    height: '100%',
+                                    zIndex: 0,
+                                }}
+                            >
+                                <path
+                                    d="M 50,0 L 58,26 L 79,10 L 69,35 L 98,31 L 75,50 L 98,69 L 69,65 L 79,90 L 58,74 L 50,100 L 42,74 L 21,90 L 31,65 L 2,69 L 25,50 L 2,31 L 31,35 L 21,10 L 42,26 Z"
+                                    fill={textElement.backgroundColor === 'transparent' ? 'none' : textElement.backgroundColor}
+                                    stroke={outline.enabled ? outline.color : 'none'}
+                                    strokeWidth={outline.enabled ? outline.width : 0}
+                                    vectorEffect="non-scaling-stroke"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        )}
+                        {backgroundShape === 'star' && (
+                            <svg
+                                viewBox="0 0 51 48"
+                                preserveAspectRatio="none"
+                                style={{
+                                    position: 'absolute',
+                                    top: '0',
+                                    left: '0',
+                                    width: '100%',
+                                    height: '100%',
+                                    zIndex: 0,
+                                }}
+                            >
+                                <path
+                                    d="m25,1 6,17h18l-14,11 5,17-15-10-15,10 5-17-14-11h18z"
+                                    fill={textElement.backgroundColor === 'transparent' ? 'none' : textElement.backgroundColor}
+                                    stroke={outline.enabled ? outline.color : 'none'}
+                                    strokeWidth={outline.enabled ? outline.width : 0}
+                                    vectorEffect="non-scaling-stroke"
+                                    strokeLinejoin="round"
+                                />
+                            </svg>
+                        )}
                          {isSelected && selectionRects.map((rect, i) => {
                             const visualHeight = rect.height * 0.7;
                             const visualTop = rect.y + (rect.height * (1 - 0.7) / 2);

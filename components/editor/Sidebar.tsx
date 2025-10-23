@@ -751,6 +751,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                            <option value="rounded">מלבן מעוגל</option>
                            <option value="ellipse">אליפסה</option>
                            <option value="sun">שמש</option>
+                           <option value="star">כוכב</option>
                         </select>
                     </label>
                     <div className="space-y-2 pt-2 border-t border-slate-700">

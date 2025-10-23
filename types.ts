@@ -134,7 +134,7 @@ export interface TextElement extends ElementBase {
   letterSpacing: number;
   backgroundColor: string;
   padding: number;
-  backgroundShape?: 'rectangle' | 'rounded' | 'ellipse' | 'sun';
+  backgroundShape?: 'rectangle' | 'rounded' | 'ellipse' | 'sun' | 'star';
   outline?: {
     color: string;
     width: number;
