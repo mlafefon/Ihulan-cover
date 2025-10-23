@@ -351,6 +351,29 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
         onUpdateElement(element.id, { locked: !element.locked });
     };
 
+    const renderBackgroundColorTrigger = (triggerProps: { ref: React.RefObject<HTMLButtonElement>; onClick: () => void; 'aria-haspopup': 'true'; 'aria-expanded': boolean }, color: string) => (
+        <div className="relative group">
+            <button
+                {...triggerProps}
+                type="button"
+                className="w-10 h-10 flex flex-col items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600"
+            >
+                <PaletteIcon className="w-5 h-5 mb-1" />
+                <div
+                    className="w-6 h-1.5 rounded-full"
+                    style={{
+                        backgroundColor: color === 'transparent' ? '#808080' : color,
+                        backgroundImage: color === 'transparent' ? `linear-gradient(45deg, #4c4c4c 25%, transparent 25%), linear-gradient(-45deg, #4c4c4c 25%, transparent 25%)` : 'none',
+                        backgroundSize: '4px 4px',
+                    }}
+                />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                רקע
+            </div>
+        </div>
+    );
+
     const getElementName = (element: CanvasElement): string => {
         switch (element.type) {
             case ElementType.Text:
@@ -433,13 +456,12 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                         />
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm text-slate-400">צבע רקע</span>
-                        <div className="w-24">
-                            <ColorPicker
-                                color={template.background_color}
-                                onChange={(newColor) => onUpdateTemplate({ background_color: newColor })}
-                            />
-                        </div>
+                        <span className="text-sm text-slate-400">רקע</span>
+                        <ColorPicker
+                            color={template.background_color}
+                            onChange={(newColor) => onUpdateTemplate({ background_color: newColor })}
+                            renderTrigger={renderBackgroundColorTrigger}
+                        />
                     </div>
                  </div>
             </Accordion>
@@ -615,7 +637,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
             >
                 <PaletteIcon className="w-5 h-5 mb-1" />
                 <div
-                    className="w-4 h-1 rounded-full"
+                    className="w-6 h-1.5 rounded-full"
                     style={{
                         backgroundColor: color === 'transparent' ? '#808080' : color,
                         backgroundImage: color === 'transparent' ? `linear-gradient(45deg, #4c4c4c 25%, transparent 25%), linear-gradient(-45deg, #4c4c4c 25%, transparent 25%)` : 'none',
