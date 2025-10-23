@@ -257,6 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onSelectElement={onSelectElement}
                         onHoverElement={onHoverElement}
                         onDeleteElement={onDeleteElement}
+                        onUpdateElement={onUpdateElement}
                     />
                 )}
             </div>
@@ -328,15 +329,36 @@ interface DefaultPanelProps {
     onSelectElement: (id: string | null) => void;
     onHoverElement: (id: string | null) => void;
     onDeleteElement: (id: string) => void;
+    onUpdateElement: (id: string, updates: Partial<CanvasElement>) => void;
 }
 
-const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle, onSelectElement, onHoverElement, onDeleteElement }) => {
+const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle, onSelectElement, onHoverElement, onDeleteElement, onUpdateElement }) => {
     const [imageTooltip, setImageTooltip] = useState<{ visible: boolean; src: string | null; x: number; y: number }>({ visible: false, src: null, x: 0, y: 0 });
     
     const sortedElements = useMemo(() => 
         [...template.elements].sort((a, b) => b.zIndex - a.zIndex), 
         [template.elements]
     );
+
+    const masterCheckboxRef = useRef<HTMLInputElement>(null);
+    const allLocked = sortedElements.length > 0 && sortedElements.every(el => el.locked);
+    const someLocked = sortedElements.some(el => el.locked);
+
+    useEffect(() => {
+        if (masterCheckboxRef.current) {
+            masterCheckboxRef.current.indeterminate = someLocked && !allLocked;
+        }
+    }, [someLocked, allLocked, sortedElements.length]);
+
+    const handleToggleAllLocks = () => {
+        const shouldLockAll = !allLocked;
+        const newElements = template.elements.map(el => ({ ...el, locked: shouldLockAll }));
+        onUpdateTemplate({ elements: newElements });
+    };
+
+    const handleToggleLock = (element: CanvasElement) => {
+        onUpdateElement(element.id, { locked: !element.locked });
+    };
 
     const getElementName = (element: CanvasElement): string => {
         switch (element.type) {
@@ -436,6 +458,22 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                 isOpen={openAccordion === 'רכיבים'}
                 onToggle={() => onAccordionToggle('רכיבים')}
             >
+                {sortedElements.length > 0 && (
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
+                        <label htmlFor="toggle-all-lock" className="text-sm text-slate-400 cursor-pointer">
+                            נעל הכל
+                        </label>
+                        <input
+                            id="toggle-all-lock"
+                            ref={masterCheckboxRef}
+                            type="checkbox"
+                            checked={allLocked}
+                            onChange={handleToggleAllLocks}
+                            className="w-4 h-4 rounded bg-slate-600 border-slate-500 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                            title={allLocked ? "שחרר הכל" : "נעל הכל"}
+                        />
+                    </div>
+                )}
                 <div className="space-y-1 max-h-64 overflow-y-auto">
                     {sortedElements.length > 0 ? (
                         sortedElements.map(element => (
@@ -454,16 +492,26 @@ const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onU
                                         {getElementName(element)}
                                     </span>
                                 </div>
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteElement(element.id);
-                                    }}
-                                    className="p-1 rounded-full text-slate-500 hover:bg-slate-600 hover:text-red-400 flex-shrink-0"
-                                    title="מחק רכיב"
-                                >
-                                    <TrashIcon className="w-4 h-4" />
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteElement(element.id);
+                                        }}
+                                        className="p-1 rounded-full text-slate-500 hover:bg-slate-600 hover:text-red-400 flex-shrink-0"
+                                        title="מחק רכיב"
+                                    >
+                                        <TrashIcon className="w-4 h-4" />
+                                    </button>
+                                    <input
+                                        type="checkbox"
+                                        checked={element.locked || false}
+                                        onChange={() => handleToggleLock(element)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-4 h-4 rounded bg-slate-600 border-slate-500 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                                        title={element.locked ? "שחרר נעילה" : "נעל רכיב"}
+                                    />
+                                </div>
                             </div>
                         ))
                     ) : (
