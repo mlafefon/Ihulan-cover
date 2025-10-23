@@ -17,11 +17,13 @@ export interface TemplateRow {
   // An incorrect Row type can cause Supabase client to infer `never` for insert/update payloads.
   name: string | null;
   template_data: Json | null;
-  previewImage?: string | null;
-  user_id?: string | null;
-  is_public?: boolean;
-  is_active?: boolean;
-  created_at?: string;
+  // Fix: Made properties non-optional to match database schema and resolve 'never' type errors.
+  // A column in a DB row will always exist, even if its value is null.
+  previewImage: string | null;
+  user_id: string | null;
+  is_public: boolean;
+  is_active: boolean;
+  created_at: string;
 }
 
 // Represents the lightweight template object for the gallery page, without heavy design data.

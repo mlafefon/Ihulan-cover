@@ -426,6 +426,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                  if (isSelected && element.type === ElementType.Text) {
                     onSetEditing(element.id);
                     setClickToEditCoords({ x: upEvent.clientX, y: upEvent.clientY });
+                } else if (element.type === ElementType.Image) {
+                    onEditImage(element as ImageElement);
                 }
             };
             document.addEventListener('mouseup', handleLockedClick as EventListener);
@@ -703,6 +705,9 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         if (element.locked) {
             if (element.type === ElementType.Text && isSelected) {
                 return { wrapper: 'text', content: 'text' };
+            }
+            if (element.type === ElementType.Image) {
+                return { wrapper: 'pointer', content: 'pointer' };
             }
             return { wrapper: 'default', content: 'default' };
         }
