@@ -421,6 +421,12 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         }
 
         if (element.locked) {
+            // For a right-click on a locked element, we only want to select it.
+            // The onSelect() call above has already done that, so we're finished.
+            if (e.button === 2) { // Right mouse button
+                return;
+            }
+
             const handleLockedClick = (upEvent: MouseEvent) => {
                  document.removeEventListener('mouseup', handleLockedClick as EventListener);
                  if (isSelected && element.type === ElementType.Text) {

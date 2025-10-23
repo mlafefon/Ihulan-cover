@@ -21,8 +21,10 @@ export interface TemplateRow {
   // A column in a DB row will always exist, even if its value is null.
   previewImage: string | null;
   user_id: string | null;
-  is_public: boolean;
-  is_active: boolean;
+  // Fix: Allowed `is_public` and `is_active` to be nullable to match the database schema.
+  // An incorrect Row type can cause Supabase client to infer `never` for insert/update payloads.
+  is_public: boolean | null;
+  is_active: boolean | null;
   created_at: string;
 }
 
@@ -66,8 +68,9 @@ export interface Database {
           template_data?: Json | null;
           previewImage?: string | null;
           user_id?: string | null;
-          is_public?: boolean;
-          is_active?: boolean;
+          // Fix: Allowed `is_public` and `is_active` to be nullable to match the database schema and resolve `never` type errors.
+          is_public?: boolean | null;
+          is_active?: boolean | null;
         };
         // Fix: Replaced Partial<Omit<...>> utility types with an explicit definition to resolve Supabase client type inference errors.
         Update: {
@@ -76,8 +79,9 @@ export interface Database {
           // Fix: Reverted type to `Json` to resolve Supabase client type inference errors.
           template_data?: Json | null;
           previewImage?: string | null;
-          is_public?: boolean;
-          is_active?: boolean;
+          // Fix: Allowed `is_public` and `is_active` to be nullable to match the database schema and resolve `never` type errors.
+          is_public?: boolean | null;
+          is_active?: boolean | null;
         };
       }
     }
