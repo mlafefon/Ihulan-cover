@@ -786,9 +786,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 const wrapperStyle: React.CSSProperties = {
                     width: '100%',
                     height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: verticalAlignMap[textElement.verticalAlign],
                     backgroundColor: textElement.backgroundColor,
                     overflow: 'hidden',
                     position: 'relative',
@@ -820,6 +817,11 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 const firstSpanStyle = textElement.spans[0]?.style;
                 const editableStyle: React.CSSProperties = {
                     outline: 'none',
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: verticalAlignMap[textElement.verticalAlign],
                     padding: `${textElement.padding}px`,
                     letterSpacing: `${textElement.letterSpacing}px`,
                     userSelect: isEditing ? 'text' : 'none',
@@ -857,14 +859,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             </svg>
                         )}
                          {isSelected && selectionRects.map((rect, i) => {
-                            const visualHeight = rect.height * 0.7;
-                            const visualTop = rect.y + (rect.height * (1 - 0.7) / 2);
+                            const visualHeight = (activeStyle || defaultTextStyle).fontSize;
+                            const topOffset = (rect.height - visualHeight) / 2;
                             return (
                                 <div
                                     key={`selection-rect-${i}`}
                                     style={{
                                         position: 'absolute',
-                                        top: `${visualTop}px`,
+                                        top: `${rect.y + topOffset}px`,
                                         left: `${rect.x}px`,
                                         width: `${rect.width}px`,
                                         height: `${visualHeight}px`,
@@ -904,32 +906,34 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                                 }
                             }}
                         >
-                            {lines.map((line, lineIndex) => (
-                                <div
-                                    key={lineIndex}
-                                    style={{
-                                        textAlign: lineAlignments[lineIndex] || defaultAlign,
-                                        textAlignLast: (lineAlignments[lineIndex] || defaultAlign) === 'justify' ? 'justify' : 'auto',
+                            <div style={{ transform: `scale(${textElement.scaleX ?? 1}, ${textElement.scaleY ?? 1})` }}>
+                                {lines.map((line, lineIndex) => (
+                                    <div
+                                        key={lineIndex}
+                                        style={{
+                                            textAlign: lineAlignments[lineIndex] || defaultAlign,
+                                            textAlignLast: (lineAlignments[lineIndex] || defaultAlign) === 'justify' ? 'justify' : 'auto',
 
-                                    }}
-                                >
-                                    {line.spans.length > 0 ? line.spans.map((span, spanIndex) => (
-                                        <span key={spanIndex} style={{
-                                            fontFamily: span.style.fontFamily,
-                                            fontSize: `${span.style.fontSize}px`,
-                                            fontWeight: span.style.fontWeight,
-                                            color: span.style.color,
-                                            textShadow: span.style.textShadow,
-                                            lineHeight: span.style.lineHeight || 1.2,
-                                        }}>
-                                            {span.text}
-                                        </span>
-                                    )) : (
-                                        // Render a zero-width space to ensure the div has height and is clickable
-                                        <span>&#8203;</span>
-                                    )}
-                                </div>
-                            ))}
+                                        }}
+                                    >
+                                        {line.spans.length > 0 ? line.spans.map((span, spanIndex) => (
+                                            <span key={spanIndex} style={{
+                                                fontFamily: span.style.fontFamily,
+                                                fontSize: `${span.style.fontSize}px`,
+                                                fontWeight: span.style.fontWeight,
+                                                color: span.style.color,
+                                                textShadow: span.style.textShadow,
+                                                lineHeight: span.style.lineHeight || 1.2,
+                                            }}>
+                                                {span.text}
+                                            </span>
+                                        )) : (
+                                            // Render a zero-width space to ensure the div has height and is clickable
+                                            <span>&#8203;</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
                 );
@@ -1071,7 +1075,7 @@ export function getSelectionCharOffsetsWithin(element: HTMLElement) {
 
     const calculateOffset = (container: Node, offset: number): number => {
         let charCount = 0;
-        const lineDivs = Array.from(element.childNodes);
+        const lineDivs = Array.from(element.querySelector('[style*="transform"]')?.childNodes || element.childNodes);
 
         for (let i = 0; i < lineDivs.length; i++) {
             const lineDiv = lineDivs[i];
@@ -1117,7 +1121,7 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
 
     // Fix: Cast the result of `childNodes` to `Node[]`. The default `ChildNode` type lacks properties
     // like `textContent` and is not compatible with APIs like `createTreeWalker`, causing type errors.
-    const lineDivs: Node[] = Array.from(containerEl.childNodes) as Node[];
+    const lineDivs: Node[] = Array.from(containerEl.querySelector('[style*="transform"]')?.childNodes || containerEl.childNodes) as Node[];
 
     const findPosition = (charPos: number): { node: Node; offset: number } | null => {
         let totalCharsProcessed = 0;
@@ -1165,8 +1169,9 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
     const setPositionAtEnd = (): { node: Node, offset: number } => {
         let lastTextNode: Node | null = null;
         
-        if (containerEl.lastChild) {
-             const walker = document.createTreeWalker(containerEl.lastChild, NodeFilter.SHOW_TEXT);
+        const parentForWalker = containerEl.querySelector('[style*="transform"]') || containerEl;
+        if (parentForWalker.lastChild) {
+             const walker = document.createTreeWalker(parentForWalker.lastChild, NodeFilter.SHOW_TEXT);
              let n;
              // Fix: Cast the result of nextNode() to Node | null to resolve a potential 'unknown' type error, consistent with other fixes.
              while ((n = walker.nextNode() as Node | null)) lastTextNode = n;
@@ -1174,12 +1179,12 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
 
         if (lastTextNode) {
             return { node: lastTextNode, offset: lastTextNode.textContent?.length || 0 };
-        } else if (containerEl.lastChild) {
+        } else if (parentForWalker.lastChild) {
             // Handles empty last line
-            return { node: containerEl.lastChild, offset: 0 };
+            return { node: parentForWalker.lastChild, offset: 0 };
         } else {
              // Handles completely empty editor
-             return { node: containerEl, offset: 0 };
+             return { node: parentForWalker, offset: 0 };
         }
     };
 

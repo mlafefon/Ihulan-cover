@@ -103,6 +103,9 @@ const transformRowToTemplate = (row: TemplateRow): Template => {
                     color: el.outline?.color ?? '#FFFFFF',
                     width: el.outline?.width ?? 2,
                 },
+                lineAlignments: el.lineAlignments ?? [],
+                scaleX: el.scaleX ?? 1,
+                scaleY: el.scaleY ?? 1,
             };
             return textElement;
         }

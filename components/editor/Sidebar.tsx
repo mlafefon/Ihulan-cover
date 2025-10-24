@@ -893,6 +893,22 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                             onChange={(newValue) => handleBlockUpdate('letterSpacing', newValue)}
                         />
                     </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <NumericStepper
+                            label="מתיחה אופקית %"
+                            value={Math.round((element.scaleX ?? 1) * 100)}
+                            onChange={(newValue) => handleBlockUpdate('scaleX', newValue / 100)}
+                            min={10}
+                            max={500}
+                        />
+                        <NumericStepper
+                            label="מתיחה אנכית %"
+                            value={Math.round((element.scaleY ?? 1) * 100)}
+                            onChange={(newValue) => handleBlockUpdate('scaleY', newValue / 100)}
+                            min={10}
+                            max={500}
+                        />
+                    </div>
                      <NumericStepper
                         label="ריפוד"
                         value={element.padding}
