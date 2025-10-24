@@ -818,9 +818,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 }
 
                 const firstSpanStyle = textElement.spans[0]?.style;
-                const hOrigin = textElement.textAlign === 'left' ? 'left' : textElement.textAlign === 'right' ? 'right' : 'center';
-                const vOrigin = textElement.verticalAlign === 'top' ? 'top' : textElement.verticalAlign === 'bottom' ? 'bottom' : 'center';
-
                 const editableStyle: React.CSSProperties = {
                     outline: 'none',
                     padding: `${textElement.padding}px`,
@@ -830,8 +827,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     whiteSpace: 'pre-wrap',
                     position: 'relative',
                     zIndex: 1,
-                    transform: `scale(${textElement.scaleX || 1}, ${textElement.scaleY || 1})`,
-                    transformOrigin: `${hOrigin} ${vOrigin}`,
                     // Fallback styles to prevent unstyled text on new lines
                     ...(firstSpanStyle && {
                         fontFamily: firstSpanStyle.fontFamily,

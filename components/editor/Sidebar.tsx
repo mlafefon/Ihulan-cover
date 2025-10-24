@@ -257,418 +257,738 @@ const Sidebar: React.FC<SidebarProps> = ({
 };
 
 const Accordion: React.FC<{ title: string; children: React.ReactNode; isOpen: boolean; onToggle: () => void; }> = ({ title, children, isOpen, onToggle }) => {
+    const [isOverflowVisible, setIsOverflowVisible] = useState(false);
+
+    useEffect(() => {
+        // After the accordion opens, make its overflow visible so dropdowns can appear above other elements.
+        // When it closes, immediately hide overflow to allow the height transition to work correctly.
+        if (isOpen) {
+            const timer = setTimeout(() => {
+                setIsOverflowVisible(true);
+            }, 500); // This duration should match the Tailwind CSS transition duration (duration-500).
+            return () => clearTimeout(timer);
+        } else {
+            setIsOverflowVisible(false);
+        }
+    }, [isOpen]);
+    
     return (
-        <div className="border-b border-slate-700">
-            <button onClick={onToggle} className="w-full flex items-center p-3 hover:bg-slate-700/50 gap-2">
-                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}><path d="m6 9 6 6 6-6"/></svg>
-                <span className="font-semibold text-sm">{title}</span>
+        // Add `position: relative` to create a stacking context.
+        // The open accordion gets a higher z-index to ensure its children (like dropdowns) render above sibling accordions.
+        <div className={`border-b border-slate-700 relative ${isOpen ? 'z-10' : 'z-0'}`}>
+            <button onClick={onToggle} className="w-full flex items-center p-4 hover:bg-slate-700/50 gap-2">
+                <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+                <span className="font-semibold">{title}</span>
             </button>
-            <div className={`transition-all duration-500 ease-in-out overflow-hidden ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="p-3 bg-slate-900/50">{children}</div>
+            <div className={`transition-all duration-500 ease-in-out ${isOverflowVisible ? 'overflow-visible' : 'overflow-hidden'} ${isOpen ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="py-4 pl-4 pr-11 bg-slate-900/50">{children}</div>
             </div>
         </div>
     );
 };
 
-const DefaultPanel: React.FC<{ 
-    onAddElement: (type: ElementType) => void; 
+const LayerPanel: React.FC<{ element: CanvasElement, onLayerOrderChange: SidebarProps['onLayerOrderChange'], totalElements: number}> = ({ element, onLayerOrderChange, totalElements }) => {
+    const isAtBack = element.zIndex <= 1;
+    const isAtFront = element.zIndex >= totalElements;
+    
+    const buttonClass = "flex items-center justify-center bg-slate-700 hover:bg-slate-600 px-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed h-[30px]";
+
+    return (
+        <div className="grid grid-cols-4 gap-2">
+            <button onClick={() => onLayerOrderChange(element.id, 'front')} disabled={isAtFront} className={buttonClass} title="הבא לקדמה">
+                <ChevronsUp className="w-5 h-5"/>
+            </button>
+            <button onClick={() => onLayerOrderChange(element.id, 'forward')} disabled={isAtFront} className={buttonClass} title="הזז קדימה">
+                <ChevronUp className="w-5 h-5"/>
+            </button>
+            <button onClick={() => onLayerOrderChange(element.id, 'backward')} disabled={isAtBack} className={buttonClass} title="שלח לאחור">
+                <ChevronDown className="w-5 h-5"/>
+            </button>
+            <button onClick={() => onLayerOrderChange(element.id, 'back')} disabled={isAtBack} className={buttonClass} title="שלח לרקע">
+                <ChevronsDown className="w-5 h-5"/>
+            </button>
+        </div>
+    );
+}
+
+interface DefaultPanelProps {
+    onAddElement: (type: ElementType, payload?: { src: string }) => void;
     template: Template;
     onUpdateTemplate: (settings: Partial<Template>) => void;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
-    onSelectElement: (id: string) => void;
+    onSelectElement: (id: string | null) => void;
     onHoverElement: (id: string | null) => void;
-    onDeleteElement: (id:string) => void;
+    onDeleteElement: (id: string) => void;
     onUpdateElement: (id: string, updates: Partial<CanvasElement>) => void;
-}> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle, onSelectElement, onHoverElement, onDeleteElement, onUpdateElement }) => {
+}
+
+const DefaultPanel: React.FC<DefaultPanelProps> = ({ onAddElement, template, onUpdateTemplate, openAccordion, onAccordionToggle, onSelectElement, onHoverElement, onDeleteElement, onUpdateElement }) => {
+    const [imageTooltip, setImageTooltip] = useState<{ visible: boolean; src: string | null; x: number; y: number }>({ visible: false, src: null, x: 0, y: 0 });
+    
+    const sortedElements = useMemo(() => 
+        [...template.elements].sort((a, b) => b.zIndex - a.zIndex), 
+        [template.elements]
+    );
+
+    const masterCheckboxRef = useRef<HTMLInputElement>(null);
+    const allLocked = sortedElements.length > 0 && sortedElements.every(el => el.locked);
+    const someLocked = sortedElements.some(el => el.locked);
+
+    useEffect(() => {
+        if (masterCheckboxRef.current) {
+            masterCheckboxRef.current.indeterminate = someLocked && !allLocked;
+        }
+    }, [someLocked, allLocked, sortedElements.length]);
+
+    const handleToggleAllLocks = () => {
+        const shouldLockAll = !allLocked;
+        const newElements = template.elements.map(el => ({ ...el, locked: shouldLockAll }));
+        onUpdateTemplate({ elements: newElements });
+    };
+
+    const handleToggleLock = (element: CanvasElement) => {
+        onUpdateElement(element.id, { locked: !element.locked });
+    };
+
+    const renderBackgroundColorTrigger = (triggerProps: { ref: React.RefObject<HTMLButtonElement>; onClick: () => void; 'aria-haspopup': 'true'; 'aria-expanded': boolean }, color: string) => (
+        <div className="relative group">
+            <button
+                {...triggerProps}
+                type="button"
+                className="w-10 h-10 flex flex-col items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600"
+            >
+                <PaletteIcon className="w-5 h-5 mb-1" />
+                <div
+                    className="w-6 h-1.5 rounded-full"
+                    style={{
+                        backgroundColor: color === 'transparent' ? '#808080' : color,
+                        backgroundImage: color === 'transparent' ? `linear-gradient(45deg, #4c4c4c 25%, transparent 25%), linear-gradient(-45deg, #4c4c4c 25%, transparent 25%)` : 'none',
+                        backgroundSize: '4px 4px',
+                    }}
+                />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                רקע
+            </div>
+        </div>
+    );
+
+    const getElementName = (element: CanvasElement): string => {
+        switch (element.type) {
+            case ElementType.Text:
+                const text = (element as TextElement).spans.map(s => s.text).join('').replace(/\s+/g, ' ').trim();
+                if (!text || text === '\u00A0') return 'טקסט ריק';
+                return text.substring(0, 20) + (text.length > 20 ? '...' : '');
+            case ElementType.Image:
+                return "תמונה";
+            case ElementType.Cutter:
+                return "צורת חיתוך";
+            default:
+                // Fix: This case is unreachable with current types, but provides a fallback.
+                // We cast `element` to access `id` since TypeScript correctly infers it as `never`.
+                return (element as ElementBase).id;
+        }
+    };
+    
+    const handleMouseEnter = (event: React.MouseEvent, element: CanvasElement) => {
+        onHoverElement(element.id);
+        if (element.type === ElementType.Image && (element as ImageElement).src) {
+            setImageTooltip({
+                visible: true,
+                src: (element as ImageElement).src,
+                x: event.clientX,
+                y: event.clientY,
+            });
+        }
+    };
+
+    const handleMouseLeave = () => {
+        onHoverElement(null);
+        setImageTooltip({ visible: false, src: null, x: 0, y: 0 });
+    };
+
     return (
         <>
             <div className="p-4 border-b border-slate-700">
-                <h3 className="text-md font-bold mb-3">הוסף רכיב</h3>
-                <div className="grid grid-cols-3 gap-2">
-                    <button onClick={() => onAddElement(ElementType.Text)} className="flex flex-col items-center justify-center p-2 bg-slate-700 hover:bg-slate-600 rounded-md">
-                        <TextIcon className="w-6 h-6 mb-1"/>
-                        <span className="text-xs">טקסט</span>
+                <label className="flex items-center gap-2">
+                    <span className="text-sm text-slate-400 whitespace-nowrap">שם התבנית</span>
+                    <input type="text" value={template.name} onChange={(e) => onUpdateTemplate({name: e.target.value})} className="w-full bg-slate-700 border border-slate-600 rounded p-2 text-sm"/>
+                </label>
+            </div>
+
+            <div className="p-4 border-b border-slate-700">
+                <h3 className="text-sm font-semibold text-slate-400 mb-3">הוספת רכיבים</h3>
+                <div className="grid grid-cols-2 gap-2">
+                    <button onClick={() => onAddElement(ElementType.Text)} className="flex flex-col items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
+                        <TextIcon className="w-6 h-6" />
+                        <span>הוסף טקסט</span>
                     </button>
-                    <button onClick={() => onAddElement(ElementType.Image)} className="flex flex-col items-center justify-center p-2 bg-slate-700 hover:bg-slate-600 rounded-md">
-                        <ImageIcon className="w-6 h-6 mb-1"/>
-                        <span className="text-xs">תמונה</span>
+                    <button onClick={() => onAddElement(ElementType.Image)} className="flex flex-col items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
+                        <ImageIcon className="w-6 h-6" />
+                        <span>הוסף תמונה</span>
                     </button>
-                     <button onClick={() => onAddElement(ElementType.Cutter)} className="flex flex-col items-center justify-center p-2 bg-slate-700 hover:bg-slate-600 rounded-md">
-                        <ScissorsIcon className="w-6 h-6 mb-1"/>
-                        <span className="text-xs">חיתוך</span>
+                    <button onClick={() => onAddElement(ElementType.Cutter)} className="col-span-2 flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-md">
+                        <ScissorsIcon className="w-6 h-6" />
+                        <span>הוסף צורת חיתוך</span>
                     </button>
                 </div>
             </div>
-            <Accordion 
-                title="שכבות"
-                isOpen={openAccordion === 'שכבות'}
-                onToggle={() => onAccordionToggle('שכבות')}
-            >
-                <LayersList 
-                    elements={template.elements}
-                    onSelectElement={onSelectElement}
-                    onHoverElement={onHoverElement}
-                    onDeleteElement={onDeleteElement}
-                    onUpdateElement={onUpdateElement}
-                />
-            </Accordion>
+            
              <Accordion 
                 title="הגדרות עמוד"
                 isOpen={openAccordion === 'הגדרות עמוד'}
                 onToggle={() => onAccordionToggle('הגדרות עמוד')}
             >
-                <div className="space-y-3 p-3">
-                    <div className="grid grid-cols-2 gap-3">
-                        <NumericStepper 
-                            label="רוחב (px)"
-                            value={template.width}
-                            onChange={(val) => onUpdateTemplate({ width: val })}
-                            min={100} max={2000}
-                        />
-                        <NumericStepper 
-                            label="גובה (px)"
+                 <div className="space-y-3">
+                    <div className="flex gap-2">
+                         <NumericStepper 
+                            label="גובה"
                             value={template.height}
-                            onChange={(val) => onUpdateTemplate({ height: val })}
-                            min={100} max={2000}
+                            onChange={(newValue) => onUpdateTemplate({height: newValue})}
+                            step={10}
+                        />
+                         <NumericStepper 
+                            label="רוחב"
+                            value={template.width}
+                            onChange={(newValue) => onUpdateTemplate({width: newValue})}
+                            step={10}
                         />
                     </div>
-                     <div>
-                        <span className="text-sm text-slate-400">צבע רקע</span>
-                        <div className="mt-1">
-                             <ColorPicker
-                                color={template.background_color}
-                                onChange={(newColor) => onUpdateTemplate({ background_color: newColor })}
-                            />
-                        </div>
-                    </div>
-                    <div>
-                        <span className="text-sm text-slate-400">שם התבנית</span>
-                         <input
-                            type="text"
-                            value={template.name}
-                            onChange={(e) => onUpdateTemplate({ name: e.target.value })}
-                            className="w-full mt-1 bg-slate-700 border border-slate-600 rounded p-2 text-sm"
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-slate-400">רקע</span>
+                        <ColorPicker
+                            color={template.background_color}
+                            onChange={(newColor) => onUpdateTemplate({ background_color: newColor })}
+                            renderTrigger={renderBackgroundColorTrigger}
                         />
                     </div>
+                 </div>
+            </Accordion>
+
+            <Accordion 
+                title="רכיבים"
+                isOpen={openAccordion === 'רכיבים'}
+                onToggle={() => onAccordionToggle('רכיבים')}
+            >
+                {sortedElements.length > 0 && (
+                    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-700">
+                        <label htmlFor="toggle-all-lock" className="text-sm text-slate-400 cursor-pointer">
+                            נעל הכל
+                        </label>
+                        <input
+                            id="toggle-all-lock"
+                            ref={masterCheckboxRef}
+                            type="checkbox"
+                            checked={allLocked}
+                            onChange={handleToggleAllLocks}
+                            className="w-4 h-4 rounded bg-slate-600 border-slate-500 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                            title={allLocked ? "שחרר הכל" : "נעל הכל"}
+                        />
+                    </div>
+                )}
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                    {sortedElements.length > 0 ? (
+                        sortedElements.map(element => (
+                            <div
+                                key={element.id}
+                                onClick={() => onSelectElement(element.id)}
+                                onMouseEnter={(e) => handleMouseEnter(e, element)}
+                                onMouseLeave={handleMouseLeave}
+                                className="flex items-center justify-between p-2 rounded-md hover:bg-slate-700 cursor-pointer"
+                            >
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    {element.type === ElementType.Text && <TextIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+                                    {element.type === ElementType.Image && <ImageIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+                                    {element.type === ElementType.Cutter && <ScissorsIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />}
+                                    <span className="text-sm truncate" title={getElementName(element)}>
+                                        {getElementName(element)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDeleteElement(element.id);
+                                        }}
+                                        className="p-1 rounded-full text-slate-500 hover:bg-slate-600 hover:text-red-400 flex-shrink-0"
+                                        title="מחק רכיב"
+                                    >
+                                        <TrashIcon className="w-4 h-4" />
+                                    </button>
+                                    <input
+                                        type="checkbox"
+                                        checked={element.locked || false}
+                                        onChange={() => handleToggleLock(element)}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-4 h-4 rounded bg-slate-600 border-slate-500 text-blue-500 focus:ring-blue-500 cursor-pointer"
+                                        title={element.locked ? "שחרר נעילה" : "נעל רכיב"}
+                                    />
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <p className="text-sm text-slate-500 text-center py-2">אין רכיבים על הקנבס.</p>
+                    )}
                 </div>
             </Accordion>
+             {imageTooltip.visible && imageTooltip.src && ReactDOM.createPortal(
+                <div
+                    style={{
+                        position: 'fixed',
+                        top: `${imageTooltip.y}px`,
+                        left: `${imageTooltip.x}px`,
+                        transform: 'translate(15px, -80px)',
+                        pointerEvents: 'none',
+                        zIndex: 10000,
+                        backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                        border: '1px solid #4a5568',
+                        borderRadius: '4px',
+                        padding: '4px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                    }}
+                >
+                    <img src={imageTooltip.src} alt="תצוגה מקדימה" style={{ maxWidth: '90px', maxHeight: '90px', height: 'auto', display: 'block', borderRadius: '2px' }} />
+                </div>,
+                document.body
+            )}
         </>
     );
 };
 
-
-const TextPanel: React.FC<{ 
-    element: TextElement, 
-    onUpdate: (id: string, updates: Partial<TextElement>) => void,
-    onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void,
-    onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void,
-    activeStyle: TextStyle | null,
+interface TextPanelProps {
+    element: TextElement;
+    onUpdate: (id: string, updates: Partial<TextElement>) => void;
+    onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
+    onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
+    activeStyle: TextStyle | null;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
-}> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
-    
-    const { hex: bgColorHex, alpha: bgColorAlpha } = parseColor(element.backgroundColor);
+}
 
-    const handleBgColorChange = (newHex: string, newAlpha?: number) => {
-        const alpha = newAlpha !== undefined ? newAlpha : bgColorAlpha;
-        if (alpha < 1) {
-            const rgb = hexToRgb(newHex);
-            if (rgb) {
-                onUpdate(element.id, { backgroundColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})` });
-            }
-        } else {
-            onUpdate(element.id, { backgroundColor: newHex });
+const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
+    const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96];
+
+    const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
+        onUpdate(element.id, { [prop]: value } as Partial<TextElement>);
+    };
+
+    const handleStyleChange = (prop: keyof TextStyle, value: any, isPreset?: boolean) => {
+        onStyleUpdate({ [prop]: value }, isPreset);
+    }
+
+    const baseStyle = activeStyle || element.spans[0]?.style;
+    if (!baseStyle) return null; // Guard against an element somehow having no spans/style.
+
+    // This is the fix. It ensures that any style object used for display
+    // is complete, preventing crashes when accessing properties like .fontSize.
+    const displayStyle: TextStyle = { ...defaultTextStyle, ...baseStyle };
+
+    const { hex: bgColorHex, alpha: bgColorAlpha } = parseColor(element.backgroundColor);
+    const outline = element.outline || { enabled: false, color: '#FFFFFF', width: 1 };
+
+    const handleBgColorChange = (newColor: string) => {
+        if (newColor === 'transparent') {
+            handleBlockUpdate('backgroundColor', 'transparent');
+            return;
+        }
+        const rgb = hexToRgb(newColor);
+        if (rgb) {
+            // If the color was transparent, make the new color fully opaque. Otherwise, keep the current alpha.
+            const currentAlpha = element.backgroundColor === 'transparent' ? 1 : bgColorAlpha;
+            const finalColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${currentAlpha})`;
+            handleBlockUpdate('backgroundColor', finalColor);
         }
     };
 
-    const textShadow = activeStyle?.textShadow || '';
-    const shadowParts = textShadow.match(/(-?\d+)px (-?\d+)px (-?\d+)px (.*)/) || [null, 0, 0, 0, '#000000'];
-    const [, offsetX, offsetY, blur, color] = shadowParts.map(p => typeof p === 'string' && !p.startsWith('#') ? parseFloat(p) : p);
+    const handleBgAlphaChange = (newAlphaPercent: number) => {
+        const rgb = hexToRgb(bgColorHex);
+        if (rgb) {
+            const newColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${newAlphaPercent / 100})`;
+            handleBlockUpdate('backgroundColor', newColor);
+        }
+    };
+    
+    const hasShadow = displayStyle.textShadow && displayStyle.textShadow !== 'none' && displayStyle.textShadow !== '';
+    const SHADOW_VALUE = '2px 2px 6px rgba(0,0,0,0.75)';
 
+    const handleShadowToggle = () => {
+        const newShadow = hasShadow ? '' : SHADOW_VALUE;
+        handleStyleChange('textShadow', newShadow);
+    };
+    
+    const handleOutlineChange = (updates: Partial<typeof outline>) => {
+        onUpdate(element.id, { outline: { ...outline, ...updates } });
+    };
 
+    const alignMap = {
+        right: { icon: AlignRightIcon, title: 'יישור לימין' },
+        center: { icon: AlignCenterIcon, title: 'יישור למרכז' },
+        left: { icon: AlignLeftIcon, title: 'יישור לשמאל' },
+        justify: { icon: AlignJustifyIcon, title: 'יישור לשני הצדדים' },
+    };
+
+    const renderBackgroundColorTrigger = (triggerProps: { ref: React.RefObject<HTMLButtonElement>; onClick: () => void; 'aria-haspopup': 'true'; 'aria-expanded': boolean }, color: string) => (
+        <div className="relative group">
+            <button
+                {...triggerProps}
+                type="button"
+                className="w-10 h-10 flex flex-col items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600"
+            >
+                <PaletteIcon className="w-5 h-5 mb-1" />
+                <div
+                    className="w-6 h-1.5 rounded-full"
+                    style={{
+                        backgroundColor: color === 'transparent' ? '#808080' : color,
+                        backgroundImage: color === 'transparent' ? `linear-gradient(45deg, #4c4c4c 25%, transparent 25%), linear-gradient(-45deg, #4c4c4c 25%, transparent 25%)` : 'none',
+                        backgroundSize: '4px 4px',
+                    }}
+                />
+            </button>
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-slate-900 text-white text-xs rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                צבע רקע
+            </div>
+        </div>
+    );
+
+    const createStarPath = (points: number, outerRadius: number, innerRadius: number, centerX = 50, centerY = 50): string => {
+        let path = '';
+        const angle = Math.PI / points;
+        for (let i = 0; i < 2 * points; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const x = centerX + radius * Math.sin(i * angle);
+            const y = centerY - radius * Math.cos(i * angle);
+            path += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)} `;
+        }
+        return path + 'Z';
+    };
+
+    const createPolygonPath = (sides: number, radius: number, centerX = 50, centerY = 50): string => {
+        let path = '';
+        const angle = (2 * Math.PI) / sides;
+        for (let i = 0; i < sides; i++) {
+            const x = centerX + radius * Math.sin(i * angle);
+            const y = centerY - radius * Math.cos(i * angle);
+            path += `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)},${y.toFixed(2)} `;
+        }
+        return path + 'Z';
+    };
+
+    const shapes: { name: TextElement['backgroundShape'], title: string, path: string }[] = [
+        { name: 'rectangle', title: 'מלבן', path: 'M5,5 H95 V95 H5Z' },
+        { name: 'rounded', title: 'מעוגל', path: 'M20,5 H80 C91.04,5 100,13.95 100,25 V75 C100,86.04 91.04,95 80,95 H20 C8.95,95 0,86.04 0,75 V25 C0,13.95 8.95,5 20,5Z' },
+        { name: 'ellipse', title: 'אליפסה', path: 'M50,5 C25.14,5 5,25.14 5,50 S25.14,95 50,95 95,74.85 95,50 74.85,5 50,5Z' },
+        { name: 'speech-bubble', title: 'בועת דיבור', path: 'M5,5 H95 V75 H30 L15,90 V75 H5Z' },
+        { name: 'rhombus', title: 'מעוין', path: 'M50,5 L95,50 L50,95 L5,50Z' },
+        { name: 'star', title: 'כוכב 5', path: createStarPath(5, 48, 18) },
+        { name: 'starburst-8', title: 'כוכב 8', path: createStarPath(8, 48, 28) },
+        { name: 'starburst-10', title: 'כוכב 10', path: createStarPath(10, 48, 33) },
+        { name: 'starburst-12', title: 'כוכב 12', path: createStarPath(12, 48, 36) },
+        { name: 'hexagon', title: 'משושה', path: createPolygonPath(6, 48) },
+        { name: 'octagon', title: 'מתומן', path: createPolygonPath(8, 48) },
+    ];
+    
     return (
-        <>
+        <div>
             <Accordion 
                 title="טיפוגרפיה וצבע" 
                 isOpen={openAccordion === 'טיפוגרפיה וצבע'}
                 onToggle={() => onAccordionToggle('טיפוגרפיה וצבע')}
             >
-                 <div className="space-y-3 p-3">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <span className="text-sm text-slate-400">גופן</span>
-                             <select value={activeStyle?.fontFamily || ''} onChange={(e) => onStyleUpdate({ fontFamily: e.target.value })} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm h-[30px]">
-                                {availableFonts.map(font => (
-                                    <option key={font.name} value={font.name} style={{ fontFamily: font.name }}>{font.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                         <NumericStepper
-                            label="גודל (px)"
-                            value={activeStyle?.fontSize || 0}
-                            onChange={(val, isPreset) => onStyleUpdate({ fontSize: val }, isPreset)}
-                            min={8} max={500}
-                            presets={[16, 24, 32, 48, 72, 96, 120, 150]}
+                <div className="space-y-3">
+                    <label className="block">
+                        <span className="text-sm text-slate-400">פונט</span>
+                         <select value={displayStyle.fontFamily} onChange={(e) => handleStyleChange('fontFamily', e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm">
+                            {availableFonts.map(font => (
+                                <option key={font.name} value={font.name} style={{fontFamily: font.name}}>
+                                    {font.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                        <NumericStepper
+                            label="גודל"
+                            value={displayStyle.fontSize}
+                            onChange={(newSize, isPreset) => handleStyleChange('fontSize', newSize, isPreset)}
+                            min={1}
+                            presets={fontSizes}
                         />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
+                        <label>
                             <span className="text-sm text-slate-400">משקל</span>
-                            <select value={activeStyle?.fontWeight || 400} onChange={(e) => onStyleUpdate({ fontWeight: parseInt(e.target.value) })} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm h-[30px]">
-                                {[100,200,300,400,500,600,700,800,900].map(weight => <option key={weight} value={weight}>{weight}</option>)}
+                            <select value={displayStyle.fontWeight} onChange={(e) => handleStyleChange('fontWeight', parseInt(e.target.value))} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm">
+                                <option value="400">רגיל</option>
+                                <option value="500">בינוני</option>
+                                <option value="700">מודגש</option>
+                                <option value="900">שחור</option>
                             </select>
+                        </label>
+                    </div>
+                     <div className="grid grid-cols-2 gap-2">
+                        <div>
+                            <span className="text-sm text-slate-400">צבע טקסט</span>
+                             <div className="mt-1">
+                                <ColorPicker 
+                                    color={displayStyle.color}
+                                    onChange={(newColor) => handleStyleChange('color', newColor)}
+                                />
+                             </div>
                         </div>
                         <div>
-                             <span className="text-sm text-slate-400">צבע</span>
-                             <div className="mt-1">
-                                <ColorPicker
-                                    color={activeStyle?.color || '#ffffff'}
-                                    onChange={newColor => onStyleUpdate({ color: newColor })}
-                                />
-                             </div>
-                        </div>
-                    </div>
-                    <div className="pt-2 border-t border-slate-700/50">
-                        <div className="flex items-center gap-2 mb-2">
-                             <ShadowIcon className="w-5 h-5 text-slate-400" />
-                             <span className="text-sm font-semibold">צל טקסט</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                            <NumericStepper label="X" value={Number(offsetX)} onChange={val => onStyleUpdate({ textShadow: `${val}px ${offsetY}px ${blur}px ${color}` })} min={-20} max={20} />
-                            <NumericStepper label="Y" value={Number(offsetY)} onChange={val => onStyleUpdate({ textShadow: `${offsetX}px ${val}px ${blur}px ${color}` })} min={-20} max={20} />
-                            <NumericStepper label="טשטוש" value={Number(blur)} onChange={val => onStyleUpdate({ textShadow: `${offsetX}px ${offsetY}px ${val}px ${color}` })} min={0} max={40} />
-                        </div>
-                         <div className="mt-2">
-                             <span className="text-sm text-slate-400">צבע צל</span>
-                             <div className="mt-1">
-                                <ColorPicker
-                                    color={String(color)}
-                                    onChange={newColor => onStyleUpdate({ textShadow: `${offsetX}px ${offsetY}px ${blur}px ${newColor}` })}
-                                />
-                             </div>
+                            <span className="text-sm text-slate-400">צל טקסט</span>
+                            <button
+                                onClick={handleShadowToggle}
+                                title={hasShadow ? "הסר צל טקסט" : "הוסף צל טקסט"}
+                                className={`w-full flex items-center justify-center h-[30px] rounded mt-1 transition-colors ${hasShadow ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <ShadowIcon className="w-5 h-5"/>
+                            </button>
                         </div>
                     </div>
                 </div>
             </Accordion>
+
             <Accordion 
-                title="יישור ופריסה" 
-                isOpen={openAccordion === 'יישור ופריסה'}
-                onToggle={() => onAccordionToggle('יישור ופריסה')}
+                title="רקע וצורה"
+                isOpen={openAccordion === 'רקע וצורה'}
+                onToggle={() => onAccordionToggle('רקע וצורה')}
             >
-                <div className="space-y-3 p-3">
-                     <div className="flex items-center justify-between bg-slate-700 rounded-md p-1">
-                        <button onClick={() => onAlignmentUpdate('right')} className={`p-2 rounded ${element.textAlign === 'right' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור לימין"><AlignRightIcon className="w-5 h-5"/></button>
-                        <button onClick={() => onAlignmentUpdate('center')} className={`p-2 rounded ${element.textAlign === 'center' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור למרכז"><AlignCenterIcon className="w-5 h-5"/></button>
-                        <button onClick={() => onAlignmentUpdate('left')} className={`p-2 rounded ${element.textAlign === 'left' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור לשמאל"><AlignLeftIcon className="w-5 h-5"/></button>
-                        <button onClick={() => onAlignmentUpdate('justify')} className={`p-2 rounded ${element.textAlign === 'justify' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור לשני הצדדים"><AlignJustifyIcon className="w-5 h-5"/></button>
-                    </div>
-                     <div className="flex items-center justify-between bg-slate-700 rounded-md p-1">
-                        <button onClick={() => onUpdate(element.id, { verticalAlign: 'top' })} className={`p-2 rounded ${element.verticalAlign === 'top' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור למעלה"><AlignVerticalJustifyStart className="w-5 h-5"/></button>
-                        <button onClick={() => onUpdate(element.id, { verticalAlign: 'middle' })} className={`p-2 rounded ${element.verticalAlign === 'middle' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור לאמצע"><AlignVerticalJustifyCenter className="w-5 h-5"/></button>
-                        <button onClick={() => onUpdate(element.id, { verticalAlign: 'bottom' })} className={`p-2 rounded ${element.verticalAlign === 'bottom' ? 'bg-blue-600' : 'hover:bg-slate-600'}`} title="יישור למטה"><AlignVerticalJustifyEnd className="w-5 h-5"/></button>
-                    </div>
-                    <NumericStepper
-                        label="גובה שורה"
-                        value={activeStyle?.lineHeight || 1.2}
-                        onChange={(val) => onStyleUpdate({ lineHeight: val })}
-                        min={0.5} max={3} step={0.1} toFixed={1}
-                    />
-                    <div className="grid grid-cols-2 gap-3">
-                        <NumericStepper
-                            label="ריפוד (px)"
-                            value={element.padding}
-                            onChange={(val) => onUpdate(element.id, { padding: val })}
-                            min={0}
-                            max={100}
-                        />
-                        <NumericStepper
-                            label="מרווח אותיות"
-                            value={element.letterSpacing}
-                            onChange={(val) => onUpdate(element.id, { letterSpacing: val })}
-                            min={-10}
-                            max={50}
-                            step={0.1}
-                            toFixed={1}
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <NumericStepper
-                            label="מתיחה אופקית (%)"
-                            value={Math.round((element.scaleX || 1) * 100)}
-                            onChange={(val) => onUpdate(element.id, { scaleX: val / 100 })}
-                            min={10}
-                            max={500}
-                        />
-                        <NumericStepper
-                            label="מתיחה אנכית (%)"
-                            value={Math.round((element.scaleY || 1) * 100)}
-                            onChange={(val) => onUpdate(element.id, { scaleY: val / 100 })}
-                            min={10}
-                            max={500}
-                        />
-                    </div>
-                </div>
-            </Accordion>
-             <Accordion 
-                title="רקע ומסגרת"
-                isOpen={openAccordion === 'רקע ומסגרת'}
-                onToggle={() => onAccordionToggle('רקע ומסגרת')}
-            >
-                <div className="space-y-3 p-3">
-                    <div>
-                        <span className="text-sm text-slate-400">צבע רקע</span>
-                        <div className="mt-1">
-                             <ColorPicker
-                                color={bgColorHex}
-                                onChange={(newHex) => handleBgColorChange(newHex)}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm text-slate-400">רקע</span>
+                        <div className="flex items-center gap-3">
+                            <ColorPicker
+                                color={element.backgroundColor}
+                                onChange={handleBgColorChange}
+                                renderTrigger={renderBackgroundColorTrigger}
                             />
+                            <div className="flex-grow flex items-center gap-2">
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={Math.round(bgColorAlpha * 100)}
+                                    onChange={(e) => handleBgAlphaChange(parseInt(e.target.value, 10))}
+                                    className="w-full"
+                                    disabled={element.backgroundColor === 'transparent'}
+                                    title="שקיפות רקע"
+                                />
+                                <span className="text-xs text-slate-400 w-8 text-right">{Math.round(bgColorAlpha * 100)}%</span>
+                            </div>
                         </div>
                     </div>
-                    {element.backgroundColor !== 'transparent' && (
-                         <div>
-                            <span className="text-sm text-slate-400">שקיפות רקע: {Math.round(bgColorAlpha * 100)}%</span>
-                            <input
-                                type="range"
-                                min="0" max="1" step="0.01"
-                                value={bgColorAlpha}
-                                onChange={(e) => handleBgColorChange(bgColorHex, parseFloat(e.target.value))}
-                                className="w-full mt-1"
-                            />
-                        </div>
-                    )}
                     <div>
                         <span className="text-sm text-slate-400">צורת רקע</span>
-                        <select value={element.backgroundShape || 'rectangle'} onChange={(e) => onUpdate(element.id, { backgroundShape: e.target.value as any })} className="w-full bg-slate-700 border border-slate-600 rounded p-2 mt-1 text-sm">
-                            <option value="rectangle">מלבן</option>
-                            <option value="rounded">פינות מעוגלות</option>
-                            <option value="ellipse">אליפסה</option>
-                            <option value="speech-bubble">בועת דיבור</option>
-                            <option value="star">כוכב</option>
-                            <option value="starburst-8">כוכב 8-קצוות</option>
-                            <option value="starburst-10">כוכב 10-קצוות</option>
-                            <option value="starburst-12">כוכב 12-קצוות</option>
-                            <option value="hexagon">משושה</option>
-                            <option value="octagon">מתומן</option>
-                            <option value="rhombus">מעוין</option>
-                        </select>
-                    </div>
-                     <div className="pt-2 border-t border-slate-700/50">
-                        <div className="flex items-center gap-2 mb-2">
-                             <input
-                                type="checkbox"
-                                id="outline-enabled"
-                                checked={element.outline?.enabled || false}
-                                onChange={(e) => onUpdate(element.id, { outline: { ...element.outline, enabled: e.target.checked } as any })}
-                                className="w-4 h-4 rounded"
-                            />
-                             <label htmlFor="outline-enabled" className="text-sm font-semibold">קו מתאר</label>
+                        <div className="mt-1 grid grid-cols-6 gap-2 p-1 bg-slate-900 rounded-md">
+                            {shapes.map(shape => (
+                                <button
+                                    key={shape.name}
+                                    title={shape.title}
+                                    onClick={() => handleBlockUpdate('backgroundShape', shape.name)}
+                                    className={`flex items-center justify-center h-10 rounded-md transition-colors ${element.backgroundShape === shape.name || (!element.backgroundShape && shape.name === 'rectangle') ? 'bg-blue-600 ring-2 ring-blue-400' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                >
+                                    <svg viewBox="0 0 100 100" className="w-6 h-6 text-white" style={{ stroke: 'currentColor', strokeWidth: 5, fill: 'none', strokeLinejoin: 'round' }}>
+                                        <path d={shape.path} />
+                                    </svg>
+                                </button>
+                            ))}
                         </div>
-                        {element.outline?.enabled && (
-                            <div className="space-y-3 pl-6">
-                                <NumericStepper label="עובי (px)" value={element.outline.width} onChange={val => onUpdate(element.id, { outline: { ...element.outline, width: val } as any })} min={1} max={50} />
-                                <div>
+                    </div>
+                    <div className="space-y-2 pt-2 border-t border-slate-700">
+                        <label className="flex items-center gap-2 text-sm text-slate-300">
+                            <input 
+                                type="checkbox"
+                                checked={outline.enabled}
+                                onChange={(e) => handleOutlineChange({ enabled: e.target.checked })}
+                                className="w-4 h-4 rounded bg-slate-600 border-slate-500 text-blue-500 focus:ring-blue-500"
+                            />
+                            <span>קו מתאר</span>
+                        </label>
+                        {outline.enabled && (
+                            <div className="grid grid-cols-2 gap-2 items-end">
+                                <NumericStepper 
+                                    label="עובי"
+                                    value={outline.width}
+                                    onChange={(newValue) => handleOutlineChange({ width: newValue })}
+                                    min={0}
+                                />
+                                 <div className="flex flex-col">
                                     <span className="text-sm text-slate-400">צבע</span>
-                                    <div className="mt-1">
-                                        <ColorPicker
-                                            color={element.outline.color}
-                                            onChange={newColor => onUpdate(element.id, { outline: { ...element.outline, color: newColor } as any })}
+                                     <div className="mt-1">
+                                        <ColorPicker 
+                                            color={outline.color}
+                                            onChange={(newColor) => handleOutlineChange({ color: newColor })}
                                         />
-                                    </div>
+                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
                 </div>
             </Accordion>
-        </>
+
+            <Accordion 
+                title="יישור ופריסה"
+                isOpen={openAccordion === 'יישור ופריסה'}
+                onToggle={() => onAccordionToggle('יישור ופריסה')}
+            >
+                <div className="space-y-4">
+                    <div>
+                        <span className="text-sm text-slate-400">יישור אופקי</span>
+                         <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 rounded-md mt-1">
+                            {(['right', 'center', 'left', 'justify'] as const).map(align => {
+                                const Icon = alignMap[align].icon;
+                                const isActive = element.textAlign === align && (!element.lineAlignments || element.lineAlignments.length === 0);
+                                return (
+                                    <button
+                                        key={align}
+                                        onClick={() => onAlignmentUpdate(align)}
+                                        title={alignMap[align].title}
+                                        className={`px-2 h-[30px] rounded flex items-center justify-center ${isActive ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                    >
+                                        <Icon className="w-5 h-5 mx-auto" />
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                    <div>
+                        <span className="text-sm text-slate-400">יישור אנכי</span>
+                         <div className="grid grid-cols-3 gap-1 p-1 bg-slate-900 rounded-md mt-1">
+                            <button 
+                                onClick={() => handleBlockUpdate('verticalAlign', 'top')} 
+                                title="יישור למעלה"
+                                className={`px-2 h-[30px] rounded ${element.verticalAlign === 'top' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <AlignVerticalJustifyEnd className="w-5 h-5 mx-auto"/>
+                            </button>
+                            <button 
+                                onClick={() => handleBlockUpdate('verticalAlign', 'middle')} 
+                                title="יישור למרכז"
+                                className={`px-2 h-[30px] rounded ${element.verticalAlign === 'middle' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <AlignVerticalJustifyCenter className="w-5 h-5 mx-auto"/>
+                            </button>
+                            <button 
+                                onClick={() => handleBlockUpdate('verticalAlign', 'bottom')} 
+                                title="יישור למטה"
+                                className={`px-2 h-[30px] rounded ${element.verticalAlign === 'bottom' ? 'bg-blue-600' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            >
+                                <AlignVerticalJustifyStart className="w-5 h-5 mx-auto"/>
+                            </button>
+                        </div>
+                    </div>
+                     <div className="grid grid-cols-2 gap-2">
+                        <NumericStepper
+                            label="מרווח שורות"
+                            value={displayStyle.lineHeight || 1.2}
+                            onChange={(newValue) => handleStyleChange('lineHeight', newValue)}
+                            step={0.1}
+                            min={0}
+                            toFixed={1}
+                        />
+                        <NumericStepper
+                            label="מרווח אותיות"
+                            value={element.letterSpacing}
+                            onChange={(newValue) => handleBlockUpdate('letterSpacing', newValue)}
+                        />
+                    </div>
+                     <NumericStepper
+                        label="ריפוד"
+                        value={element.padding}
+                        onChange={(newValue) => handleBlockUpdate('padding', newValue)}
+                        min={0}
+                     />
+                </div>
+            </Accordion>
+        </div>
     );
 };
 
-const ImagePanel: React.FC<{ element: ImageElement, onEditImage: (element: ImageElement) => void }> = ({ element, onEditImage }) => {
+const ImagePanel: React.FC<{ element: ImageElement; onEditImage: (element: ImageElement, newSrc?: string) => void }> = ({ element, onEditImage }) => {
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleButtonClick = () => {
+        if (element.src) {
+            onEditImage(element);
+        } else {
+            fileInputRef.current?.click();
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const newSrc = event.target?.result as string;
+                if (newSrc) {
+                    onEditImage(element, newSrc);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+        if (e.target) e.target.value = ''; // Reset file input
+    };
+
     return (
-        <div className="p-4">
-            <button
-                onClick={() => onEditImage(element)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-            >
-                פתח עורך תמונות
+        <div className="p-4 border-b border-slate-700">
+            <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleFileChange}
+            />
+            <button onClick={handleButtonClick} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                {element.src ? 'ערוך תמונה' : 'הוסף תמונה'}
             </button>
         </div>
     );
 };
 
-const TransformPanel: React.FC<{ element: ElementBase, onUpdate: (id: string, updates: Partial<ElementBase>) => void }> = ({ element, onUpdate }) => {
+const TransformPanel: React.FC<{ element: CanvasElement; onUpdate: (id: string, updates: Partial<CanvasElement>) => void }> = ({ element, onUpdate }) => {
+    const handleUpdate = (prop: keyof CanvasElement, value: number) => {
+        if (!isNaN(value)) {
+            onUpdate(element.id, { [prop]: value } as Partial<CanvasElement>);
+        }
+    };
+
     return (
-        <div className="space-y-3 p-3">
-            <div className="grid grid-cols-2 gap-3">
-                <NumericStepper label="X" value={element.x} onChange={(val) => onUpdate(element.id, { x: val })} />
-                <NumericStepper label="Y" value={element.y} onChange={(val) => onUpdate(element.id, { y: val })} />
-            </div>
-             <div className="grid grid-cols-2 gap-3">
-                <NumericStepper label="רוחב" value={element.width} onChange={(val) => onUpdate(element.id, { width: val })} min={10} />
-                <NumericStepper label="גובה" value={element.height} onChange={(val) => onUpdate(element.id, { height: val })} min={10} />
-            </div>
-             <NumericStepper 
-                label="סיבוב (°)"
-                value={element.rotation} 
-                onChange={(val) => onUpdate(element.id, { rotation: val })} 
-                min={-360} max={360}
+        <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
+            <NumericStepper
+                label="מיקום Y"
+                value={Math.round(element.y)}
+                onChange={(newValue) => handleUpdate('y', newValue)}
             />
-        </div>
-    );
-};
-
-const LayerPanel: React.FC<{ element: ElementBase, onLayerOrderChange: (id: string, direction: any) => void, totalElements: number }> = ({ element, onLayerOrderChange, totalElements }) => {
-    const isAtBack = element.zIndex <= 1;
-    const isAtFront = element.zIndex >= totalElements;
-
-    return (
-        <div className="p-3">
-             <div className="grid grid-cols-4 gap-2">
-                <button onClick={() => onLayerOrderChange(element.id, 'front')} disabled={isAtFront} className="p-2 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-50" title="הבא לחזית"><ChevronsUp className="w-5 h-5 mx-auto"/></button>
-                <button onClick={() => onLayerOrderChange(element.id, 'forward')} disabled={isAtFront} className="p-2 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-50" title="הזז קדימה"><ChevronUp className="w-5 h-5 mx-auto"/></button>
-                <button onClick={() => onLayerOrderChange(element.id, 'backward')} disabled={isAtBack} className="p-2 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-50" title="הזז אחורה"><ChevronDown className="w-5 h-5 mx-auto"/></button>
-                <button onClick={() => onLayerOrderChange(element.id, 'back')} disabled={isAtBack} className="p-2 bg-slate-700 hover:bg-slate-600 rounded disabled:opacity-50" title="שלח לרקע"><ChevronsDown className="w-5 h-5 mx-auto"/></button>
+            <NumericStepper
+                label="מיקום X"
+                value={Math.round(element.x)}
+                onChange={(newValue) => handleUpdate('x', newValue)}
+            />
+            <NumericStepper
+                label="גובה (H)"
+                value={Math.round(element.height)}
+                onChange={(newValue) => handleUpdate('height', newValue)}
+                min={10}
+            />
+            <NumericStepper
+                label="רוחב (W)"
+                value={Math.round(element.width)}
+                onChange={(newValue) => handleUpdate('width', newValue)}
+                min={10}
+            />
+            <div className="col-span-2">
+                <NumericStepper
+                    label="סיבוב (°)"
+                    value={Math.round(element.rotation)}
+                    onChange={(newValue) => handleUpdate('rotation', newValue)}
+                    min={-360}
+                    max={360}
+                />
             </div>
         </div>
-    );
-};
-
-const LayersList: React.FC<{
-    elements: CanvasElement[];
-    onSelectElement: (id: string) => void;
-    onHoverElement: (id: string | null) => void;
-    onDeleteElement: (id: string) => void;
-    onUpdateElement: (id: string, updates: Partial<CanvasElement>) => void;
-}> = ({ elements, onSelectElement, onHoverElement, onDeleteElement, onUpdateElement }) => {
-    const sortedElements = useMemo(() => [...elements].sort((a, b) => b.zIndex - a.zIndex), [elements]);
-
-    return (
-         <div className="p-2 space-y-1">
-            {sortedElements.length > 0 ? (
-                sortedElements.map(el => (
-                    <div 
-                        key={el.id}
-                        className="flex items-center gap-2 p-2 rounded-md hover:bg-slate-700 cursor-pointer"
-                        onClick={() => onSelectElement(el.id)}
-                        onMouseEnter={() => onHoverElement(el.id)}
-                        onMouseLeave={() => onHoverElement(null)}
-                    >
-                         <button onClick={(e) => { e.stopPropagation(); onUpdateElement(el.id, { locked: !el.locked }); }} className="text-slate-400 hover:text-white">
-                            {el.locked ? <LockIcon className="w-4 h-4" /> : <UnlockIcon className="w-4 h-4" />}
-                        </button>
-                        <span className="flex-grow text-sm truncate" title={el.id}>{el.id}</span>
-                        <button onClick={(e) => { e.stopPropagation(); onDeleteElement(el.id); }} className="text-slate-400 hover:text-red-500">
-                            <TrashIcon className="w-4 h-4" />
-                        </button>
-                    </div>
-                ))
-            ) : (
-                <p className="text-sm text-slate-400 text-center p-4">אין שכבות להצגה.</p>
-            )}
-        </div>
-    );
+    )
 };
 
 

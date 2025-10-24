@@ -141,8 +141,6 @@ export interface TextElement extends ElementBase {
     enabled: boolean;
   };
   lineAlignments?: ('right' | 'center' | 'left' | 'justify')[];
-  scaleX?: number;
-  scaleY?: number;
 }
 
 export interface ImageEditState {
