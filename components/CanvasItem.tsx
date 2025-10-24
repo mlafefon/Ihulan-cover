@@ -378,7 +378,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             };
             reader.readAsDataURL(file);
         }
-        if (e.target) e.target.value = ''; // Reset file input
+        if (e.target) e.target.value = '';
     };
 
     const handleDoubleClick = () => {
@@ -886,19 +886,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             onPaste={handlePaste}
                             onCut={handleCut}
                             onInput={(e) => {
-                                const container = e.currentTarget;
-                                // The content is inside a wrapper div for layout purposes.
-                                const wrapperDiv = container.querySelector('div');
-                                if (!wrapperDiv) {
-                                    return; // Should not happen in normal flow
-                                }
-                                
-                                // Reconstruct the full text content by joining the text of each line div with a newline.
-                                // This correctly handles multi-line content.
-                                const reconstructedText = Array.from(wrapperDiv.childNodes)
-                                    .map(node => (node as Node).textContent || '')
-                                    .join('\n');
-                                
+                                // Reconstruct text from the line divs, joining with newlines.
+                                const lineWrapper = e.currentTarget.querySelector('div');
+                                const reconstructedText = lineWrapper
+                                    ? Array.from(lineWrapper.childNodes)
+                                        .map(node => (node as Node).textContent || '')
+                                        .join('\n')
+                                    : e.currentTarget.textContent || ''; // Fallback
+                            
                                 // Sanitize to match data model (remove zero-width spaces).
                                 const sanitizedText = reconstructedText.replace(/\u200b/g, '');
                             
