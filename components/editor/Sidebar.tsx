@@ -567,7 +567,7 @@ interface TextPanelProps {
 }
 
 const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
-    const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96];
+    const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96, 120, 144, 192];
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
         onUpdate(element.id, { [prop]: value } as Partial<TextElement>);
