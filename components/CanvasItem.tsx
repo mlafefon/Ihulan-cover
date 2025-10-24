@@ -169,22 +169,25 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         const outlineWidth = (textElement.outline?.enabled && textElement.outline.width) ? textElement.outline.width : 0;
     
                         const newSelectionRects = clientRects.map(rect => {
-                            // 1. Calculate true height (h_local)
-                            const h_local = styleForMetrics.fontSize * styleForMetrics.lineHeight;
-    
-                            // 2. Calculate true width (w_local) using the more stable formula
+                            // Calculate the real width and height of the text content, accounting for rotation.
+                            // h_local_line is the height based on line-height, used for geometric calculations.
+                            const h_local_line = styleForMetrics.fontSize * styleForMetrics.lineHeight;
                             let w_local: number;
-                            if (cos >= sin) { // More horizontal rotation
-                                w_local = cos > 1e-6 ? (rect.width - h_local * sin) / cos : 0;
-                            } else { // More vertical rotation
-                                w_local = sin > 1e-6 ? (rect.height - h_local * cos) / sin : 0;
+
+                            if (cos >= sin) {
+                                w_local = cos > 1e-6 ? (rect.width - h_local_line * sin) / cos : 0;
+                            } else {
+                                w_local = sin > 1e-6 ? (rect.height - h_local_line * cos) / sin : 0;
                             }
+
+                            // h_local_font is the visual height based on font-size, for rendering the highlight.
+                            const h_local_font = styleForMetrics.fontSize;
                             
-                            // 3. Find center of ClientRect in viewport space
+                            // Find center of ClientRect in viewport space
                             const viewportCenterX = rect.left + rect.width / 2;
                             const viewportCenterY = rect.top + rect.height / 2;
     
-                            // 4. Transform viewport center into the wrapper's local (un-rotated) space
+                            // Transform viewport center into the wrapper's local (un-rotated) space
                             const rotatedBoundingBoxCenterX = wrapperRect.left + wrapperRect.width / 2;
                             const rotatedBoundingBoxCenterY = wrapperRect.top + wrapperRect.height / 2;
                             
@@ -199,17 +202,16 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             const local_dx = dx * cos_inv - dy * sin_inv;
                             const local_dy = dx * sin_inv + dy * cos_inv;
                             
-                            // 5. Calculate the top-left of the overlay relative to the un-rotated element's center
+                            // Calculate the top-left of the overlay relative to the un-rotated element's center,
+                            // using the visual font height for the final position.
                             const unrotatedCenterX = textElement.width / 2;
                             const unrotatedCenterY = textElement.height / 2;
                             
-                            const local_top = unrotatedCenterY + local_dy - h_local / 2;
+                            const local_top = unrotatedCenterY + local_dy - h_local_font / 2;
                             const local_left = unrotatedCenterX + local_dx - w_local / 2;
     
-                            // Return a new DOMRect with local coordinates and dimensions, corrected for the outline width.
-                            // The selection is inside the content, but positioning is relative to the wrapper's padding-box.
-                            // The calculation gives coordinates relative to the border-box, so we must subtract the border/outline width.
-                            return new DOMRect(local_left - outlineWidth, local_top - outlineWidth, w_local, h_local);
+                            // Return a new DOMRect with local coordinates and dimensions, using the tighter font-size height.
+                            return new DOMRect(local_left - outlineWidth, local_top - outlineWidth, w_local, h_local_font);
                         });
                         
                         setSelectionRects(newSelectionRects);
@@ -839,7 +841,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         lineHeight: firstSpanStyle.lineHeight || 1.2,
                     }),
                 };
-                
+
                 return (
                     <div ref={textWrapperRef} style={wrapperStyle}>
                         {isSvgShape && (
@@ -858,25 +860,21 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                                 />
                             </svg>
                         )}
-                         {isSelected && selectionRects.map((rect, i) => {
-                            const visualHeight = (activeStyle || defaultTextStyle).fontSize;
-                            const topOffset = (rect.height - visualHeight) / 2;
-                            return (
-                                <div
-                                    key={`selection-rect-${i}`}
-                                    style={{
-                                        position: 'absolute',
-                                        top: `${rect.y + topOffset}px`,
-                                        left: `${rect.x}px`,
-                                        width: `${rect.width}px`,
-                                        height: `${visualHeight}px`,
-                                        backgroundColor: '#64748b',
-                                        pointerEvents: 'none',
-                                        zIndex: 0,
-                                    }}
-                                />
-                            );
-                         })}
+                         {isSelected && selectionRects.map((rect, i) => (
+                            <div
+                                key={`selection-rect-${i}`}
+                                style={{
+                                    position: 'absolute',
+                                    top: `${rect.y}px`,
+                                    left: `${rect.x}px`,
+                                    width: `${rect.width}px`,
+                                    height: `${rect.height}px`,
+                                    backgroundColor: '#64748b',
+                                    pointerEvents: 'none',
+                                    zIndex: 0,
+                                }}
+                            />
+                         ))}
                         <div 
                             ref={textContentRef} 
                             style={editableStyle}
@@ -906,33 +904,51 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                                 }
                             }}
                         >
-                            <div style={{ transform: `scale(${textElement.scaleX ?? 1}, ${textElement.scaleY ?? 1})` }}>
-                                {lines.map((line, lineIndex) => (
-                                    <div
-                                        key={lineIndex}
-                                        style={{
-                                            textAlign: lineAlignments[lineIndex] || defaultAlign,
-                                            textAlignLast: (lineAlignments[lineIndex] || defaultAlign) === 'justify' ? 'justify' : 'auto',
+                            <div>
+                                {lines.map((line, lineIndex) => {
+                                    const effectiveAlign = lineAlignments[lineIndex] || defaultAlign;
+                                    const scaleX = textElement.scaleX ?? 1;
+                                    const scaleY = textElement.scaleY ?? 1;
 
-                                        }}
-                                    >
-                                        {line.spans.length > 0 ? line.spans.map((span, spanIndex) => (
-                                            <span key={spanIndex} style={{
-                                                fontFamily: span.style.fontFamily,
-                                                fontSize: `${span.style.fontSize}px`,
-                                                fontWeight: span.style.fontWeight,
-                                                color: span.style.color,
-                                                textShadow: span.style.textShadow,
-                                                lineHeight: span.style.lineHeight || 1.2,
-                                            }}>
-                                                {span.text}
-                                            </span>
-                                        )) : (
-                                            // Render a zero-width space to ensure the div has height and is clickable
-                                            <span>&#8203;</span>
-                                        )}
-                                    </div>
-                                ))}
+                                    // Calculate translateX for this specific line based on its effective alignment.
+                                    // This ensures that when scaled, the line aligns correctly from its intended origin (left, center, or right).
+                                    let translateX = '0%';
+                                    if (effectiveAlign === 'left') {
+                                        translateX = `${50 * (scaleX - 1)}%`;
+                                    } else if (effectiveAlign === 'right') {
+                                        translateX = `${50 * (1 - scaleX)}%`;
+                                    }
+
+                                    // Vertical scaling is always from the line's center.
+                                    const lineTransform = `translateX(${translateX}) scale(${scaleX}, ${scaleY})`;
+                                    
+                                    return (
+                                        <div
+                                            key={lineIndex}
+                                            style={{
+                                                transform: lineTransform,
+                                                textAlign: effectiveAlign,
+                                                textAlignLast: effectiveAlign === 'justify' ? 'justify' : 'auto',
+                                            }}
+                                        >
+                                            {line.spans.length > 0 ? line.spans.map((span, spanIndex) => (
+                                                <span key={spanIndex} style={{
+                                                    fontFamily: span.style.fontFamily,
+                                                    fontSize: `${span.style.fontSize}px`,
+                                                    fontWeight: span.style.fontWeight,
+                                                    color: span.style.color,
+                                                    textShadow: span.style.textShadow,
+                                                    lineHeight: span.style.lineHeight || 1.2,
+                                                }}>
+                                                    {span.text}
+                                                </span>
+                                            )) : (
+                                                // Render a zero-width space to ensure the div has height and is clickable
+                                                <span>&#8203;</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -1075,7 +1091,7 @@ export function getSelectionCharOffsetsWithin(element: HTMLElement) {
 
     const calculateOffset = (container: Node, offset: number): number => {
         let charCount = 0;
-        const lineDivs = Array.from(element.querySelector('[style*="transform"]')?.childNodes || element.childNodes);
+        const lineDivs = Array.from(element.querySelector('div')?.childNodes || element.childNodes);
 
         for (let i = 0; i < lineDivs.length; i++) {
             const lineDiv = lineDivs[i];
@@ -1121,7 +1137,7 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
 
     // Fix: Cast the result of `childNodes` to `Node[]`. The default `ChildNode` type lacks properties
     // like `textContent` and is not compatible with APIs like `createTreeWalker`, causing type errors.
-    const lineDivs: Node[] = Array.from(containerEl.querySelector('[style*="transform"]')?.childNodes || containerEl.childNodes) as Node[];
+    const lineDivs: Node[] = Array.from(containerEl.querySelector('div')?.childNodes || containerEl.childNodes) as Node[];
 
     const findPosition = (charPos: number): { node: Node; offset: number } | null => {
         let totalCharsProcessed = 0;
@@ -1169,7 +1185,7 @@ export function setSelectionByOffset(containerEl: HTMLElement, start: number, en
     const setPositionAtEnd = (): { node: Node, offset: number } => {
         let lastTextNode: Node | null = null;
         
-        const parentForWalker = containerEl.querySelector('[style*="transform"]') || containerEl;
+        const parentForWalker = containerEl.querySelector('div') || containerEl;
         if (parentForWalker.lastChild) {
              const walker = document.createTreeWalker(parentForWalker.lastChild, NodeFilter.SHOW_TEXT);
              let n;

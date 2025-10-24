@@ -971,7 +971,7 @@ const TransformPanel: React.FC<{ element: CanvasElement; onUpdate: (id: string, 
     };
 
     return (
-        <div className="p-4 grid grid-cols-2 gap-x-2 gap-y-3">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-3">
             <NumericStepper
                 label="מיקום Y"
                 value={Math.round(element.y)}
