@@ -53,7 +53,7 @@ const LandingPage: React.FC = () => {
           התחל עיצוב
         </Link>
         <div className="mt-20">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8">
             {sampleCovers.map((cover, index) => (
               <div key={index} className="bg-slate-800 rounded-lg shadow-lg overflow-hidden transform hover:-translate-y-2 transition-transform duration-300">
                 <img src={cover.img} alt={cover.title} className="w-full h-64 object-cover" />
