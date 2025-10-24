@@ -15,6 +15,7 @@ interface SidebarProps {
     onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
     onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
     activeStyle: TextStyle | null;
+    activeLineAlignment: 'right' | 'center' | 'left' | 'justify' | null;
     onAddElement: (type: ElementType, payload?: { src: string }) => void;
     onDeleteElement: (id:string) => void;
     template: Template;
@@ -57,7 +58,7 @@ const parseColor = (color: string): { hex: string; alpha: number } => {
 
 const Sidebar: React.FC<SidebarProps> = ({ 
     selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
-    onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
+    onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, activeLineAlignment, onDeselect, 
     onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement,
     formatBrushState, onToggleFormatBrush, onConvertTextToImage, isOpen, onClose
 }) => {
@@ -190,6 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     onStyleUpdate={onStyleUpdate}
                                     onAlignmentUpdate={onAlignmentUpdate}
                                     activeStyle={activeStyle}
+                                    activeLineAlignment={activeLineAlignment}
                                     openAccordion={openAccordion}
                                     onAccordionToggle={handleAccordionToggle}
                                 />
@@ -580,11 +582,12 @@ interface TextPanelProps {
     onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
     onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
     activeStyle: TextStyle | null;
+    activeLineAlignment: 'right' | 'center' | 'left' | 'justify' | null;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
 }
 
-const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
+const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, activeLineAlignment, openAccordion, onAccordionToggle }) => {
     const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96, 120, 144, 192];
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
@@ -856,7 +859,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                          <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 rounded-md mt-1">
                             {(['right', 'center', 'left', 'justify'] as const).map(align => {
                                 const Icon = alignMap[align].icon;
-                                const isActive = element.textAlign === align && (!element.lineAlignments || element.lineAlignments.length === 0);
+                                const isActive = activeLineAlignment === align;
                                 return (
                                     <button
                                         key={align}

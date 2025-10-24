@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
+// Fix: Import 'ImageEditState' to resolve type error.
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
@@ -54,6 +55,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [scale, setScale] = useState(1);
+    const [activeLineAlignment, setActiveLineAlignment] = useState<'right' | 'center' | 'left' | 'justify' | null>(null);
 
     // Canvas scaling effect
     useEffect(() => {
@@ -115,6 +117,34 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         setIsDirty(dirty);
     }, [template, initialTemplate]);
 
+    const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
+
+    useEffect(() => {
+        const selectedTextElement = selectedElement?.type === ElementType.Text ? selectedElement as TextElement : null;
+    
+        if (selectedTextElement) {
+            const isCurrentlyEditing = editingElementId === selectedTextElement.id;
+            if (isCurrentlyEditing) {
+                const fullText = selectedTextElement.spans.map(s => s.text).join('');
+                // Use selection start, default to 0 if no selection
+                const start = selectionRange?.start ?? 0;
+                // Count newlines before the cursor to find the line index
+                const currentLineIndex = (fullText.substring(0, start).match(/\n/g) || []).length;
+                
+                const lineAlignments = selectedTextElement.lineAlignments || [];
+                // Get specific line alignment or fall back to the element's default
+                const alignment = lineAlignments[currentLineIndex] || selectedTextElement.textAlign;
+                setActiveLineAlignment(alignment);
+            } else {
+                // If not editing, just show the block-level alignment
+                setActiveLineAlignment(selectedTextElement.textAlign);
+            }
+        } else {
+            // If no text element is selected, no alignment is active
+            setActiveLineAlignment(null);
+        }
+    }, [selectedElement, selectionRange, editingElementId]);
+
     useLayoutEffect(() => {
         if (nextCursorPos) {
             const { id, pos } = nextCursorPos;
@@ -161,7 +191,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     }, [updateHistory]);
 
-    // Fix: Corrected typo from 'useImperivativeHandle' to 'useImperativeHandle'.
     useImperativeHandle(ref, () => ({
         updateTemplateFromParent: (newTemplate: Template) => {
             handleTemplateChange(newTemplate, true);
@@ -920,8 +949,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     };
 
-    const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
-
     const toggleFormatBrush = () => {
         if (!selectedElement || selectedElement.type !== ElementType.Text) {
             setFormatBrushState({ active: false, sourceElement: null });
@@ -1173,6 +1200,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 onStyleUpdate={handleStyleUpdate}
                 onAlignmentUpdate={handleAlignmentUpdate}
                 activeStyle={activeStyle}
+                activeLineAlignment={activeLineAlignment}
                 onAddElement={addElement}
                 onDeleteElement={deleteElement}
                 template={template}
