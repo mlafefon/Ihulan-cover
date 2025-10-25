@@ -1,50 +1,40 @@
-name: Deploy React + TypeScript (Vite) from main to GitHub Pages
+name: Deploy React + TypeScript to GitHub Pages
 
 on:
-  workflow_dispatch:
   push:
     branches:
-      - '*'
+      - '*'   # or master, adjust if needed
+  workflow_dispatch:  # allows manual run from the Actions tab
 
 permissions:
-  contents: write
+  contents: write  # needed to push to gh-pages
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout main branch
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: main
-
-      - name: Setup Node.js
+          
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
 
       - name: Install dependencies
         run: npm install
 
-      # מחליף את vite.config.ts מהבראנץ' project-deploy לפני הבילד
-      - name: Replace vite.config.ts from project-deploy
-        run: |
-          git fetch origin project-deploy --depth=1
-          git show origin/project-deploy:vite.config.ts > vite.config.ts
-
-      # אופציונלי: עדכון base אם צריך בנוסף
-      - name: Update Vite base path
-        run: |
-          sed -i "s|base: .*|base: '/Ihulan-cover/',|" vite.config.ts
-
-      - name: Build project
+      - name: Build React project
         run: npm run build
 
       - name: Prepare deploy folder
         run: |
-          mkdir -p deploy
-          rm -rf deploy/*
-          cp -r dist/* deploy/
+          rm -rf deploy
+          mkdir deploy
+          mv dist/* deploy/
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
