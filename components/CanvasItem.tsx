@@ -78,6 +78,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
     const [clickToEditCoords, setClickToEditCoords] = useState<{ x: number; y: number } | null>(null);
     const [tooltip, setTooltip] = useState<{ visible: boolean; x: number; y: number; text: string; }>({ visible: false, x: 0, y: 0, text: '' });
     const [selectionRects, setSelectionRects] = useState<DOMRect[]>([]);
+    const [imageLoadError, setImageLoadError] = useState(false);
+    const imageSrc = element.type === ElementType.Image ? (element as ImageElement).src : undefined;
+
+    useEffect(() => {
+        if (element.type === ElementType.Image) {
+            setImageLoadError(false);
+        }
+    }, [element.type, imageSrc]);
 
 
     useEffect(() => {
@@ -965,20 +973,27 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     </div>
                 );
             }
-            case ElementType.Image:
+            case ElementType.Image: {
                 const imageElement = element as ImageElement;
+                if (imageLoadError || !imageElement.src) {
+                    return (
+                        <div className="w-full h-full border-2 border-dashed border-gray-400 bg-gray-700 flex flex-col items-center justify-center text-center text-gray-300 pointer-events-none">
+                            <ImageIcon className="w-8 h-8 mb-2" />
+                            <span>{imageLoadError ? 'טעינת תמונה נכשלה' : 'הוסף תמונה'}</span>
+                        </div>
+                    );
+                }
                 return (
-                    <>
-                        {imageElement.src ? (
-                            <img src={imageElement.src} alt="Uploaded content" className="w-full h-full pointer-events-none" style={{objectFit: imageElement.objectFit}} />
-                        ) : (
-                            <div className="w-full h-full border-2 border-dashed border-gray-400 bg-gray-700 flex flex-col items-center justify-center text-center text-gray-300 pointer-events-none">
-                                <ImageIcon className="w-8 h-8 mb-2" />
-                                <span>הוסף תמונה</span>
-                            </div>
-                        )}
-                    </>
+                    <img
+                        src={imageElement.src}
+                        alt="Uploaded content"
+                        className="w-full h-full pointer-events-none"
+                        style={{objectFit: imageElement.objectFit}}
+                        crossOrigin="anonymous"
+                        onError={() => setImageLoadError(true)}
+                    />
                 );
+            }
             case ElementType.Cutter:
                 return (
                     <div
