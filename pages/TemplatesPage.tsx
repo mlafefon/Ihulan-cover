@@ -131,12 +131,12 @@ const TemplatesPage: React.FC = () => {
     }
     
     return (
-        <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 ${selectingTemplateId ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-8 ${selectingTemplateId ? 'opacity-50 pointer-events-none' : ''}`}>
           {filteredTemplates.map(template => {
             const isBeingSelected = selectingTemplateId === template.id;
             return (
                 <div key={template.id} className="group relative flex flex-col">
-                    <div onClick={() => !selectingTemplateId && handleSelectTemplate(template)} className="w-[70%] mx-auto cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
+                    <div onClick={() => !selectingTemplateId && handleSelectTemplate(template)} className="w-full cursor-pointer relative bg-slate-800 rounded-lg shadow-lg overflow-hidden transform group-hover:scale-105 group-hover:shadow-blue-500/50 transition-all duration-300 aspect-[4/5]">
                         <div className="w-full h-full bg-cover bg-center" style={{backgroundImage: `url(${template.previewImage})`}}></div>
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity duration-300"></div>
                         {isBeingSelected && (
@@ -145,7 +145,7 @@ const TemplatesPage: React.FC = () => {
                             </div>
                         )}
                     </div>
-                    <div className="w-[70%] mx-auto flex justify-center items-center mt-3 relative">
+                    <div className="w-full flex justify-center items-center mt-3 relative">
                         <h3 className="font-semibold text-white text-center truncate">{template.name}</h3>
                         {activeTab === 'my' && (
                         <button 
