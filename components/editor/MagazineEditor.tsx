@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -1109,6 +1109,15 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         setTemporaryFontOverride(null);
     };
 
+    const allElementsLocked = template.elements.length > 0 && template.elements.every(el => el.locked);
+
+    const handleToggleAllLocks = () => {
+        if (template.elements.length === 0) return;
+        const shouldLockAll = !allElementsLocked;
+        const newElements = template.elements.map(el => ({ ...el, locked: shouldLockAll }));
+        handleTemplateChange({ ...template, elements: newElements });
+    };
+
     return (
         <div className="flex h-screen bg-slate-900 overflow-hidden" dir="rtl">
             <div className="flex-grow flex flex-col">
@@ -1133,6 +1142,14 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                             title="ייצא קובץ"
                             className="bg-slate-700 hover:bg-slate-600 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             <ExportIcon className="w-5 h-5"/>
+                        </button>
+                        <button 
+                            onClick={handleToggleAllLocks}
+                            disabled={isPreviewMode || template.elements.length === 0}
+                            className={`p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${allElementsLocked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                            title={allElementsLocked ? "שחרר את כל הרכיבים" : "נעל את כל הרכיבים"}
+                        >
+                            {allElementsLocked ? <UnlockIcon className="w-5 h-5"/> : <LockIcon className="w-5 h-5"/>}
                         </button>
                         <button
                             onClick={handleTogglePreview}
