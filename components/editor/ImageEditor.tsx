@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon, TrashIcon } from '../Icons';
+import { ResetIcon, EyeDropperIcon, EyeIcon, PlusIcon, BrushIcon, MinusIcon, TrashIcon, XIcon } from '../Icons';
 import type { ImageEditState } from '../../types';
 import { hexToRgb } from '../../types';
 import ColorPicker from './ColorPicker';
@@ -61,13 +61,13 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
 
     // Blur states
     const [blurTool, setBlurTool] = useState<'brush' | 'eraser' | null>(null);
-    const [brushSize, setBrushSize] = useState(20);
+    const [brushSize, setBrushSize] = useState(80);
     const [isBlurApplied, setIsBlurApplied] = useState(false);
     const [isDrawingMask, setIsDrawingMask] = useState(false);
     const [mousePos, setMousePos] = useState<{ x: number, y: number } | null>(null);
     const [hasMask, setHasMask] = useState(false);
     
-    const [openAccordion, setOpenAccordion] = useState<string | null>('מסגרת');
+    const [openAccordion, setOpenAccordion] = useState<string | null>(null);
 
     const handleAccordionToggle = (title: string) => {
         setOpenAccordion(prev => (prev === title ? null : title));
@@ -655,7 +655,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
         // This will hold the image after blur is applied (if any)
         let imageToCropFrom: HTMLCanvasElement | HTMLImageElement = processedImageCanvas;
 
-        if (isBlurApplied && hasMask && maskCanvasRef.current) {
+        if (hasMask && maskCanvasRef.current) {
             const finalImageCanvas = document.createElement('canvas');
             finalImageCanvas.width = image.width;
             finalImageCanvas.height = image.height;
@@ -737,7 +737,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
             filters,
             colorReplace,
             frame,
-            isBlurApplied,
+            isBlurApplied: hasMask,
             hasMask,
             maskDataUrl: hasMask ? (maskCanvasRef.current?.toDataURL() ?? null) : null,
         };
@@ -755,17 +755,19 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     return (
         <div className="fixed inset-0 z-[100] flex h-screen bg-[#111827] text-white" dir="rtl">
             <main className="flex-grow flex flex-col">
-                <header className="bg-slate-800 px-4 py-2 flex justify-between items-center border-b border-slate-700">
-                     <button onClick={onCancel} className="text-sm p-2 rounded hover:bg-slate-700">
-                        X
+                <header className="bg-slate-800 px-4 py-3 flex justify-between items-center border-b border-slate-700">
+                     <button 
+                        onClick={onCancel} 
+                        className="p-2 rounded-full hover:bg-slate-700 transition-colors"
+                        title="סגור"
+                        aria-label="סגור"
+                     >
+                        <XIcon className="w-6 h-6"/>
                      </button>
                      <h2 className="font-bold text-lg">עורך תמונות</h2>
-                     <div>
+                     <div className="flex items-center gap-3">
                         <input type="file" ref={replaceImageInputRef} className="hidden" accept="image/*" onChange={handleImageReplace} />
-                        <button onClick={onCancel} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors mr-2">
-                            בטל
-                        </button>
-                        <button onClick={() => replaceImageInputRef.current?.click()} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors mr-2">
+                        <button onClick={() => replaceImageInputRef.current?.click()} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
                             החלף תמונה
                         </button>
                         <button onClick={handleConfirm} className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors">

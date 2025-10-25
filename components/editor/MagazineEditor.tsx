@@ -1,10 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo, useLayoutEffect, forwardRef, useImperativeHandle } from 'react';
 import { useNavigate } from 'react-router-dom';
-// Fix: Import 'ImageEditState' to resolve type error.
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, MenuIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -41,7 +40,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [history, setHistory] = useState<Template[]>([initialTemplate]);
     const [historyIndex, setHistoryIndex] = useState(0);
     const canvasRef = useRef<HTMLDivElement>(null);
-    const canvasWrapperRef = useRef<HTMLDivElement>(null);
     const elementRefMap = useRef<Record<string, {
         content?: HTMLDivElement | null;
         wrapper?: HTMLDivElement | null;
@@ -52,43 +50,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [isSavingOnExit, setIsSavingOnExit] = useState(false);
     const [nextLocation, setNextLocation] = useState<string | null>(null);
     const [formatBrushState, setFormatBrushState] = useState<{ active: boolean; sourceElement: TextElement | null }>({ active: false, sourceElement: null });
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-    const [scale, setScale] = useState(1);
-    const [activeLineAlignment, setActiveLineAlignment] = useState<'right' | 'center' | 'left' | 'justify' | null>(null);
-
-    // Canvas scaling effect
-    useEffect(() => {
-        const calculateScale = () => {
-            if (canvasWrapperRef.current && template.width > 0 && template.height > 0) {
-                const padding = 32; // A safe value for p-4/p-8
-                const availableWidth = canvasWrapperRef.current.offsetWidth - padding;
-                const availableHeight = canvasWrapperRef.current.offsetHeight - padding;
-
-                const scaleX = availableWidth / template.width;
-                const scaleY = availableHeight / template.height;
-                
-                const newScale = Math.min(scaleX, scaleY, 1); // Fit within available space, but don't scale up past 100%
-                setScale(newScale);
-            }
-        };
-
-        const resizeObserver = new ResizeObserver(calculateScale);
-        if (canvasWrapperRef.current) {
-            resizeObserver.observe(canvasWrapperRef.current);
-        }
-
-        // Initial calculation
-        calculateScale();
-
-        return () => {
-            if (canvasWrapperRef.current) {
-                // eslint-disable-next-line react-hooks/exhaustive-deps
-                resizeObserver.unobserve(canvasWrapperRef.current);
-            }
-        };
-    }, [template.width, template.height]);
-
 
     const handleAttemptNavigation = (to: string) => {
         if (isDirty) {
@@ -116,34 +77,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         const dirty = JSON.stringify(template) !== JSON.stringify(initialTemplate);
         setIsDirty(dirty);
     }, [template, initialTemplate]);
-
-    const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
-
-    useEffect(() => {
-        const selectedTextElement = selectedElement?.type === ElementType.Text ? selectedElement as TextElement : null;
-    
-        if (selectedTextElement) {
-            const isCurrentlyEditing = editingElementId === selectedTextElement.id;
-            if (isCurrentlyEditing) {
-                const fullText = selectedTextElement.spans.map(s => s.text).join('');
-                // Use selection start, default to 0 if no selection
-                const start = selectionRange?.start ?? 0;
-                // Count newlines before the cursor to find the line index
-                const currentLineIndex = (fullText.substring(0, start).match(/\n/g) || []).length;
-                
-                const lineAlignments = selectedTextElement.lineAlignments || [];
-                // Get specific line alignment or fall back to the element's default
-                const alignment = lineAlignments[currentLineIndex] || selectedTextElement.textAlign;
-                setActiveLineAlignment(alignment);
-            } else {
-                // If not editing, just show the block-level alignment
-                setActiveLineAlignment(selectedTextElement.textAlign);
-            }
-        } else {
-            // If no text element is selected, no alignment is active
-            setActiveLineAlignment(null);
-        }
-    }, [selectedElement, selectionRange, editingElementId]);
 
     useLayoutEffect(() => {
         if (nextCursorPos) {
@@ -191,6 +124,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     }, [updateHistory]);
 
+    // Fix: Corrected typo from 'useImperivativeHandle' to 'useImperativeHandle'.
     useImperativeHandle(ref, () => ({
         updateTemplateFromParent: (newTemplate: Template) => {
             handleTemplateChange(newTemplate, true);
@@ -949,6 +883,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     };
 
+    const selectedElement = template.elements.find(el => el.id === selectedElementId) || null;
+
     const toggleFormatBrush = () => {
         if (!selectedElement || selectedElement.type !== ElementType.Text) {
             setFormatBrushState({ active: false, sourceElement: null });
@@ -1099,99 +1035,82 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
 
     return (
         <div className="flex h-screen bg-slate-900 overflow-hidden" dir="rtl">
-            <div className="flex-grow flex flex-col relative">
-                <header className="bg-slate-800 px-4 py-2 flex flex-wrap justify-between items-center text-white border-b border-slate-700 gap-x-4 gap-y-2">
-                    <div className="flex items-center gap-2">
+            <div className="flex-grow flex flex-col">
+                <header className="bg-slate-800 px-4 py-2 flex justify-between items-center text-white border-b border-slate-700">
+                    <div className="flex items-center gap-4">
                         <button onClick={() => handleAttemptNavigation('/templates')} className="flex items-center gap-2 font-bold text-lg">
                             <MagazineIcon className="w-6 h-6 text-blue-400" />
-                            <span>איחולן</span>
+                            איחולן
                         </button>
                     </div>
-                    <div className="flex items-center gap-x-4 gap-y-2 flex-wrap justify-end flex-grow">
-                        <div className="flex items-center gap-2">
-                            <button onClick={handleUndo} disabled={historyIndex === 0} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                                <UndoIcon className="w-5 h-5"/>
-                            </button>
-                            <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                                <RedoIcon className="w-5 h-5"/>
-                            </button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button 
-                                onClick={handleSave} 
-                                disabled={isSaving || !isDirty} 
-                                className={`bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
-                            >
-                                {isSaving ? 'שומר...' : 'שמור'}
-                            </button>
-                            <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                                ייצא קובץ
-                            </button>
-                            <button onClick={handleExportPNG} className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                                שמור כתמונה
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleUndo} disabled={historyIndex === 0} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <UndoIcon className="w-5 h-5"/>
+                        </button>
+                        <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <RedoIcon className="w-5 h-5"/>
+                        </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={handleSave} 
+                            disabled={isSaving || !isDirty} 
+                            className={`bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
+                        >
+                            {isSaving ? 'שומר...' : 'שמור'}
+                        </button>
+                        <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
+                            ייצא קובץ
+                        </button>
+                        <button onClick={handleExportPNG} className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors">
+                            שמור כתמונה
+                        </button>
                     </div>
                 </header>
-                <main ref={canvasWrapperRef} className="flex-grow bg-slate-900 relative p-4 md:p-8 overflow-auto">
+                <main className="flex-grow bg-slate-900 flex items-start justify-center p-8 overflow-auto">
                     <div
-                        className="absolute top-1/2 left-1/2"
+                        ref={canvasRef}
+                        className="shadow-2xl relative"
                         style={{
                             width: `${template.width}px`,
                             height: `${template.height}px`,
-                            transform: `translate(-50%, -50%) scale(${scale})`,
-                            transformOrigin: 'center center',
+                            backgroundColor: template.background_color,
                         }}
+                        onMouseDown={handleCanvasMouseDown}
                     >
-                        <div
-                            ref={canvasRef}
-                            className="shadow-2xl relative w-full h-full"
-                            style={{
-                                backgroundColor: template.background_color,
-                            }}
-                            onMouseDown={handleCanvasMouseDown}
-                        >
-                            {template.elements.map(element => (
-                                <CanvasItem 
-                                    key={element.id}
-                                    element={element}
-                                    isSelected={selectedElementId === element.id}
-                                    isEditing={editingElementId === element.id}
-                                    isHoveredFromSidebar={hoveredElementId === element.id}
-                                    isCutterTarget={cutterTargetId === element.id}
-                                    onSelect={() => handleSelectElement(element.id)}
-                                    isInteracting={isInteracting}
-                                    onUpdate={updateElement}
-                                    onInteractionStart={() => setIsInteracting(true)}
-                                    onInteractionEnd={handleInteractionEnd}
-                                    onSetSelectionRange={setSelectionRange}
-                                    onSetEditing={setEditingElementId}
-                                    onElementRefsChange={onElementRefsChange}
-                                    onEditImage={handleImageEditRequest}
-                                    canvasWidth={template.width}
-                                    canvasHeight={template.height}
-                                    otherElements={template.elements.filter(e => e.id !== element.id)}
-                                    setSnapLines={setSnapLines}
-                                    activeStyle={selectedElementId === element.id ? activeStyle : null}
-                                    formatBrushState={formatBrushState}
-                                />
-                            ))}
-                            {snapLines.x.map((x, i) => (
-                                <div key={`snap-x-${i}`} className="absolute bg-red-500 opacity-75" style={{ left: x, top: 0, width: 1 / scale, height: '100%', zIndex: 9999 }} />
-                            ))}
-                            {snapLines.y.map((y, i) => (
-                                <div key={`snap-y-${i}`} className="absolute bg-red-500 opacity-75" style={{ top: y, left: 0, height: 1 / scale, width: '100%', zIndex: 9999 }} />
-                            ))}
-                        </div>
+                        {template.elements.map(element => (
+                            <CanvasItem 
+                                key={element.id}
+                                element={element}
+                                isSelected={selectedElementId === element.id}
+                                isEditing={editingElementId === element.id}
+                                isHoveredFromSidebar={hoveredElementId === element.id}
+                                isCutterTarget={cutterTargetId === element.id}
+                                onSelect={() => handleSelectElement(element.id)}
+                                isInteracting={isInteracting}
+                                onUpdate={updateElement}
+                                onInteractionStart={() => setIsInteracting(true)}
+                                onInteractionEnd={handleInteractionEnd}
+                                onSetSelectionRange={setSelectionRange}
+                                onSetEditing={setEditingElementId}
+                                onElementRefsChange={onElementRefsChange}
+                                onEditImage={handleImageEditRequest}
+                                canvasWidth={template.width}
+                                canvasHeight={template.height}
+                                otherElements={template.elements.filter(e => e.id !== element.id)}
+                                setSnapLines={setSnapLines}
+                                activeStyle={selectedElementId === element.id ? activeStyle : null}
+                                formatBrushState={formatBrushState}
+                            />
+                        ))}
+                        {snapLines.x.map((x, i) => (
+                            <div key={`snap-x-${i}`} className="absolute bg-red-500 opacity-75" style={{ left: x, top: 0, width: 1, height: '100%', zIndex: 9999 }} />
+                        ))}
+                        {snapLines.y.map((y, i) => (
+                            <div key={`snap-y-${i}`} className="absolute bg-red-500 opacity-75" style={{ top: y, left: 0, height: 1, width: '100%', zIndex: 9999 }} />
+                        ))}
                     </div>
                 </main>
-                <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="md:hidden fixed bottom-4 right-4 z-40 bg-blue-600 text-white p-3 rounded-full shadow-lg"
-                    aria-label="פתח תפריט עריכה"
-                >
-                    <MenuIcon className="w-6 h-6" />
-                </button>
             </div>
             <Sidebar
                 selectedElement={selectedElement}
@@ -1200,7 +1119,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 onStyleUpdate={handleStyleUpdate}
                 onAlignmentUpdate={handleAlignmentUpdate}
                 activeStyle={activeStyle}
-                activeLineAlignment={activeLineAlignment}
                 onAddElement={addElement}
                 onDeleteElement={deleteElement}
                 template={template}
@@ -1215,8 +1133,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 formatBrushState={formatBrushState}
                 onToggleFormatBrush={toggleFormatBrush}
                 onConvertTextToImage={handleConvertTextToImage}
-                isOpen={isSidebarOpen}
-                onClose={() => setIsSidebarOpen(false)}
             />
             {showExitConfirm && (
                 <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">

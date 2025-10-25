@@ -15,7 +15,6 @@ interface SidebarProps {
     onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
     onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
     activeStyle: TextStyle | null;
-    activeLineAlignment: 'right' | 'center' | 'left' | 'justify' | null;
     onAddElement: (type: ElementType, payload?: { src: string }) => void;
     onDeleteElement: (id:string) => void;
     template: Template;
@@ -30,8 +29,6 @@ interface SidebarProps {
     formatBrushState: { active: boolean; sourceElement: TextElement | null };
     onToggleFormatBrush: () => void;
     onConvertTextToImage: (id: string) => void;
-    isOpen: boolean;
-    onClose: () => void;
 }
 
 // Helpers
@@ -58,9 +55,9 @@ const parseColor = (color: string): { hex: string; alpha: number } => {
 
 const Sidebar: React.FC<SidebarProps> = ({ 
     selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
-    onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, activeLineAlignment, onDeselect, 
+    onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
     onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement,
-    formatBrushState, onToggleFormatBrush, onConvertTextToImage, isOpen, onClose
+    formatBrushState, onToggleFormatBrush, onConvertTextToImage
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
     const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -120,159 +117,142 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
     
     return (
-        <>
-            <div
-                className={`md:hidden fixed inset-0 bg-black/50 z-40 transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                onClick={onClose}
-                aria-hidden="true"
-            />
-            <aside 
-                className={`
-                    h-full bg-slate-800 text-white flex flex-col border-r border-slate-700 
-                    transition-transform transform
-                    fixed md:static inset-y-0 right-0 z-50 w-full sm:w-80
-                    ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-                    md:translate-x-0 md:w-80 md:flex-shrink-0
-                `}
-                dir="rtl"
-            >
-                <div className="p-4 border-b border-slate-700 flex justify-between items-center gap-2">
-                    <div>
-                        <h2 className="text-lg font-bold">{selectedElement ? `עריכת ${selectedElement.type === 'text' ? 'טקסט' : selectedElement.type === 'image' ? 'תמונה' : 'צורת חיתוך'}` : 'איחולן'}</h2>
-                        {!selectedElement && (
-                            <p className="text-xs text-slate-400">עצבו את שער המגזין שלכם...</p>
-                        )}
-                    </div>
-                    {/* This button has two functions: close on mobile, deselect on desktop */}
+        <aside className="w-80 bg-slate-800 text-white flex flex-col h-full border-r border-slate-700" dir="rtl">
+            <div className="p-4 border-b border-slate-700 flex justify-between items-center gap-2">
+                <div>
+                    <h2 className="text-lg font-bold">{selectedElement ? `עריכת ${selectedElement.type === 'text' ? 'טקסט' : selectedElement.type === 'image' ? 'תמונה' : 'צורת חיתוך'}` : 'איחולן'}</h2>
+                    {!selectedElement && (
+                        <p className="text-xs text-slate-400">עצבו את שער המגזין שלכם...</p>
+                    )}
+                </div>
+                {selectedElement && (
                     <button
-                        onClick={isOpen ? onClose : onDeselect}
-                        // Show if it's the mobile overlay, OR if we're on desktop and have something to deselect.
-                        className={`p-1 rounded-full hover:bg-slate-700 ${!isOpen && !selectedElement ? 'hidden' : ''}`}
-                        aria-label={isOpen ? "סגור תפריט" : "בטל בחירה"}
+                        onClick={onDeselect}
+                        className="p-1 rounded-full hover:bg-slate-700"
+                        aria-label="סגור עריכה וחזור לתפריט הראשי"
                     >
                         <XIcon className="w-5 h-5" />
                     </button>
-                </div>
-                <div className="flex-grow overflow-y-auto">
-                    {selectedElement ? (
-                        <>
-                            <div className="p-4 border-b border-slate-700 flex items-center justify-between gap-4">
-                                <label htmlFor="elementIdInput" className="text-sm text-slate-400 whitespace-nowrap">שם הרכיב (ID)</label>
-                                <input
-                                    id="elementIdInput"
-                                    type="text"
-                                    value={elementId}
-                                    onChange={(e) => setElementId(e.target.value)}
-                                    onBlur={handleIdUpdate}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                            (e.target as HTMLInputElement).blur();
-                                        }
-                                    }}
-                                    className="flex-grow bg-slate-700 border border-slate-600 rounded p-2 text-sm"
-                                />
-                            </div>
+                )}
+            </div>
+            <div className="flex-grow overflow-y-auto">
+                {selectedElement ? (
+                    <>
+                        <div className="p-4 border-b border-slate-700 flex items-center justify-between gap-4">
+                            <label htmlFor="elementIdInput" className="text-sm text-slate-400 whitespace-nowrap">שם הרכיב (ID)</label>
+                            <input
+                                id="elementIdInput"
+                                type="text"
+                                value={elementId}
+                                onChange={(e) => setElementId(e.target.value)}
+                                onBlur={handleIdUpdate}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        (e.target as HTMLInputElement).blur();
+                                    }
+                                }}
+                                className="flex-grow bg-slate-700 border border-slate-600 rounded p-2 text-sm"
+                            />
+                        </div>
 
-                            {selectedElement.type === ElementType.Cutter && (
-                                <div className="p-4 border-b border-slate-700">
-                                    <button 
-                                        onClick={onApplyCut}
-                                        disabled={isApplyingCut}
-                                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-wait"
-                                    >
-                                        {isApplyingCut ? 'מעבד...' : 'בצע חיתוך'}
-                                    </button>
-                                </div>
-                            )}
-                            {selectedElement.type === ElementType.Text && (
-                                <TextPanel 
-                                    element={selectedElement as TextElement} 
-                                    onUpdate={onUpdateElement}
-                                    onStyleUpdate={onStyleUpdate}
-                                    onAlignmentUpdate={onAlignmentUpdate}
-                                    activeStyle={activeStyle}
-                                    activeLineAlignment={activeLineAlignment}
-                                    openAccordion={openAccordion}
-                                    onAccordionToggle={handleAccordionToggle}
-                                />
-                            )}
-                            {selectedElement.type === ElementType.Image && (
-                                <ImagePanel element={selectedElement as ImageElement} onEditImage={onEditImage} />
-                            )}
-                            {(selectedElement.type === ElementType.Image || selectedElement.type === ElementType.Cutter || selectedElement.type === ElementType.Text) && (
-                                <Accordion 
-                                    title="מיקום וגודל" 
-                                    isOpen={openAccordion === 'מיקום וגודל'}
-                                    onToggle={() => handleAccordionToggle('מיקום וגודל')}
+                        {selectedElement.type === ElementType.Cutter && (
+                            <div className="p-4 border-b border-slate-700">
+                                <button 
+                                    onClick={onApplyCut}
+                                    disabled={isApplyingCut}
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded disabled:opacity-50 disabled:cursor-wait"
                                 >
-                                    <TransformPanel element={selectedElement} onUpdate={onUpdateElement} />
-                                </Accordion>
-                            )}
-                            <Accordion 
-                                title="סדר"
-                                isOpen={openAccordion === 'סדר'}
-                                onToggle={() => handleAccordionToggle('סדר')}
-                            >
-                                <LayerPanel 
-                                    element={selectedElement} 
-                                    onLayerOrderChange={onLayerOrderChange}
-                                    totalElements={template.elements.length}
-                                />
-                            </Accordion>
-                            <div className="p-4 mt-4 border-t border-slate-700">
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => onDeleteElement(selectedElement.id)}
-                                        className="flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
-                                    >
-                                        <TrashIcon className="w-4 h-4" />
-                                        מחק רכיב
-                                    </button>
-                                    {selectedElement.type === ElementType.Text && (
-                                        <>
-                                            <button
-                                                onClick={() => onConvertTextToImage(selectedElement.id)}
-                                                disabled={isApplyingCut}
-                                                className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-wait"
-                                                title="המר לתמונה"
-                                            >
-                                                <TextToImageIcon className="w-5 h-5" />
-                                            </button>
-                                            <button
-                                                onClick={onToggleFormatBrush}
-                                                className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${formatBrushState.active ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                                title="העתק עיצוב"
-                                            >
-                                                <BrushIcon className="w-5 h-5" />
-                                            </button>
-                                        </>
-                                    )}
-                                    <button
-                                        onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
-                                        className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                                        title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
-                                    >
-                                        {selectedElement.locked ? <UnlockIcon className="w-5 h-5" /> : <LockIcon className="w-5 h-5" />}
-                                    </button>
-                                </div>
+                                    {isApplyingCut ? 'מעבד...' : 'בצע חיתוך'}
+                                </button>
                             </div>
-                        </>
-                    ) : (
-                        <DefaultPanel 
-                            onAddElement={onAddElement} 
-                            template={template} 
-                            onUpdateTemplate={onUpdateTemplate}
-                            openAccordion={openAccordion}
-                            onAccordionToggle={handleAccordionToggle}
-                            onSelectElement={onSelectElement}
-                            onHoverElement={onHoverElement}
-                            onDeleteElement={onDeleteElement}
-                            onUpdateElement={onUpdateElement}
-                        />
-                    )}
-                </div>
-            </aside>
-        </>
+                        )}
+                        {selectedElement.type === ElementType.Text && (
+                            <TextPanel 
+                                element={selectedElement as TextElement} 
+                                onUpdate={onUpdateElement}
+                                onStyleUpdate={onStyleUpdate}
+                                onAlignmentUpdate={onAlignmentUpdate}
+                                activeStyle={activeStyle}
+                                openAccordion={openAccordion}
+                                onAccordionToggle={handleAccordionToggle}
+                             />
+                        )}
+                        {selectedElement.type === ElementType.Image && (
+                            <ImagePanel element={selectedElement as ImageElement} onEditImage={onEditImage} />
+                        )}
+                        {(selectedElement.type === ElementType.Image || selectedElement.type === ElementType.Cutter || selectedElement.type === ElementType.Text) && (
+                            <Accordion 
+                                title="מיקום וגודל" 
+                                isOpen={openAccordion === 'מיקום וגודל'}
+                                onToggle={() => handleAccordionToggle('מיקום וגודל')}
+                            >
+                                <TransformPanel element={selectedElement} onUpdate={onUpdateElement} />
+                            </Accordion>
+                        )}
+                         <Accordion 
+                            title="סדר"
+                            isOpen={openAccordion === 'סדר'}
+                            onToggle={() => handleAccordionToggle('סדר')}
+                        >
+                            <LayerPanel 
+                                element={selectedElement} 
+                                onLayerOrderChange={onLayerOrderChange}
+                                totalElements={template.elements.length}
+                            />
+                        </Accordion>
+                        <div className="p-4 mt-4 border-t border-slate-700">
+                             <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => onDeleteElement(selectedElement.id)}
+                                    className="flex-grow bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                    מחק רכיב
+                                </button>
+                                {selectedElement.type === ElementType.Text && (
+                                    <>
+                                        <button
+                                            onClick={() => onConvertTextToImage(selectedElement.id)}
+                                            disabled={isApplyingCut}
+                                            className="w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-wait"
+                                            title="המר לתמונה"
+                                        >
+                                            <TextToImageIcon className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={onToggleFormatBrush}
+                                            className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${formatBrushState.active ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                            title="העתק עיצוב"
+                                        >
+                                            <BrushIcon className="w-5 h-5" />
+                                        </button>
+                                    </>
+                                )}
+                                <button
+                                    onClick={() => onUpdateElement(selectedElement.id, { locked: !selectedElement.locked })}
+                                    className={`w-10 h-10 flex-shrink-0 flex items-center justify-center rounded transition-colors ${selectedElement.locked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                                    title={selectedElement.locked ? "שחרר אלמנט" : "נעל רכיב"}
+                                >
+                                    {selectedElement.locked ? <UnlockIcon className="w-5 h-5" /> : <LockIcon className="w-5 h-5" />}
+                                </button>
+                             </div>
+                        </div>
+                    </>
+                ) : (
+                    <DefaultPanel 
+                        onAddElement={onAddElement} 
+                        template={template} 
+                        onUpdateTemplate={onUpdateTemplate}
+                        openAccordion={openAccordion}
+                        onAccordionToggle={handleAccordionToggle}
+                        onSelectElement={onSelectElement}
+                        onHoverElement={onHoverElement}
+                        onDeleteElement={onDeleteElement}
+                        onUpdateElement={onUpdateElement}
+                    />
+                )}
+            </div>
+        </aside>
     );
 };
 
@@ -582,12 +562,11 @@ interface TextPanelProps {
     onStyleUpdate: (styleUpdate: Partial<TextStyle>, isPreset?: boolean) => void;
     onAlignmentUpdate: (align: 'right' | 'center' | 'left' | 'justify') => void;
     activeStyle: TextStyle | null;
-    activeLineAlignment: 'right' | 'center' | 'left' | 'justify' | null;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
 }
 
-const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, activeLineAlignment, openAccordion, onAccordionToggle }) => {
+const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
     const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96, 120, 144, 192];
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
@@ -859,7 +838,7 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                          <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900 rounded-md mt-1">
                             {(['right', 'center', 'left', 'justify'] as const).map(align => {
                                 const Icon = alignMap[align].icon;
-                                const isActive = activeLineAlignment === align;
+                                const isActive = element.textAlign === align && (!element.lineAlignments || element.lineAlignments.length === 0);
                                 return (
                                     <button
                                         key={align}
