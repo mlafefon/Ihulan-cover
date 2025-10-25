@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -1078,6 +1078,13 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                             <RedoIcon className="w-5 h-5"/>
                         </button>
                         <div className="h-6 w-px bg-slate-600" />
+                        <button 
+                            onClick={handleExportJSON} 
+                            disabled={isPreviewMode}
+                            title="ייצא קובץ"
+                            className="bg-slate-700 hover:bg-slate-600 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                            <ExportIcon className="w-5 h-5"/>
+                        </button>
                         <button
                             onClick={handleTogglePreview}
                             disabled={isGeneratingPreview}
@@ -1102,18 +1109,14 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 שמור כתמונה
                             </button>
                         ) : (
-                            <>
-                                <button 
-                                    onClick={handleSave} 
-                                    disabled={isSaving || !isDirty} 
-                                    className={`bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
-                                >
-                                    {isSaving ? 'שומר...' : 'שמור'}
-                                </button>
-                                <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                                    ייצא קובץ
-                                </button>
-                            </>
+                            <button 
+                                onClick={handleSave} 
+                                disabled={isSaving || !isDirty} 
+                                title={isSaving ? 'שומר...' : 'שמור'}
+                                className={`bg-green-600 hover:bg-green-700 text-white font-bold p-2 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
+                            >
+                                {isSaving ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
+                            </button>
                         )}
                     </div>
                 </header>
