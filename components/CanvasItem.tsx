@@ -25,6 +25,7 @@ interface CanvasItemProps {
     setSnapLines: (lines: { x: number[], y: number[] }) => void;
     activeStyle: TextStyle | null;
     formatBrushState: { active: boolean; sourceElement: TextElement | null };
+    temporaryFontOverride: { elementId: string; fontFamily: string } | null;
 }
 
 const handlePositionClasses: { [key: string]: string } = {
@@ -67,7 +68,7 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar, formatBrushState }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar, formatBrushState, temporaryFontOverride }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
@@ -754,6 +755,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         switch (element.type) {
             case ElementType.Text: {
                 const textElement = element as TextElement;
+                const isTemporarilyOverridden = temporaryFontOverride && temporaryFontOverride.elementId === textElement.id;
+                const tempFontFamily = isTemporarilyOverridden ? temporaryFontOverride.fontFamily : null;
 
                 const createLinesFromSpans = (spans: TextSpan[]) => {
                     const lines: { spans: TextSpan[] }[] = [{ spans: [] }];
@@ -833,7 +836,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     zIndex: 1,
                     // Fallback styles to prevent unstyled text on new lines
                     ...(firstSpanStyle && {
-                        fontFamily: firstSpanStyle.fontFamily,
+                        fontFamily: tempFontFamily || firstSpanStyle.fontFamily,
                         fontSize: `${firstSpanStyle.fontSize}px`,
                         fontWeight: firstSpanStyle.fontWeight,
                         color: firstSpanStyle.color,
@@ -941,7 +944,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                                         >
                                             {line.spans.length > 0 ? line.spans.map((span, spanIndex) => (
                                                 <span key={spanIndex} style={{
-                                                    fontFamily: span.style.fontFamily,
+                                                    fontFamily: tempFontFamily || span.style.fontFamily,
                                                     fontSize: `${span.style.fontSize}px`,
                                                     fontWeight: span.style.fontWeight,
                                                     color: span.style.color,

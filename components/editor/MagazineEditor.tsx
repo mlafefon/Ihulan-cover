@@ -24,6 +24,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const { fontCss } = useFonts();
     const [cutterTargetId, setCutterTargetId] = useState<string | null>(null);
     const [snapLines, setSnapLines] = useState<{ x: number[], y: number[] }>({ x: [], y: [] });
+    const [temporaryFontOverride, setTemporaryFontOverride] = useState<{ elementId: string; fontFamily: string } | null>(null);
 
     const [template, setTemplate] = useState<Template>(initialTemplate);
     const templateRef = useRef(template);
@@ -1060,6 +1061,16 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         setIsGeneratingPreview(false);
     };
 
+    const handleSetTemporaryFont = (fontFamily: string) => {
+        if (selectedElementId) {
+            setTemporaryFontOverride({ elementId: selectedElementId, fontFamily });
+        }
+    };
+
+    const handleClearTemporaryFont = () => {
+        setTemporaryFontOverride(null);
+    };
+
     return (
         <div className="flex h-screen bg-slate-900 overflow-hidden" dir="rtl">
             <div className="flex-grow flex flex-col">
@@ -1161,6 +1172,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                     setSnapLines={setSnapLines}
                                     activeStyle={selectedElementId === element.id ? activeStyle : null}
                                     formatBrushState={formatBrushState}
+                                    temporaryFontOverride={temporaryFontOverride}
                                 />
                             ))}
                             {snapLines.x.map((x, i) => (
@@ -1195,6 +1207,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                     formatBrushState={formatBrushState}
                     onToggleFormatBrush={toggleFormatBrush}
                     onConvertTextToImage={handleConvertTextToImage}
+                    onSetTemporaryFont={handleSetTemporaryFont}
+                    onClearTemporaryFont={handleClearTemporaryFont}
                 />
             )}
             {showExitConfirm && (

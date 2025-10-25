@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextStyle, CutterElement, ElementBase } from '../../types';
 import { ElementType, hexToRgb } from '../../types';
 import { TextIcon, ImageIcon, TrashIcon, ChevronDown, AlignVerticalJustifyStart, AlignVerticalJustifyCenter, AlignVerticalJustifyEnd, XIcon, ChevronsUp, ChevronUp, ChevronsDown, ScissorsIcon, BanIcon, ShadowIcon, AlignRightIcon, AlignCenterIcon, AlignLeftIcon, AlignJustifyIcon, LockIcon, UnlockIcon, BrushIcon, TextToImageIcon, PaletteIcon } from '../Icons';
-import { availableFonts } from '../fonts/FontManager';
+import FontPicker from './FontPicker';
 import NumericStepper from './NumericStepper';
 import { defaultTextStyle } from '../CanvasItem';
 import ColorPicker from './ColorPicker';
@@ -29,6 +29,8 @@ interface SidebarProps {
     formatBrushState: { active: boolean; sourceElement: TextElement | null };
     onToggleFormatBrush: () => void;
     onConvertTextToImage: (id: string) => void;
+    onSetTemporaryFont: (fontFamily: string) => void;
+    onClearTemporaryFont: () => void;
 }
 
 // Helpers
@@ -57,7 +59,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     selectedElement, isEditing, onUpdateElement, onAddElement, onDeleteElement, template, 
     onUpdateTemplate, onEditImage, onStyleUpdate, onAlignmentUpdate, activeStyle, onDeselect, 
     onLayerOrderChange, onApplyCut, isApplyingCut, onSelectElement, onHoverElement,
-    formatBrushState, onToggleFormatBrush, onConvertTextToImage
+    formatBrushState, onToggleFormatBrush, onConvertTextToImage,
+    onSetTemporaryFont, onClearTemporaryFont
 }) => {
     const [elementId, setElementId] = useState(selectedElement?.id || '');
     const [openAccordion, setOpenAccordion] = useState<string | null>(null);
@@ -175,6 +178,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 activeStyle={activeStyle}
                                 openAccordion={openAccordion}
                                 onAccordionToggle={handleAccordionToggle}
+                                onSetTemporaryFont={onSetTemporaryFont}
+                                onClearTemporaryFont={onClearTemporaryFont}
                              />
                         )}
                         {selectedElement.type === ElementType.Image && (
@@ -564,9 +569,11 @@ interface TextPanelProps {
     activeStyle: TextStyle | null;
     openAccordion: string | null;
     onAccordionToggle: (title: string) => void;
+    onSetTemporaryFont: (fontFamily: string) => void;
+    onClearTemporaryFont: () => void;
 }
 
-const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle }) => {
+const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate, onAlignmentUpdate, activeStyle, openAccordion, onAccordionToggle, onSetTemporaryFont, onClearTemporaryFont }) => {
     const fontSizes = [8, 10, 12, 14, 16, 18, 24, 30, 36, 48, 60, 72, 96, 120, 144, 192];
 
     const handleBlockUpdate = (prop: keyof TextElement, value: any) => {
@@ -698,13 +705,12 @@ const TextPanel: React.FC<TextPanelProps> = ({ element, onUpdate, onStyleUpdate,
                 <div className="space-y-3">
                     <label className="block">
                         <span className="text-sm text-slate-400">פונט</span>
-                         <select value={displayStyle.fontFamily} onChange={(e) => handleStyleChange('fontFamily', e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded px-2 h-[30px] mt-1 text-sm">
-                            {availableFonts.map(font => (
-                                <option key={font.name} value={font.name} style={{fontFamily: font.name}}>
-                                    {font.name}
-                                </option>
-                            ))}
-                        </select>
+                        <FontPicker
+                            fontFamily={displayStyle.fontFamily}
+                            onChange={(newFont) => handleStyleChange('fontFamily', newFont)}
+                            onPreviewStart={onSetTemporaryFont}
+                            onPreviewEnd={onClearTemporaryFont}
+                        />
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                         <NumericStepper
