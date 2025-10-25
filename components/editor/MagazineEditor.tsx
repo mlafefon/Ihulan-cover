@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -50,6 +50,11 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [isSavingOnExit, setIsSavingOnExit] = useState(false);
     const [nextLocation, setNextLocation] = useState<string | null>(null);
     const [formatBrushState, setFormatBrushState] = useState<{ active: boolean; sourceElement: TextElement | null }>({ active: false, sourceElement: null });
+
+    const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
+    const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
 
     const handleAttemptNavigation = (to: string) => {
         if (isDirty) {
@@ -993,22 +998,17 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     };
 
-    const handleExportPNG = async () => {
-        if (canvasRef.current && (window as any).htmlToImage && (window as any).saveAs) {
-            handleSelectElement(null);
-            await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render
-            try {
-                const blob = await (window as any).htmlToImage.toBlob(canvasRef.current, {
-                    pixelRatio: 3, // Use higher quality for export
-                    fontEmbedCSS: fontCss ?? undefined,
-                });
-                if (blob) {
+    const handleSavePreview = () => {
+        if (previewImageUrl && (window as any).saveAs) {
+            fetch(previewImageUrl)
+                .then(res => res.blob())
+                .then(blob => {
                     (window as any).saveAs(blob, `${template.name}.png`);
-                }
-            } catch (e) {
-                console.error("Error exporting to PNG with html-to-image:", e);
-                alert("שגיאה בייצוא התמונה. נסה שוב.");
-            }
+                })
+                .catch(e => {
+                    console.error("Error converting data URL to blob for saving:", e);
+                    alert("שגיאה בהכנת התמונה להורדה.");
+                });
         }
     };
 
@@ -1033,6 +1033,33 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         handleTemplateChange({ ...template, ...settings });
     };
 
+    const handleTogglePreview = async () => {
+        if (isPreviewMode) {
+            setIsPreviewMode(false);
+            setPreviewImageUrl(null);
+            return;
+        }
+
+        setIsGeneratingPreview(true);
+        handleSelectElement(null);
+        await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render to hide selection box
+
+        if (canvasRef.current && (window as any).htmlToImage) {
+            try {
+                const dataUrl = await (window as any).htmlToImage.toPng(canvasRef.current, {
+                    pixelRatio: 3, // High quality for preview & save
+                    fontEmbedCSS: fontCss ?? undefined,
+                });
+                setPreviewImageUrl(dataUrl);
+                setIsPreviewMode(true);
+            } catch (e) {
+                console.error("html-to-image failed for preview:", e);
+                alert("שגיאה ביצירת תצוגה מקדימה.");
+            }
+        }
+        setIsGeneratingPreview(false);
+    };
+
     return (
         <div className="flex h-screen bg-slate-900 overflow-hidden" dir="rtl">
             <div className="flex-grow flex flex-col">
@@ -1044,96 +1071,129 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         </button>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button onClick={handleUndo} disabled={historyIndex === 0} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button onClick={handleUndo} disabled={historyIndex === 0 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             <UndoIcon className="w-5 h-5"/>
                         </button>
-                        <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <button onClick={handleRedo} disabled={historyIndex >= history.length - 1 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
                             <RedoIcon className="w-5 h-5"/>
+                        </button>
+                        <div className="h-6 w-px bg-slate-600" />
+                        <button
+                            onClick={handleTogglePreview}
+                            disabled={isGeneratingPreview}
+                            className={`p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait ${isPreviewMode ? 'bg-blue-600 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white'}`}
+                            title={isPreviewMode ? 'חזור לעריכה' : 'תצוגה מקדימה'}
+                        >
+                            {isGeneratingPreview ? (
+                                <SpinnerIcon className="w-5 h-5 animate-spin" />
+                            ) : isPreviewMode ? (
+                                <EditIcon className="w-5 h-5" />
+                            ) : (
+                                <CameraIcon className="w-5 h-5" />
+                            )}
                         </button>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button 
-                            onClick={handleSave} 
-                            disabled={isSaving || !isDirty} 
-                            className={`bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
-                        >
-                            {isSaving ? 'שומר...' : 'שמור'}
-                        </button>
-                        <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                            ייצא קובץ
-                        </button>
-                        <button onClick={handleExportPNG} className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors">
-                            שמור כתמונה
-                        </button>
+                        {isPreviewMode ? (
+                            <button 
+                                onClick={handleSavePreview}
+                                className="bg-blue-600 hover:bg-blue-700 text-sm font-medium py-2 px-4 rounded-md transition-colors"
+                            >
+                                שמור כתמונה
+                            </button>
+                        ) : (
+                            <>
+                                <button 
+                                    onClick={handleSave} 
+                                    disabled={isSaving || !isDirty} 
+                                    className={`bg-green-600 hover:bg-green-700 text-sm font-medium py-2 px-4 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
+                                >
+                                    {isSaving ? 'שומר...' : 'שמור'}
+                                </button>
+                                <button onClick={handleExportJSON} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
+                                    ייצא קובץ
+                                </button>
+                            </>
+                        )}
                     </div>
                 </header>
-                <main className="flex-grow bg-slate-900 flex items-start justify-center p-8 overflow-auto">
-                    <div
-                        ref={canvasRef}
-                        className="shadow-2xl relative"
-                        style={{
-                            width: `${template.width}px`,
-                            height: `${template.height}px`,
-                            backgroundColor: template.background_color,
-                        }}
-                        onMouseDown={handleCanvasMouseDown}
-                    >
-                        {template.elements.map(element => (
-                            <CanvasItem 
-                                key={element.id}
-                                element={element}
-                                isSelected={selectedElementId === element.id}
-                                isEditing={editingElementId === element.id}
-                                isHoveredFromSidebar={hoveredElementId === element.id}
-                                isCutterTarget={cutterTargetId === element.id}
-                                onSelect={() => handleSelectElement(element.id)}
-                                isInteracting={isInteracting}
-                                onUpdate={updateElement}
-                                onInteractionStart={() => setIsInteracting(true)}
-                                onInteractionEnd={handleInteractionEnd}
-                                onSetSelectionRange={setSelectionRange}
-                                onSetEditing={setEditingElementId}
-                                onElementRefsChange={onElementRefsChange}
-                                onEditImage={handleImageEditRequest}
-                                canvasWidth={template.width}
-                                canvasHeight={template.height}
-                                otherElements={template.elements.filter(e => e.id !== element.id)}
-                                setSnapLines={setSnapLines}
-                                activeStyle={selectedElementId === element.id ? activeStyle : null}
-                                formatBrushState={formatBrushState}
-                            />
-                        ))}
-                        {snapLines.x.map((x, i) => (
-                            <div key={`snap-x-${i}`} className="absolute bg-red-500 opacity-75" style={{ left: x, top: 0, width: 1, height: '100%', zIndex: 9999 }} />
-                        ))}
-                        {snapLines.y.map((y, i) => (
-                            <div key={`snap-y-${i}`} className="absolute bg-red-500 opacity-75" style={{ top: y, left: 0, height: 1, width: '100%', zIndex: 9999 }} />
-                        ))}
-                    </div>
+                <main className={`flex-grow bg-slate-900 flex justify-center p-8 overflow-auto ${isPreviewMode ? 'items-center' : 'items-start'}`}>
+                    {isPreviewMode && previewImageUrl ? (
+                        <img
+                            src={previewImageUrl}
+                            alt="תצוגה מקדימה"
+                            className="max-w-full max-h-full object-contain shadow-2xl"
+                        />
+                    ) : (
+                        <div
+                            ref={canvasRef}
+                            className="shadow-2xl relative"
+                            style={{
+                                width: `${template.width}px`,
+                                height: `${template.height}px`,
+                                backgroundColor: template.background_color,
+                            }}
+                            onMouseDown={handleCanvasMouseDown}
+                        >
+                            {template.elements.map(element => (
+                                <CanvasItem 
+                                    key={element.id}
+                                    element={element}
+                                    isSelected={selectedElementId === element.id}
+                                    isEditing={editingElementId === element.id}
+                                    isHoveredFromSidebar={hoveredElementId === element.id}
+                                    isCutterTarget={cutterTargetId === element.id}
+                                    onSelect={() => handleSelectElement(element.id)}
+                                    isInteracting={isInteracting}
+                                    onUpdate={updateElement}
+                                    onInteractionStart={() => setIsInteracting(true)}
+                                    onInteractionEnd={handleInteractionEnd}
+                                    onSetSelectionRange={setSelectionRange}
+                                    onSetEditing={setEditingElementId}
+                                    onElementRefsChange={onElementRefsChange}
+                                    onEditImage={handleImageEditRequest}
+                                    canvasWidth={template.width}
+                                    canvasHeight={template.height}
+                                    otherElements={template.elements.filter(e => e.id !== element.id)}
+                                    setSnapLines={setSnapLines}
+                                    activeStyle={selectedElementId === element.id ? activeStyle : null}
+                                    formatBrushState={formatBrushState}
+                                />
+                            ))}
+                            {snapLines.x.map((x, i) => (
+                                <div key={`snap-x-${i}`} className="absolute bg-red-500 opacity-75" style={{ left: x, top: 0, width: 1, height: '100%', zIndex: 9999 }} />
+                            ))}
+                            {snapLines.y.map((y, i) => (
+                                <div key={`snap-y-${i}`} className="absolute bg-red-500 opacity-75" style={{ top: y, left: 0, height: 1, width: '100%', zIndex: 9999 }} />
+                            ))}
+                        </div>
+                    )}
                 </main>
             </div>
-            <Sidebar
-                selectedElement={selectedElement}
-                isEditing={editingElementId === selectedElementId}
-                onUpdateElement={updateElement}
-                onStyleUpdate={handleStyleUpdate}
-                onAlignmentUpdate={handleAlignmentUpdate}
-                activeStyle={activeStyle}
-                onAddElement={addElement}
-                onDeleteElement={deleteElement}
-                template={template}
-                onUpdateTemplate={updateTemplateSettings}
-                onEditImage={handleImageEditRequest}
-                onDeselect={() => handleSelectElement(null)}
-                onLayerOrderChange={handleLayerOrderChange}
-                onApplyCut={handleApplyCut}
-                isApplyingCut={isSaving}
-                onSelectElement={handleSelectElement}
-                onHoverElement={setHoveredElementId}
-                formatBrushState={formatBrushState}
-                onToggleFormatBrush={toggleFormatBrush}
-                onConvertTextToImage={handleConvertTextToImage}
-            />
+            {!isPreviewMode && (
+                <Sidebar
+                    selectedElement={selectedElement}
+                    isEditing={editingElementId === selectedElementId}
+                    onUpdateElement={updateElement}
+                    onStyleUpdate={handleStyleUpdate}
+                    onAlignmentUpdate={handleAlignmentUpdate}
+                    activeStyle={activeStyle}
+                    onAddElement={addElement}
+                    onDeleteElement={deleteElement}
+                    template={template}
+                    onUpdateTemplate={updateTemplateSettings}
+                    onEditImage={handleImageEditRequest}
+                    onDeselect={() => handleSelectElement(null)}
+                    onLayerOrderChange={handleLayerOrderChange}
+                    onApplyCut={handleApplyCut}
+                    isApplyingCut={isSaving}
+                    onSelectElement={handleSelectElement}
+                    onHoverElement={setHoveredElementId}
+                    formatBrushState={formatBrushState}
+                    onToggleFormatBrush={toggleFormatBrush}
+                    onConvertTextToImage={handleConvertTextToImage}
+                />
+            )}
             {showExitConfirm && (
                 <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">
                     <div className="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
