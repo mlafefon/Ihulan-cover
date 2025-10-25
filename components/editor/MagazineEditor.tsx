@@ -623,17 +623,55 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
 
     const handleUndo = () => {
         if (historyIndex > 0) {
+            const currentTemplate = history[historyIndex];
+            const previousTemplate = history[historyIndex - 1];
             const newIndex = historyIndex - 1;
+    
             setHistoryIndex(newIndex);
-            setTemplate(history[newIndex]);
+            setTemplate(previousTemplate);
+    
+            // Check if a cutter element was restored by this undo action.
+            const currentElementIds = new Set(currentTemplate.elements.map(el => el.id));
+            const restoredCutter = previousTemplate.elements.find(el => 
+                el.type === ElementType.Cutter && !currentElementIds.has(el.id)
+            );
+    
+            // If a cutter was restored, select it automatically.
+            if (restoredCutter) {
+                setSelectedElementId(restoredCutter.id);
+            }
         }
     };
     
     const handleRedo = () => {
         if (historyIndex < history.length - 1) {
+            const currentTemplate = history[historyIndex];
+            const nextTemplate = history[historyIndex + 1];
             const newIndex = historyIndex + 1;
+    
+            // Check if a cutter element is about to be removed by this redo action (i.e., redoing a cut).
+            const nextElementIds = new Set(nextTemplate.elements.map(el => el.id));
+            const removedCutter = currentTemplate.elements.find(el => 
+                el.type === ElementType.Cutter && !nextElementIds.has(el.id)
+            );
+    
+            let newSelectedId: string | null = null;
+            if (removedCutter) {
+                // Find the image that was under the cutter *before* the cut was applied.
+                // Fix: Cast `removedCutter` to `CutterElement` to satisfy the type requirement of the `findElementUnder` function. The type is guaranteed to be correct due to the predicate in the preceding `find` call.
+                const targetElement = findElementUnder(removedCutter as CutterElement, currentTemplate.elements);
+                if (targetElement) {
+                    newSelectedId = targetElement.id;
+                }
+            }
+    
             setHistoryIndex(newIndex);
-            setTemplate(history[newIndex]);
+            setTemplate(nextTemplate);
+            
+            // If we identified a target image, select it after the state updates.
+            if (newSelectedId) {
+                setSelectedElementId(newSelectedId);
+            }
         }
     };
 
