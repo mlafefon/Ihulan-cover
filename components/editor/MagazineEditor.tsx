@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon, XIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon, XIcon, MenuIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -25,6 +25,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [cutterTargetId, setCutterTargetId] = useState<string | null>(null);
     const [snapLines, setSnapLines] = useState<{ x: number[], y: number[] }>({ x: [], y: [] });
     const [temporaryFontOverride, setTemporaryFontOverride] = useState<{ elementId: string; fontFamily: string } | null>(null);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const [template, setTemplate] = useState<Template>(initialTemplate);
     const templateRef = useRef(template);
@@ -55,6 +56,40 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+    const canvasContainerRef = useRef<HTMLDivElement>(null);
+    const [canvasScale, setCanvasScale] = useState(1);
+
+    useLayoutEffect(() => {
+        const container = canvasContainerRef.current;
+        if (!container) return;
+    
+        const calculateScale = () => {
+            if (template.width > 0 && template.height > 0) {
+                const style = window.getComputedStyle(container);
+                const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+                const paddingY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+
+                const availableWidth = container.offsetWidth - paddingX;
+                const availableHeight = container.offsetHeight - paddingY;
+
+                const scaleX = availableWidth / template.width;
+                const scaleY = availableHeight / template.height;
+                const scale = Math.min(1, scaleX, scaleY);
+                
+                setCanvasScale(scale);
+            }
+        };
+        calculateScale();
+    
+        const resizeObserver = new ResizeObserver(calculateScale);
+        resizeObserver.observe(container);
+    
+        return () => {
+            resizeObserver.unobserve(container);
+            resizeObserver.disconnect();
+        };
+    }, [template.width, template.height]);
 
 
     const handleAttemptNavigation = (to: string) => {
@@ -602,6 +637,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         const newElements = [...template.elements, newElement];
         handleTemplateChange({ ...template, elements: newElements });
         setSelectedElementId(newId);
+        setIsSidebarOpen(true);
 
         if (type === ElementType.Image && payload?.src) {
             handleImageEditRequest(newElement as ImageElement, payload.src);
@@ -1032,7 +1068,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     }, [selectedElementId, handleTemplateChange, formatBrushState]);
     
     const handleCanvasMouseDown = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) {
+        if (e.target === canvasRef.current) {
             handleSelectElement(null);
         }
     };
@@ -1119,70 +1155,80 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     };
 
     return (
-        <div className="flex h-screen bg-slate-900 overflow-hidden" dir="rtl">
-            <div className="flex-grow flex flex-col">
-                <header className="bg-slate-800 px-4 py-2 flex justify-between items-center text-white border-b border-slate-700">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => handleAttemptNavigation('/templates')} className="flex items-center gap-2 font-bold text-lg">
-                            <MagazineIcon className="w-6 h-6 text-blue-400" />
-                            איחולן
+        <div className="flex flex-col h-screen bg-slate-900 overflow-hidden" dir="rtl">
+            <header className="bg-slate-800 px-4 py-2 flex justify-between items-center text-white border-b border-slate-700 flex-shrink-0">
+                <div className="flex items-center gap-2">
+                    <button onClick={() => handleAttemptNavigation('/templates')} className="flex items-center gap-2 font-bold text-lg">
+                        <MagazineIcon className="w-6 h-6 text-blue-400" />
+                        <span className="hidden sm:inline">איחולן</span>
+                    </button>
+                </div>
+                <div className="hidden md:flex items-center gap-4">
+                    <button onClick={handleUndo} disabled={historyIndex === 0 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <UndoIcon className="w-5 h-5"/>
+                    </button>
+                    <button onClick={handleRedo} disabled={historyIndex >= history.length - 1 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <RedoIcon className="w-5 h-5"/>
+                    </button>
+                    <div className="h-6 w-px bg-slate-600" />
+                    <button 
+                        onClick={handleExportJSON} 
+                        disabled={isPreviewMode}
+                        title="ייצא קובץ"
+                        className="bg-slate-700 hover:bg-slate-600 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                        <ExportIcon className="w-5 h-5"/>
+                    </button>
+                    <button 
+                        onClick={handleToggleAllLocks}
+                        disabled={isPreviewMode || template.elements.length === 0}
+                        className={`p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${allElementsLocked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        title={allElementsLocked ? "שחרר את כל הרכיבים" : "נעל את כל הרכיבים"}
+                    >
+                        {allElementsLocked ? <UnlockIcon className="w-5 h-5"/> : <LockIcon className="w-5 h-5"/>}
+                    </button>
+                    <button
+                        onClick={handleTogglePreview}
+                        disabled={isGeneratingPreview || isPreviewMode}
+                        className="p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait bg-slate-700 hover:bg-slate-600 text-white"
+                        title="תצוגה מקדימה"
+                    >
+                        {isGeneratingPreview ? (
+                            <SpinnerIcon className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <CameraIcon className="w-5 h-5" />
+                        )}
+                    </button>
+                </div>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving || !isDirty || isPreviewMode} 
+                        title={isSaving ? 'שומר...' : 'שמור'}
+                        className={`bg-green-600 hover:bg-green-700 text-white font-bold p-2 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
+                    >
+                        {isSaving ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
+                    </button>
+                     {!isPreviewMode && (
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded hover:bg-slate-700 md:hidden" aria-label="פתח תפריט עריכה">
+                            <MenuIcon className="w-5 h-5"/>
                         </button>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <button onClick={handleUndo} disabled={historyIndex === 0 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                            <UndoIcon className="w-5 h-5"/>
-                        </button>
-                        <button onClick={handleRedo} disabled={historyIndex >= history.length - 1 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
-                            <RedoIcon className="w-5 h-5"/>
-                        </button>
-                        <div className="h-6 w-px bg-slate-600" />
-                        <button 
-                            onClick={handleExportJSON} 
-                            disabled={isPreviewMode}
-                            title="ייצא קובץ"
-                            className="bg-slate-700 hover:bg-slate-600 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                            <ExportIcon className="w-5 h-5"/>
-                        </button>
-                        <button 
-                            onClick={handleToggleAllLocks}
-                            disabled={isPreviewMode || template.elements.length === 0}
-                            className={`p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${allElementsLocked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                            title={allElementsLocked ? "שחרר את כל הרכיבים" : "נעל את כל הרכיבים"}
-                        >
-                            {allElementsLocked ? <UnlockIcon className="w-5 h-5"/> : <LockIcon className="w-5 h-5"/>}
-                        </button>
-                        <button
-                            onClick={handleTogglePreview}
-                            disabled={isGeneratingPreview || isPreviewMode}
-                            className="p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait bg-slate-700 hover:bg-slate-600 text-white"
-                            title="תצוגה מקדימה"
-                        >
-                            {isGeneratingPreview ? (
-                                <SpinnerIcon className="w-5 h-5 animate-spin" />
-                            ) : (
-                                <CameraIcon className="w-5 h-5" />
-                            )}
-                        </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button 
-                            onClick={handleSave} 
-                            disabled={isSaving || !isDirty || isPreviewMode} 
-                            title={isSaving ? 'שומר...' : 'שמור'}
-                            className={`bg-green-600 hover:bg-green-700 text-white font-bold p-2 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
-                        >
-                            {isSaving ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
-                        </button>
-                    </div>
-                </header>
-                <main className="flex-grow bg-slate-900 flex justify-center p-8 overflow-auto items-start">
+                    )}
+                </div>
+            </header>
+            <div className="flex-grow flex overflow-hidden">
+                <main
+                    ref={canvasContainerRef}
+                    className="flex-grow bg-slate-900 flex justify-center items-center p-4 sm:p-8 overflow-hidden"
+                >
                     <div
                         ref={canvasRef}
-                        className="shadow-2xl relative"
+                        className="shadow-2xl relative flex-shrink-0"
                         style={{
                             width: `${template.width}px`,
                             height: `${template.height}px`,
                             backgroundColor: template.background_color,
+                            transform: `scale(${canvasScale})`,
+                            transformOrigin: 'center',
                         }}
                         onMouseDown={handleCanvasMouseDown}
                     >
@@ -1210,6 +1256,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 activeStyle={selectedElementId === element.id ? activeStyle : null}
                                 formatBrushState={formatBrushState}
                                 temporaryFontOverride={temporaryFontOverride}
+                                canvasScale={canvasScale}
                             />
                         ))}
                         {snapLines.x.map((x, i) => (
@@ -1220,33 +1267,35 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         ))}
                     </div>
                 </main>
+                {!isPreviewMode && (
+                    <Sidebar
+                        selectedElement={selectedElement}
+                        isEditing={editingElementId === selectedElementId}
+                        onUpdateElement={updateElement}
+                        onStyleUpdate={handleStyleUpdate}
+                        onAlignmentUpdate={handleAlignmentUpdate}
+                        activeStyle={activeStyle}
+                        onAddElement={addElement}
+                        onDeleteElement={deleteElement}
+                        template={template}
+                        onUpdateTemplate={updateTemplateSettings}
+                        onEditImage={handleImageEditRequest}
+                        onDeselect={() => handleSelectElement(null)}
+                        onLayerOrderChange={handleLayerOrderChange}
+                        onApplyCut={handleApplyCut}
+                        isApplyingCut={isSaving}
+                        onSelectElement={handleSelectElement}
+                        onHoverElement={setHoveredElementId}
+                        formatBrushState={formatBrushState}
+                        onToggleFormatBrush={toggleFormatBrush}
+                        onConvertTextToImage={handleConvertTextToImage}
+                        onSetTemporaryFont={handleSetTemporaryFont}
+                        onClearTemporaryFont={handleClearTemporaryFont}
+                        isMobileOpen={isSidebarOpen}
+                        onMobileClose={() => setIsSidebarOpen(false)}
+                    />
+                )}
             </div>
-            {!isPreviewMode && (
-                <Sidebar
-                    selectedElement={selectedElement}
-                    isEditing={editingElementId === selectedElementId}
-                    onUpdateElement={updateElement}
-                    onStyleUpdate={handleStyleUpdate}
-                    onAlignmentUpdate={handleAlignmentUpdate}
-                    activeStyle={activeStyle}
-                    onAddElement={addElement}
-                    onDeleteElement={deleteElement}
-                    template={template}
-                    onUpdateTemplate={updateTemplateSettings}
-                    onEditImage={handleImageEditRequest}
-                    onDeselect={() => handleSelectElement(null)}
-                    onLayerOrderChange={handleLayerOrderChange}
-                    onApplyCut={handleApplyCut}
-                    isApplyingCut={isSaving}
-                    onSelectElement={handleSelectElement}
-                    onHoverElement={setHoveredElementId}
-                    formatBrushState={formatBrushState}
-                    onToggleFormatBrush={toggleFormatBrush}
-                    onConvertTextToImage={handleConvertTextToImage}
-                    onSetTemporaryFont={handleSetTemporaryFont}
-                    onClearTemporaryFont={handleClearTemporaryFont}
-                />
-            )}
             {isPreviewMode && previewImageUrl && (
                 <div className="fixed inset-0 bg-black/80 z-[40000] flex flex-col items-center justify-center p-4" dir="rtl">
                     <div className="absolute top-4 right-4 flex items-center gap-4">

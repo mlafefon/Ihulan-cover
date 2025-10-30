@@ -26,6 +26,7 @@ interface CanvasItemProps {
     activeStyle: TextStyle | null;
     formatBrushState: { active: boolean; sourceElement: TextElement | null };
     temporaryFontOverride: { elementId: string; fontFamily: string } | null;
+    canvasScale: number;
 }
 
 const handlePositionClasses: { [key: string]: string } = {
@@ -68,7 +69,7 @@ export const defaultTextStyle: TextStyle = {
 };
 
 
-const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar, formatBrushState, temporaryFontOverride }) => {
+const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar, formatBrushState, temporaryFontOverride, canvasScale }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
@@ -178,48 +179,46 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         const outlineWidth = (textElement.outline?.enabled && textElement.outline.width) ? textElement.outline.width : 0;
     
                         const newSelectionRects = clientRects.map(rect => {
+                            const unscaledRectWidth = rect.width / canvasScale;
+                            const unscaledRectHeight = rect.height / canvasScale;
+
                             // Calculate the real width and height of the text content, accounting for rotation.
-                            // h_local_line is the height based on line-height, used for geometric calculations.
                             const h_local_line = styleForMetrics.fontSize * styleForMetrics.lineHeight;
                             let w_local: number;
 
                             if (cos >= sin) {
-                                w_local = cos > 1e-6 ? (rect.width - h_local_line * sin) / cos : 0;
+                                w_local = cos > 1e-6 ? (unscaledRectWidth - h_local_line * sin) / cos : 0;
                             } else {
-                                w_local = sin > 1e-6 ? (rect.height - h_local_line * cos) / sin : 0;
+                                w_local = sin > 1e-6 ? (unscaledRectHeight - h_local_line * cos) / sin : 0;
                             }
 
-                            // h_local_font is the visual height based on font-size, for rendering the highlight.
                             const h_local_font = styleForMetrics.fontSize;
                             
-                            // Find center of ClientRect in viewport space
                             const viewportCenterX = rect.left + rect.width / 2;
                             const viewportCenterY = rect.top + rect.height / 2;
     
-                            // Transform viewport center into the wrapper's local (un-rotated) space
                             const rotatedBoundingBoxCenterX = wrapperRect.left + wrapperRect.width / 2;
                             const rotatedBoundingBoxCenterY = wrapperRect.top + wrapperRect.height / 2;
                             
                             let dx = viewportCenterX - rotatedBoundingBoxCenterX;
                             let dy = viewportCenterY - rotatedBoundingBoxCenterY;
     
-                            // Apply inverse rotation to get vector from un-rotated center
                             const invRotationRad = -rotationRad;
                             const cos_inv = Math.cos(invRotationRad);
                             const sin_inv = Math.sin(invRotationRad);
                             
-                            const local_dx = dx * cos_inv - dy * sin_inv;
-                            const local_dy = dx * sin_inv + dy * cos_inv;
+                            const local_dx_scaled = dx * cos_inv - dy * sin_inv;
+                            const local_dy_scaled = dx * sin_inv + dy * cos_inv;
+
+                            const local_dx = local_dx_scaled / canvasScale;
+                            const local_dy = local_dy_scaled / canvasScale;
                             
-                            // Calculate the top-left of the overlay relative to the un-rotated element's center,
-                            // using the visual font height for the final position.
                             const unrotatedCenterX = textElement.width / 2;
                             const unrotatedCenterY = textElement.height / 2;
                             
                             const local_top = unrotatedCenterY + local_dy - h_local_font / 2;
                             const local_left = unrotatedCenterX + local_dx - w_local / 2;
     
-                            // Return a new DOMRect with local coordinates and dimensions, using the tighter font-size height.
                             return new DOMRect(local_left - outlineWidth, local_top - outlineWidth, w_local, h_local_font);
                         });
                         
@@ -243,7 +242,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             onSetSelectionRange(null);
             setSelectionRects([]);
         }
-    }, [isSelected, element, activeStyle, onSetSelectionRange]);
+    }, [isSelected, element, activeStyle, onSetSelectionRange, canvasScale]);
 
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -444,8 +443,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             }
     
             if (didDrag) {
-                const dx = moveEvent.clientX - startMouseX;
-                const dy = moveEvent.clientY - startMouseY;
+                const dx = (moveEvent.clientX - startMouseX) / canvasScale;
+                const dy = (moveEvent.clientY - startMouseY) / canvasScale;
                 const startElX = element.x;
                 const startElY = element.y;
                 let newX = startElX + dx;
@@ -526,8 +525,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             const currentMouseX = moveEvent.clientX;
             const currentMouseY = moveEvent.clientY;
             
-            const dx = currentMouseX - startMouseX;
-            const dy = currentMouseY - startMouseY;
+            const dx = (currentMouseX - startMouseX) / canvasScale;
+            const dy = (currentMouseY - startMouseY) / canvasScale;
             
             const negRad = -rad;
             const cosNeg = Math.cos(negRad);

@@ -753,9 +753,9 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
     const inactiveToolClass = 'bg-slate-700 hover:bg-slate-600';
 
     return (
-        <div className="fixed inset-0 z-[100] flex h-screen bg-[#111827] text-white" dir="rtl">
-            <main className="flex-grow flex flex-col">
-                <header className="bg-slate-800 px-4 py-3 flex justify-between items-center border-b border-slate-700">
+        <div className="fixed inset-0 z-[100] flex flex-col md:flex-row h-screen bg-[#111827] text-white" dir="rtl">
+            <main className="flex-grow flex flex-col min-h-0">
+                <header className="bg-slate-800 px-4 py-3 flex justify-between items-center border-b border-slate-700 flex-shrink-0">
                      <button 
                         onClick={onCancel} 
                         className="p-2 rounded-full hover:bg-slate-700 transition-colors"
@@ -764,8 +764,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                      >
                         <XIcon className="w-6 h-6"/>
                      </button>
-                     <h2 className="font-bold text-lg">עורך תמונות</h2>
-                     <div className="flex items-center gap-3">
+                     <h2 className="font-bold text-lg hidden sm:block">עורך תמונות</h2>
+                     <div className="flex items-center gap-2 sm:gap-3">
                         <input type="file" ref={replaceImageInputRef} className="hidden" accept="image/*" onChange={handleImageReplace} />
                         <button onClick={() => replaceImageInputRef.current?.click()} className="bg-slate-700 hover:bg-slate-600 text-sm font-medium py-2 px-4 rounded-md transition-colors">
                             החלף תמונה
@@ -789,7 +789,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ imageSrc, elementWidth, eleme
                     <canvas ref={maskCanvasRef} className="hidden" />
                 </div>
             </main>
-            <aside className="w-96 bg-slate-800 flex flex-col border-r border-slate-700 overflow-y-auto">
+            <aside className="w-full md:w-96 bg-slate-800 flex flex-col border-t md:border-t-0 md:border-r border-slate-700 h-1/2 md:h-full overflow-y-auto flex-shrink-0">
                  <div className="p-3 border-b border-slate-700">
                     <h3 className="text-lg font-bold">מידע</h3>
                     <p className="text-xs text-slate-400">רזולוציית מקור: {imageRef.current?.width}x{imageRef.current?.height}</p>
