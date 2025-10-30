@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon, XIcon, MenuIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon, XIcon, MenuIcon, MaximizeIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -53,9 +53,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [nextLocation, setNextLocation] = useState<string | null>(null);
     const [formatBrushState, setFormatBrushState] = useState<{ active: boolean; sourceElement: TextElement | null }>({ active: false, sourceElement: null });
 
-    const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
-    const [isPreviewMode, setIsPreviewMode] = useState(false);
-    const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+    const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+    const [isZoomedToFit, setIsZoomedToFit] = useState(true);
 
     const canvasContainerRef = useRef<HTMLDivElement>(null);
     const [canvasScale, setCanvasScale] = useState(1);
@@ -1073,18 +1072,37 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         }
     };
 
-    const handleSavePreview = () => {
-        if (previewImageUrl && (window as any).saveAs) {
-            fetch(previewImageUrl)
-                .then(res => res.blob())
-                .then(blob => {
-                    (window as any).saveAs(blob, `${template.name}.png`);
-                })
-                .catch(e => {
-                    console.error("Error converting data URL to blob for saving:", e);
-                    alert("שגיאה בהכנת התמונה להורדה.");
+    const handleDownloadImage = async () => {
+        setIsGeneratingImage(true);
+        handleSelectElement(null);
+        await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render to hide selection box
+
+        if (canvasRef.current && (window as any).htmlToImage && (window as any).saveAs) {
+            try {
+                const dataUrl = await (window as any).htmlToImage.toPng(canvasRef.current, {
+                    pixelRatio: 3, // High quality for preview & save
+                    fontEmbedCSS: fontCss ?? undefined,
                 });
+                
+                // Use FileSaver.js to trigger download
+                fetch(dataUrl)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        (window as any).saveAs(blob, `${template.name || 'design'}.png`);
+                    })
+                    .catch(e => {
+                        console.error("Error converting data URL to blob for saving:", e);
+                        alert("שגיאה בהכנת התמונה להורדה.");
+                    });
+                
+            } catch (e) {
+                console.error("html-to-image failed for download:", e);
+                alert("שגיאה ביצירת תמונה להורדה.");
+            }
+        } else {
+             alert("ספריה חסרה, לא ניתן להוריד את התמונה.");
         }
+        setIsGeneratingImage(false);
     };
 
     const handleExportJSON = () => {
@@ -1108,31 +1126,8 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         handleTemplateChange({ ...template, ...settings });
     };
 
-    const handleTogglePreview = async () => {
-        if (isPreviewMode) {
-            setIsPreviewMode(false);
-            setPreviewImageUrl(null);
-            return;
-        }
-
-        setIsGeneratingPreview(true);
-        handleSelectElement(null);
-        await new Promise(resolve => setTimeout(resolve, 50)); // Wait for re-render to hide selection box
-
-        if (canvasRef.current && (window as any).htmlToImage) {
-            try {
-                const dataUrl = await (window as any).htmlToImage.toPng(canvasRef.current, {
-                    pixelRatio: 3, // High quality for preview & save
-                    fontEmbedCSS: fontCss ?? undefined,
-                });
-                setPreviewImageUrl(dataUrl);
-                setIsPreviewMode(true);
-            } catch (e) {
-                console.error("html-to-image failed for preview:", e);
-                alert("שגיאה ביצירת תצוגה מקדימה.");
-            }
-        }
-        setIsGeneratingPreview(false);
+    const handleToggleZoom = () => {
+        setIsZoomedToFit(prev => !prev);
     };
 
     const handleSetTemporaryFont = (fontFamily: string) => {
@@ -1163,36 +1158,64 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         <span className="hidden sm:inline">איחולן</span>
                     </button>
                 </div>
-                <div className="hidden md:flex items-center gap-4">
-                    <button onClick={handleUndo} disabled={historyIndex === 0 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                {/* Mobile-only controls */}
+                <div className="flex md:hidden items-center gap-4">
+                    <button onClick={handleUndo} disabled={historyIndex === 0} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
                         <UndoIcon className="w-5 h-5"/>
                     </button>
-                    <button onClick={handleRedo} disabled={historyIndex >= history.length - 1 || isPreviewMode} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <RedoIcon className="w-5 h-5"/>
+                    </button>
+                    <button
+                        onClick={handleDownloadImage}
+                        disabled={isGeneratingImage}
+                        className="p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait bg-slate-700 hover:bg-slate-600 text-white"
+                        title="הורד תמונה"
+                    >
+                        {isGeneratingImage ? (
+                            <SpinnerIcon className="w-5 h-5 animate-spin" />
+                        ) : (
+                            <CameraIcon className="w-5 h-5" />
+                        )}
+                    </button>
+                </div>
+                {/* Desktop-only controls */}
+                <div className="hidden md:flex items-center gap-4">
+                    <button onClick={handleUndo} disabled={historyIndex === 0} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <UndoIcon className="w-5 h-5"/>
+                    </button>
+                    <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="p-2 rounded hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed">
                         <RedoIcon className="w-5 h-5"/>
                     </button>
                     <div className="h-6 w-px bg-slate-600" />
                     <button 
                         onClick={handleExportJSON} 
-                        disabled={isPreviewMode}
                         title="ייצא קובץ"
                         className="bg-slate-700 hover:bg-slate-600 p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                         <ExportIcon className="w-5 h-5"/>
                     </button>
                     <button 
                         onClick={handleToggleAllLocks}
-                        disabled={isPreviewMode || template.elements.length === 0}
+                        disabled={template.elements.length === 0}
                         className={`p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${allElementsLocked ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
                         title={allElementsLocked ? "שחרר את כל הרכיבים" : "נעל את כל הרכיבים"}
                     >
                         {allElementsLocked ? <UnlockIcon className="w-5 h-5"/> : <LockIcon className="w-5 h-5"/>}
                     </button>
                     <button
-                        onClick={handleTogglePreview}
-                        disabled={isGeneratingPreview || isPreviewMode}
-                        className="p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait bg-slate-700 hover:bg-slate-600 text-white"
-                        title="תצוגה מקדימה"
+                        onClick={handleToggleZoom}
+                        className={`p-2 rounded-md transition-colors ${!isZoomedToFit ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
+                        title={isZoomedToFit ? "הצג בגודל מלא" : "התאם לחלון"}
                     >
-                        {isGeneratingPreview ? (
+                        <MaximizeIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                        onClick={handleDownloadImage}
+                        disabled={isGeneratingImage}
+                        className="p-2 rounded-md transition-colors disabled:opacity-50 disabled:cursor-wait bg-slate-700 hover:bg-slate-600 text-white"
+                        title="הורד תמונה"
+                    >
+                        {isGeneratingImage ? (
                             <SpinnerIcon className="w-5 h-5 animate-spin" />
                         ) : (
                             <CameraIcon className="w-5 h-5" />
@@ -1202,23 +1225,21 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                 <div className="flex items-center gap-2">
                     <button 
                         onClick={handleSave} 
-                        disabled={isSaving || !isDirty || isPreviewMode} 
+                        disabled={isSaving || !isDirty} 
                         title={isSaving ? 'שומר...' : 'שמור'}
                         className={`bg-green-600 hover:bg-green-700 text-white font-bold p-2 rounded-md transition-all duration-200 disabled:opacity-50 ${isDirty ? 'ring-2 ring-offset-2 ring-offset-slate-800 ring-red-500' : ''}`}
                     >
                         {isSaving ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <SaveIcon className="w-5 h-5" />}
                     </button>
-                     {!isPreviewMode && (
-                        <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded hover:bg-slate-700 md:hidden" aria-label="פתח תפריט עריכה">
-                            <MenuIcon className="w-5 h-5"/>
-                        </button>
-                    )}
+                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded hover:bg-slate-700 md:hidden" aria-label="פתח תפריט עריכה">
+                        <MenuIcon className="w-5 h-5"/>
+                    </button>
                 </div>
             </header>
             <div className="flex-grow flex overflow-hidden">
                 <main
                     ref={canvasContainerRef}
-                    className="flex-grow bg-slate-900 flex justify-center items-center p-4 sm:p-8 overflow-hidden"
+                    className={`flex-grow bg-slate-900 flex justify-center items-center p-4 sm:p-8 ${isZoomedToFit ? 'overflow-hidden' : 'overflow-auto'}`}
                 >
                     <div
                         ref={canvasRef}
@@ -1227,7 +1248,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                             width: `${template.width}px`,
                             height: `${template.height}px`,
                             backgroundColor: template.background_color,
-                            transform: `scale(${canvasScale})`,
+                            transform: `scale(${isZoomedToFit ? canvasScale : 1})`,
                             transformOrigin: 'center',
                         }}
                         onMouseDown={handleCanvasMouseDown}
@@ -1256,7 +1277,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 activeStyle={selectedElementId === element.id ? activeStyle : null}
                                 formatBrushState={formatBrushState}
                                 temporaryFontOverride={temporaryFontOverride}
-                                canvasScale={canvasScale}
+                                canvasScale={isZoomedToFit ? canvasScale : 1}
                             />
                         ))}
                         {snapLines.x.map((x, i) => (
@@ -1267,62 +1288,33 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         ))}
                     </div>
                 </main>
-                {!isPreviewMode && (
-                    <Sidebar
-                        selectedElement={selectedElement}
-                        isEditing={editingElementId === selectedElementId}
-                        onUpdateElement={updateElement}
-                        onStyleUpdate={handleStyleUpdate}
-                        onAlignmentUpdate={handleAlignmentUpdate}
-                        activeStyle={activeStyle}
-                        onAddElement={addElement}
-                        onDeleteElement={deleteElement}
-                        template={template}
-                        onUpdateTemplate={updateTemplateSettings}
-                        onEditImage={handleImageEditRequest}
-                        onDeselect={() => handleSelectElement(null)}
-                        onLayerOrderChange={handleLayerOrderChange}
-                        onApplyCut={handleApplyCut}
-                        isApplyingCut={isSaving}
-                        onSelectElement={handleSelectElement}
-                        onHoverElement={setHoveredElementId}
-                        formatBrushState={formatBrushState}
-                        onToggleFormatBrush={toggleFormatBrush}
-                        onConvertTextToImage={handleConvertTextToImage}
-                        onSetTemporaryFont={handleSetTemporaryFont}
-                        onClearTemporaryFont={handleClearTemporaryFont}
-                        isMobileOpen={isSidebarOpen}
-                        onMobileClose={() => setIsSidebarOpen(false)}
-                    />
-                )}
+                <Sidebar
+                    selectedElement={selectedElement}
+                    isEditing={editingElementId === selectedElementId}
+                    onUpdateElement={updateElement}
+                    onStyleUpdate={handleStyleUpdate}
+                    onAlignmentUpdate={handleAlignmentUpdate}
+                    activeStyle={activeStyle}
+                    onAddElement={addElement}
+                    onDeleteElement={deleteElement}
+                    template={template}
+                    onUpdateTemplate={updateTemplateSettings}
+                    onEditImage={handleImageEditRequest}
+                    onDeselect={() => handleSelectElement(null)}
+                    onLayerOrderChange={handleLayerOrderChange}
+                    onApplyCut={handleApplyCut}
+                    isApplyingCut={isSaving}
+                    onSelectElement={handleSelectElement}
+                    onHoverElement={setHoveredElementId}
+                    formatBrushState={formatBrushState}
+                    onToggleFormatBrush={toggleFormatBrush}
+                    onConvertTextToImage={handleConvertTextToImage}
+                    onSetTemporaryFont={handleSetTemporaryFont}
+                    onClearTemporaryFont={handleClearTemporaryFont}
+                    isMobileOpen={isSidebarOpen}
+                    onMobileClose={() => setIsSidebarOpen(false)}
+                />
             </div>
-            {isPreviewMode && previewImageUrl && (
-                <div className="fixed inset-0 bg-black/80 z-[40000] flex flex-col items-center justify-center p-4" dir="rtl">
-                    <div className="absolute top-4 right-4 flex items-center gap-4">
-                        <button 
-                            onClick={handleSavePreview} 
-                            className="p-3 rounded-full bg-slate-700/80 hover:bg-slate-600 text-white transition-colors"
-                            title="שמור תמונה"
-                        >
-                            <SaveIcon className="w-6 h-6" />
-                        </button>
-                        <button 
-                            onClick={handleTogglePreview} 
-                            className="p-3 rounded-full bg-slate-700/80 hover:bg-slate-600 text-white transition-colors"
-                            title="סגור תצוגה מקדימה"
-                        >
-                            <XIcon className="w-6 h-6" />
-                        </button>
-                    </div>
-                    <div className="w-full h-full flex items-center justify-center">
-                        <img 
-                            src={previewImageUrl} 
-                            alt="תצוגה מקדימה" 
-                            className="max-w-full max-h-full object-contain shadow-2xl"
-                        />
-                    </div>
-                </div>
-            )}
             {showExitConfirm && (
                 <div className="fixed inset-0 bg-black/60 z-[50000] flex items-center justify-center" dir="rtl">
                     <div className="bg-slate-800 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
