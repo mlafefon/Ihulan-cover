@@ -79,6 +79,10 @@ const transformRowToTemplate = (row: TemplateRow): Template => {
                 if (globalLineHeight !== undefined) {
                     newStyle.lineHeight = existingStyle.lineHeight ?? globalLineHeight;
                 }
+                // Fix: Add defensive check to prevent invalid line heights from crashing the app.
+                if (newStyle.lineHeight <= 0) {
+                    newStyle.lineHeight = defaultTextStyle.lineHeight;
+                }
                 return {
                     text: typeof span.text === 'string' ? span.text : '',
                     style: newStyle,

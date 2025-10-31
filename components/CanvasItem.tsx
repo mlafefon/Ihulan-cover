@@ -29,15 +29,15 @@ interface CanvasItemProps {
     canvasScale: number;
 }
 
-const handlePositionClasses: { [key: string]: string } = {
-    tl: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2',
-    t: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2',
-    tr: 'top-0 right-0 translate-x-1/2 -translate-y-1/2',
-    l: 'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2',
-    r: 'top-1/2 right-0 translate-x-1/2 -translate-y-1/2',
-    bl: 'bottom-0 left-0 -translate-x-1/2 translate-y-1/2',
-    b: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2',
-    br: 'bottom-0 right-0 translate-x-1/2 translate-y-1/2',
+const handlePositions: { [key: string]: { top?: string; left?: string; right?: string; bottom?: string; transform: string; } } = {
+    tl: { top: '0', left: '0', transform: 'translateX(-50%) translateY(-50%)' },
+    t:  { top: '0', left: '50%', transform: 'translateX(-50%) translateY(-50%)' },
+    tr: { top: '0', right: '0', transform: 'translateX(50%) translateY(-50%)' },
+    l:  { top: '50%', left: '0', transform: 'translateX(-50%) translateY(-50%)' },
+    r:  { top: '50%', right: '0', transform: 'translateX(50%) translateY(-50%)' },
+    bl: { bottom: '0', left: '0', transform: 'translateX(-50%) translateY(50%)' },
+    b:  { bottom: '0', left: '50%', transform: 'translateX(-50%) translateY(50%)' },
+    br: { bottom: '0', right: '0', transform: 'translateX(50%) translateY(50%)' },
 };
 
 const handleCursorClasses: { [key: string]: string } = {
@@ -1037,6 +1037,14 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         );
     };
 
+    // The unscaled height of the line needs to be calculated dynamically.
+    // The line starts at the handle's center and must reach the element's top frame border.
+    // The handle's center is 2.5rem (40px) above the element's top in its unscaled coordinate system.
+    // However, the handle and its line are scaled by `1/canvasScale`. To maintain a constant visual length
+    // that connects to the element (which is scaled by `canvasScale`), we need to adjust the base length.
+    // New calculation: base height = (2.5rem * scale) - (1rem * scale) = 40px - 16px * canvasScale
+    const rotationHandleLineHeight = 40 - (16 * canvasScale);
+
     return (
         <>
             {renderTooltip()}
@@ -1068,42 +1076,57 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 {renderElement()}
 
                 {isCutterTarget && (
-                    <div className="absolute inset-0 border-2 border-dashed border-white pointer-events-none" />
+                    <div className="absolute border-2 border-dashed border-white pointer-events-none" style={{ top: '-1px', left: '-1px', right: '-1px', bottom: '-1px' }} />
                 )}
                 {isSelected && !isEditing && (
                     <div 
-                        className="absolute inset-0 border-2 border-blue-500 pointer-events-none"
-                        style={element.type === ElementType.Cutter ? { borderRadius: '50%' } : {}}
+                        className="absolute border-2 border-blue-500 pointer-events-none"
+                        style={{
+                            top: '-1px', left: '-1px', right: '-1px', bottom: '-1px',
+                            ...(element.type === ElementType.Cutter ? { borderRadius: '50%' } : {})
+                        }}
                     />
                 )}
                 {isSelected && isEditing && element.type === ElementType.Text && (
                     <div 
-                        className="absolute inset-0 border-2 border-dashed border-blue-500 pointer-events-none"
+                        className="absolute border-2 border-dashed border-blue-500 pointer-events-none"
+                        style={{ top: '-1px', left: '-1px', right: '-1px', bottom: '-1px' }}
                     />
                 )}
                 {(isHovered || isHoveredFromSidebar) && !isSelected && (
-                    <div className="absolute inset-0 border-2 border-dashed border-slate-400 pointer-events-none" />
+                    <div className="absolute border-2 border-dashed border-slate-400 pointer-events-none" style={{ top: '-1px', left: '-1px', right: '-1px', bottom: '-1px' }} />
                 )}
                 {isSelected && !isEditing && !element.locked && (
                     <>
-                        {handles.map(handle => (
-                        <div
-                                key={handle}
-                                onMouseDown={(e) => handleResize(e, handle)}
-                                style={{ transform: `scale(${1 / canvasScale})` }}
-                                className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${!isRotating ? handleCursorClasses[handle] : ''}`}
-                            />
-                        ))}
+                        {handles.map(handle => {
+                            const handleProps = handlePositions[handle];
+                            return (
+                                <div
+                                    key={handle}
+                                    onMouseDown={(e) => handleResize(e, handle)}
+                                    style={{
+                                        top: handleProps.top,
+                                        left: handleProps.left,
+                                        right: handleProps.right,
+                                        bottom: handleProps.bottom,
+                                        transform: `scale(${1 / canvasScale}) ${handleProps.transform}`,
+                                    }}
+                                    className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${!isRotating ? handleCursorClasses[handle] : ''}`}
+                                />
+                            );
+                        })}
                         <div
                             onMouseDown={handleRotate}
+                            // Fix: Cast the style object to React.CSSProperties to allow the use of a CSS custom property ('--line-height').
                             style={{ 
                                 cursor: `url('${rotateCursorUrl}') 12 12, auto`,
                                 top: `${-2 / canvasScale}rem`,
                                 transform: `translateX(-50%) scale(${1 / canvasScale})`,
                                 transformOrigin: 'bottom center',
-                            }}
+                                '--line-height': `${rotationHandleLineHeight}px`,
+                            } as React.CSSProperties}
                             className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full z-50
-                                        before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2 before:top-full before:w-0.5 before:h-4 before:bg-blue-500"
+                                        before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2 before:top-1/2 before:w-0.5 before:h-[var(--line-height)] before:bg-blue-500"
                         />
                     </>
                 )}
