@@ -68,12 +68,24 @@ export const defaultTextStyle: TextStyle = {
     lineHeight: 1.2,
 };
 
+// Utility to get coordinates from both MouseEvent and TouchEvent
+const getEventCoords = (e: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) => {
+    if ('touches' in e) {
+        // TouchEvent
+        const touch = e.touches[0] || e.changedTouches[0];
+        return { clientX: touch.clientX, clientY: touch.clientY };
+    }
+    // MouseEvent
+    return { clientX: e.clientX, clientY: e.clientY };
+};
+
 
 const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing, onSelect, onUpdate, onInteractionEnd, onSetSelectionRange, onSetEditing, onElementRefsChange, onEditImage, canvasWidth, canvasHeight, otherElements, setSnapLines, onInteractionStart, isInteracting, isCutterTarget, activeStyle, isHoveredFromSidebar, formatBrushState, temporaryFontOverride, canvasScale }) => {
     const itemRef = useRef<HTMLDivElement>(null);
     const textContentRef = useRef<HTMLDivElement>(null);
     const textWrapperRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const lastTap = useRef(0);
     const [isHovered, setIsHovered] = useState(false);
     const [isRotating, setIsRotating] = useState(false);
     const [clickToEditCoords, setClickToEditCoords] = useState<{ x: number; y: number } | null>(null);
@@ -398,8 +410,7 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         }
     };
 
-    const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-        // If in edit mode and click is on text content, let browser handle it for cursor placement.
+    const handleDragStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
         if (isEditing && element.type === ElementType.Text && textContentRef.current?.contains(e.target as Node)) {
             return;
         }
@@ -407,44 +418,43 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         e.preventDefault();
         e.stopPropagation();
 
-        // Select the element immediately on mousedown if it's not already selected.
         if (!isSelected) {
             onSelect();
         }
 
         if (element.locked) {
-            // For a right-click on a locked element, we only want to select it.
-            // The onSelect() call above has already done that, so we're finished.
-            if (e.button === 2) { // Right mouse button
+            if ('button' in e && e.button === 2) { 
                 return;
             }
-
-            const handleLockedClick = (upEvent: MouseEvent) => {
-                 document.removeEventListener('mouseup', handleLockedClick as EventListener);
-                 if (isSelected && element.type === ElementType.Text) {
+            const handleLockedInteractionEnd = (endEvent: MouseEvent | TouchEvent) => {
+                document.removeEventListener('mouseup', handleLockedInteractionEnd as EventListener);
+                document.removeEventListener('touchend', handleLockedInteractionEnd as EventListener);
+                if (isSelected && element.type === ElementType.Text) {
                     onSetEditing(element.id);
-                    setClickToEditCoords({ x: upEvent.clientX, y: upEvent.clientY });
+                    const { clientX, clientY } = getEventCoords(endEvent);
+                    setClickToEditCoords({ x: clientX, y: clientY });
                 } else if (element.type === ElementType.Image) {
                     onEditImage(element as ImageElement);
                 }
             };
-            document.addEventListener('mouseup', handleLockedClick as EventListener);
+            document.addEventListener('mouseup', handleLockedInteractionEnd as EventListener);
+            document.addEventListener('touchend', handleLockedInteractionEnd as EventListener);
             return; 
         }
     
-        const startMouseX = e.clientX;
-        const startMouseY = e.clientY;
+        const { clientX: startMouseX, clientY: startMouseY } = getEventCoords(e);
         let didDrag = false;
     
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            if (!didDrag && (Math.abs(moveEvent.clientX - startMouseX) > 5 || Math.abs(moveEvent.clientY - startMouseY) > 5)) {
+        const handleInteractionMove = (moveEvent: MouseEvent | TouchEvent) => {
+            const { clientX, clientY } = getEventCoords(moveEvent);
+            if (!didDrag && (Math.abs(clientX - startMouseX) > 5 || Math.abs(clientY - startMouseY) > 5)) {
                 didDrag = true;
                 onInteractionStart();
             }
     
             if (didDrag) {
-                const dx = (moveEvent.clientX - startMouseX) / canvasScale;
-                const dy = (moveEvent.clientY - startMouseY) / canvasScale;
+                const dx = (clientX - startMouseX) / canvasScale;
+                const dy = (clientY - startMouseY) / canvasScale;
                 const startElX = element.x;
                 const startElY = element.y;
                 let newX = startElX + dx;
@@ -485,32 +495,49 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             }
         };
     
-        const handleMouseUp = (upEvent: MouseEvent) => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp as EventListener);
-    
+        const handleInteractionEnd = (upEvent: MouseEvent | TouchEvent) => {
+            document.removeEventListener('mousemove', handleInteractionMove);
+            document.removeEventListener('touchmove', handleInteractionMove);
+            document.removeEventListener('mouseup', handleInteractionEnd as EventListener);
+            document.removeEventListener('touchend', handleInteractionEnd as EventListener);
+
             if (didDrag) {
                 onInteractionEnd();
-            } else { // It's a click
+            } else { 
                 if (isSelected && element.type === ElementType.Text) {
                     onSetEditing(element.id);
-                    setClickToEditCoords({ x: upEvent.clientX, y: upEvent.clientY });
+                    const { clientX, clientY } = getEventCoords(upEvent);
+                    setClickToEditCoords({ x: clientX, y: clientY });
                 }
             }
         };
         
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp as EventListener);
+        document.addEventListener('mousemove', handleInteractionMove);
+        document.addEventListener('touchmove', handleInteractionMove);
+        document.addEventListener('mouseup', handleInteractionEnd as EventListener);
+        document.addEventListener('touchend', handleInteractionEnd as EventListener);
+    };
+    
+    const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        const currentTime = new Date().getTime();
+        const tapLength = currentTime - lastTap.current;
+        if (tapLength < 300 && tapLength > 0) {
+            handleDoubleClick();
+            e.preventDefault(); // Prevent zoom on double tap
+        } else {
+            handleDragStart(e);
+        }
+        lastTap.current = currentTime;
     };
 
-    const handleResize = (e: React.MouseEvent, corner: string) => {
+
+    const handleResizeStart = (e: React.MouseEvent | React.TouchEvent, corner: string) => {
         e.preventDefault();
         e.stopPropagation();
         if (element.locked) return;
         onInteractionStart();
     
-        const startMouseX = e.clientX;
-        const startMouseY = e.clientY;
+        const { clientX: startMouseX, clientY: startMouseY } = getEventCoords(e);
     
         const { x, y, width, height, rotation } = element;
         
@@ -521,9 +548,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         const cos = Math.cos(rad);
         const sin = Math.sin(rad);
     
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            const currentMouseX = moveEvent.clientX;
-            const currentMouseY = moveEvent.clientY;
+        const handleInteractionMove = (moveEvent: MouseEvent | TouchEvent) => {
+            const { clientX: currentMouseX, clientY: currentMouseY } = getEventCoords(moveEvent);
             
             const dx = (currentMouseX - startMouseX) / canvasScale;
             const dy = (currentMouseY - startMouseY) / canvasScale;
@@ -568,7 +594,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                 const newX = newCenterX - newWidth / 2;
                 const newY = newCenterY - newHeight / 2;
                 
-                // Use temporary variables for snapping modifications
                 let finalWidth = newWidth;
                 let finalHeight = newHeight;
                 let finalX = newX;
@@ -580,7 +605,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     const snapTargetsY = [0, canvasHeight / 2, canvasHeight];
                     const activeSnapLines: { x: number[], y: number[] } = { x: [], y: [] };
 
-                    // --- X-axis Snapping ---
                     for (const targetX of snapTargetsX) {
                         if (isMovingRight && Math.abs((finalX + finalWidth) - targetX) < SNAP_THRESHOLD) {
                             finalWidth = targetX - finalX;
@@ -596,7 +620,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         }
                     }
 
-                    // --- Y-axis Snapping ---
                     for (const targetY of snapTargetsY) {
                         if (isMovingBottom && Math.abs((finalY + finalHeight) - targetY) < SNAP_THRESHOLD) {
                             finalHeight = targetY - finalY;
@@ -617,7 +640,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                     setSnapLines({ x: [], y: [] });
                 }
 
-                // Clamp to minimum size AFTER snapping calculations, adjusting position to keep stationary edge fixed
                 if (finalWidth < 10) {
                     if (isMovingLeft) finalX += finalWidth - 10;
                     finalWidth = 10;
@@ -631,17 +653,21 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             }
         };
         
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+        const handleInteractionEnd = () => {
+            document.removeEventListener('mousemove', handleInteractionMove);
+            document.removeEventListener('touchmove', handleInteractionMove);
+            document.removeEventListener('mouseup', handleInteractionEnd);
+            document.removeEventListener('touchend', handleInteractionEnd);
             onInteractionEnd();
         };
     
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mousemove', handleInteractionMove);
+        document.addEventListener('touchmove', handleInteractionMove);
+        document.addEventListener('mouseup', handleInteractionEnd);
+        document.addEventListener('touchend', handleInteractionEnd);
     };
 
-    const handleRotate = (e: React.MouseEvent) => {
+    const handleRotateStart = (e: React.MouseEvent | React.TouchEvent) => {
         e.preventDefault();
         e.stopPropagation();
         if (element.locked) return;
@@ -652,13 +678,15 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         const rect = el.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
-        const startAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+        const startCoords = getEventCoords(e);
+        const startAngle = Math.atan2(startCoords.clientY - centerY, startCoords.clientX - centerX);
         const startRotation = element.rotation;
     
         document.body.style.cursor = `url('${rotateCursorUrl}') 12 12, auto`;
     
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            const angle = Math.atan2(moveEvent.clientY - centerY, moveEvent.clientX - centerX);
+        const handleInteractionMove = (moveEvent: MouseEvent | TouchEvent) => {
+            const moveCoords = getEventCoords(moveEvent);
+            const angle = Math.atan2(moveCoords.clientY - centerY, moveCoords.clientX - centerX);
             const angleDiff = (angle - startAngle) * (180 / Math.PI);
             const newRotation = startRotation + angleDiff;
 
@@ -672,23 +700,27 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             
             setTooltip({
                 visible: true,
-                x: moveEvent.clientX,
-                y: moveEvent.clientY,
+                x: moveCoords.clientX,
+                y: moveCoords.clientY,
                 text: `${Math.round(finalRotation)}°`
             });
         };
     
-        const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
+        const handleInteractionEnd = () => {
+            document.removeEventListener('mousemove', handleInteractionMove);
+            document.removeEventListener('touchmove', handleInteractionMove);
+            document.removeEventListener('mouseup', handleInteractionEnd);
+            document.removeEventListener('touchend', handleInteractionEnd);
             onInteractionEnd();
             setTooltip({ visible: false, x: 0, y: 0, text: '' });
             document.body.style.cursor = '';
             setIsRotating(false);
         };
     
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
+        document.addEventListener('mousemove', handleInteractionMove);
+        document.addEventListener('touchmove', handleInteractionMove);
+        document.addEventListener('mouseup', handleInteractionEnd);
+        document.addEventListener('touchend', handleInteractionEnd);
     };
     
     const verticalAlignMap = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
@@ -1037,12 +1069,6 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
         );
     };
 
-    // The unscaled height of the line needs to be calculated dynamically.
-    // The line starts at the handle's center and must reach the element's top frame border.
-    // The handle's center is 2.5rem (40px) above the element's top in its unscaled coordinate system.
-    // However, the handle and its line are scaled by `1/canvasScale`. To maintain a constant visual length
-    // that connects to the element (which is scaled by `canvasScale`), we need to adjust the base length.
-    // New calculation: base height = (2.5rem * scale) - (1rem * scale) = 40px - 16px * canvasScale
     const rotationHandleLineHeight = 40 - (16 * canvasScale);
 
     return (
@@ -1051,7 +1077,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
             <div
                 ref={itemRef}
                 style={itemStyle}
-                onMouseDown={handleMouseDown}
+                onMouseDown={handleDragStart}
+                onTouchStart={handleTouchStart}
                 onDoubleClick={handleDoubleClick}
                 onMouseEnter={() => {
                     if (!isInteracting) {
@@ -1103,7 +1130,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             return (
                                 <div
                                     key={handle}
-                                    onMouseDown={(e) => handleResize(e, handle)}
+                                    onMouseDown={(e) => handleResizeStart(e, handle)}
+                                    onTouchStart={(e) => handleResizeStart(e, handle)}
                                     style={{
                                         top: handleProps.top,
                                         left: handleProps.left,
@@ -1116,8 +1144,8 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                             );
                         })}
                         <div
-                            onMouseDown={handleRotate}
-                            // Fix: Cast the style object to React.CSSProperties to allow the use of a CSS custom property ('--line-height').
+                            onMouseDown={handleRotateStart}
+                            onTouchStart={handleRotateStart}
                             style={{ 
                                 cursor: `url('${rotateCursorUrl}') 12 12, auto`,
                                 top: `${-2 / canvasScale}rem`,
