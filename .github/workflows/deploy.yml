@@ -17,7 +17,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: 1.2.50
+         # ref: 1.2.50
+          ref: main
           
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -41,4 +42,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./deploy
-          publish_branch: myweb1250
+          #publish_branch: myweb1250
