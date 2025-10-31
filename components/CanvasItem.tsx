@@ -1090,12 +1090,18 @@ const CanvasItem: React.FC<CanvasItemProps> = ({ element, isSelected, isEditing,
                         <div
                                 key={handle}
                                 onMouseDown={(e) => handleResize(e, handle)}
+                                style={{ transform: `scale(${1 / canvasScale})` }}
                                 className={`absolute bg-blue-500 border-2 border-white rounded-full w-3 h-3 z-50 ${handlePositionClasses[handle]} ${!isRotating ? handleCursorClasses[handle] : ''}`}
                             />
                         ))}
                         <div
                             onMouseDown={handleRotate}
-                            style={{ cursor: `url('${rotateCursorUrl}') 12 12, auto` }}
+                            style={{ 
+                                cursor: `url('${rotateCursorUrl}') 12 12, auto`,
+                                top: `${-2 / canvasScale}rem`,
+                                transform: `translateX(-50%) scale(${1 / canvasScale})`,
+                                transformOrigin: 'bottom center',
+                            }}
                             className="absolute -top-8 left-1/2 -translate-x-1/2 w-4 h-4 bg-blue-500 border-2 border-white rounded-full z-50
                                         before:content-[''] before:absolute before:left-1/2 before:-translate-x-1/2 before:top-full before:w-0.5 before:h-4 before:bg-blue-500"
                         />
