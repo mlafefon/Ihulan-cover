@@ -62,6 +62,12 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     useLayoutEffect(() => {
         const container = canvasContainerRef.current;
         if (!container) return;
+
+        // When switching back from full-size view, reset any scroll position.
+        if (!isFullSize) {
+            container.scrollTop = 0;
+            container.scrollLeft = 0;
+        }
     
         const calculateScale = () => {
             if (isFullSize) {
