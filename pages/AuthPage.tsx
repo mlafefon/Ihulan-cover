@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { MagazineIcon, GoogleIcon } from '../components/Icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 
 const AuthPage: React.FC = () => {
@@ -60,11 +60,11 @@ const AuthPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center">
       <div className="max-w-md w-full bg-slate-800 p-8 rounded-lg shadow-lg">
-        <div className="text-center mb-8">
+        <Link to="/" className="block text-center mb-8 text-white hover:opacity-80 transition-opacity">
           <MagazineIcon className="w-12 h-12 mx-auto text-blue-500" />
           <h1 className="text-3xl font-bold text-white mt-4">איחולן</h1>
           <p className="text-slate-400">התחבר כדי לשמור את העיצובים שלך</p>
-        </div>
+        </Link>
 
         <div className="space-y-4">
           <button
