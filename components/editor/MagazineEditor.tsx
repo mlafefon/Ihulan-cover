@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Template, CanvasElement, TextElement, ImageElement, TextSpan, TextStyle, CutterElement, ImageEditState } from '../../types';
 import { ElementType } from '../../types';
 import Sidebar from './Sidebar';
-import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon, XIcon, MenuIcon, MaximizeIcon } from '../Icons';
+import { UndoIcon, RedoIcon, MagazineIcon, CameraIcon, EditIcon, SpinnerIcon, SaveIcon, ExportIcon, LockIcon, UnlockIcon, XIcon, MenuIcon, MaximizeIcon, MinimizeIcon } from '../Icons';
 import CanvasItem, { applyStyleToSpans, setSelectionByOffset, defaultTextStyle } from '../CanvasItem';
 import { useFonts } from '../fonts/FontLoader';
 
@@ -54,16 +54,21 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
     const [formatBrushState, setFormatBrushState] = useState<{ active: boolean; sourceElement: TextElement | null }>({ active: false, sourceElement: null });
 
     const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-    const [isZoomedToFit, setIsZoomedToFit] = useState(true);
 
     const canvasContainerRef = useRef<HTMLDivElement>(null);
     const [canvasScale, setCanvasScale] = useState(1);
+    const [isFullSize, setIsFullSize] = useState(false);
 
     useLayoutEffect(() => {
         const container = canvasContainerRef.current;
         if (!container) return;
     
         const calculateScale = () => {
+            if (isFullSize) {
+                setCanvasScale(1);
+                return;
+            }
+
             if (template.width > 0 && template.height > 0) {
                 const style = window.getComputedStyle(container);
                 const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
@@ -88,7 +93,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             resizeObserver.unobserve(container);
             resizeObserver.disconnect();
         };
-    }, [template.width, template.height]);
+    }, [template.width, template.height, isFullSize]);
 
 
     const handleAttemptNavigation = (to: string) => {
@@ -1126,10 +1131,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
         handleTemplateChange({ ...template, ...settings });
     };
 
-    const handleToggleZoom = () => {
-        setIsZoomedToFit(prev => !prev);
-    };
-
     const handleSetTemporaryFont = (fontFamily: string) => {
         if (selectedElementId) {
             setTemporaryFontOverride({ elementId: selectedElementId, fontFamily });
@@ -1188,6 +1189,13 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         <RedoIcon className="w-5 h-5"/>
                     </button>
                     <div className="h-6 w-px bg-slate-600" />
+                    <button
+                        onClick={() => setIsFullSize(prev => !prev)}
+                        className="p-2 rounded-md transition-colors bg-slate-700 hover:bg-slate-600"
+                        title={isFullSize ? "הצג בהתאמה לחלון" : "הצג בגודל מלא"}
+                    >
+                        {isFullSize ? <MinimizeIcon className="w-5 h-5" /> : <MaximizeIcon className="w-5 h-5" />}
+                    </button>
                     <button 
                         onClick={handleExportJSON} 
                         title="ייצא קובץ"
@@ -1201,13 +1209,6 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                         title={allElementsLocked ? "שחרר את כל הרכיבים" : "נעל את כל הרכיבים"}
                     >
                         {allElementsLocked ? <UnlockIcon className="w-5 h-5"/> : <LockIcon className="w-5 h-5"/>}
-                    </button>
-                    <button
-                        onClick={handleToggleZoom}
-                        className={`p-2 rounded-md transition-colors ${!isZoomedToFit ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`}
-                        title={isZoomedToFit ? "הצג בגודל מלא" : "התאם לחלון"}
-                    >
-                        <MaximizeIcon className="w-5 h-5" />
                     </button>
                     <button
                         onClick={handleDownloadImage}
@@ -1239,7 +1240,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
             <div className="flex-grow flex overflow-hidden">
                 <main
                     ref={canvasContainerRef}
-                    className={`flex-grow bg-slate-900 flex justify-center items-center p-4 sm:p-8 ${isZoomedToFit ? 'overflow-hidden' : 'overflow-auto'}`}
+                    className={`flex-grow bg-slate-900 flex p-4 sm:p-8 ${isFullSize ? 'overflow-auto justify-center items-start' : 'overflow-hidden justify-center items-center'}`}
                 >
                     <div
                         ref={canvasRef}
@@ -1248,7 +1249,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                             width: `${template.width}px`,
                             height: `${template.height}px`,
                             backgroundColor: template.background_color,
-                            transform: `scale(${isZoomedToFit ? canvasScale : 1})`,
+                            transform: `scale(${canvasScale})`,
                             transformOrigin: 'center',
                         }}
                         onMouseDown={handleCanvasMouseDown}
@@ -1277,7 +1278,7 @@ const MagazineEditor = forwardRef<MagazineEditorHandle, MagazineEditorProps>(({ 
                                 activeStyle={selectedElementId === element.id ? activeStyle : null}
                                 formatBrushState={formatBrushState}
                                 temporaryFontOverride={temporaryFontOverride}
-                                canvasScale={isZoomedToFit ? canvasScale : 1}
+                                canvasScale={canvasScale}
                             />
                         ))}
                         {snapLines.x.map((x, i) => (
